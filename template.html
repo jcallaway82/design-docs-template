@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Component Gallery — Design Doc Template</title>
+<link rel="stylesheet" href="lib/doc.css">
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════════════════════
+     NAV — optional; delete for single-page docs.
+     Edit the links array in lib/nav.js for your suite.
+     ══════════════════════════════════════════════════════════════ -->
+<div id="page-nav"></div>
+<script src="lib/nav.js"></script>
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     HEADER — every document starts with h1 + subtitle + doc-meta
+     ══════════════════════════════════════════════════════════════ -->
+
+<h1>Document Title — Design Document</h1>
+<p class="subtitle">One-line description of what this document covers and who talks to whom</p>
+<div class="doc-meta">
+  <span><strong>Version:</strong> 1.0</span>
+  <span><strong>Status:</strong> Draft</span>
+  <span><strong>Date:</strong> August 2026</span>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     TABLE OF CONTENTS
+     ══════════════════════════════════════════════════════════════ -->
+
+<div class="toc">
+  <h4>Contents</h4>
+  <ol>
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#diagrams">Diagrams (offline Mermaid)</a></li>
+    <li><a href="#tables">Tables &amp; Badges</a></li>
+    <li><a href="#callouts">Callouts &amp; Feature Boxes</a></li>
+    <li><a href="#cards">Card Grid</a></li>
+    <li><a href="#grouped">Grouped Sections</a></li>
+    <li><a href="#changelog">Changelog</a></li>
+  </ol>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     1. OVERVIEW
+     ══════════════════════════════════════════════════════════════ -->
+
+<h2 id="overview">1. Overview</h2>
+
+<p>
+  This page is both a <strong>starting skeleton</strong> and a <strong>live component gallery</strong>
+  for the design-document system. Copy this file and the <code>lib/</code> folder to start a new
+  document suite, then delete the sections you don't need. Every component below renders exactly as it
+  will in your document — open this file directly from disk (<code>file://</code>) to confirm the whole
+  system works offline, including Mermaid diagrams.
+</p>
+<p>
+  Body text is 0.9rem on a 1.7 line height. Use <strong>strong</strong> for key terms on first
+  introduction, <code>inline code</code> for identifiers, field names, and message names, and links like
+  <a href="#overview">this cross-reference</a> to connect related documents.
+</p>
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     2. DIAGRAMS
+     ══════════════════════════════════════════════════════════════ -->
+
+<h2 id="diagrams">2. Diagrams (offline Mermaid)</h2>
+
+<h3>Architecture / component diagram (flowchart)</h3>
+
+<div class="diagram-container">
+  <pre class="mermaid">
+graph LR
+    subgraph UI["Client Application"]
+      direction TB
+      A1["Plugin UI"]
+      A2["Socket Layer"]
+    end
+
+    subgraph Core["Core Service"]
+      direction TB
+      B1["Request Handler"]
+      B2["Subprocess Manager"]
+    end
+
+    subgraph Worker["Worker (subprocess)"]
+      C1["Command Loop"]
+      C2["Hardware Driver"]
+    end
+
+    A2 -- "REQ/REP<br/>RUN, STOP, QUERY" --> B1
+    B2 -- "spawn / kill" --> C1
+    C2 -- "Driver API" --> HW["Hardware"]
+  </pre>
+</div>
+<p class="diagram-caption">Fig. 1 — Component overview. Click any diagram to enlarge.</p>
+
+<h3>Sequence diagram</h3>
+
+<div class="diagram-container">
+  <pre class="mermaid">
+sequenceDiagram
+    participant UI as Client UI
+    participant Core as Core Service
+    participant W as Worker
+
+    Note over UI: User clicks Run
+    UI ->> Core: Command(RUN, id)
+    alt Allocation succeeds
+        Core ->> UI: Response(RUN, true)
+        Core ->> W: Spawn subprocess
+        W ->> UI: Connect back
+        Note over UI, W: Ready
+    else Allocation fails
+        Core ->> UI: Response(RUN, false, error)
+        Note over UI: Show error, allow retry
+    end
+  </pre>
+</div>
+
+<h3>State machine</h3>
+
+<div class="diagram-container">
+  <pre class="mermaid">
+stateDiagram-v2
+    direction LR
+    [*] --> RUNNING : start
+    RUNNING --> PAUSED : PAUSE
+    RUNNING --> SUCCESS : completes
+    RUNNING --> FAILURE : fatal error
+    PAUSED --> RUNNING : RESUME
+    PAUSED --> STOPPED : STOP
+  </pre>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     3. TABLES & BADGES
+     ══════════════════════════════════════════════════════════════ -->
+
+<h2 id="tables">3. Tables &amp; Badges</h2>
+
+<h3>Reference table with badges and detail rows</h3>
+
+<table>
+  <thead>
+    <tr><th style="width:10%">Code</th><th style="width:30%">Failure</th><th style="width:12%">Severity</th><th style="width:12%">Recovery</th><th>Handling</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="err-code">1101</span></td>
+      <td><span class="row-name">Core unreachable</span>
+        <div class="detail">Connection refused or 10&nbsp;s timeout on first command.</div></td>
+      <td><span class="severity sev-critical">Critical</span></td>
+      <td><span class="recovery rec-retry">Retry</span></td>
+      <td>Destroy and recreate the socket; surface a banner with a Retry action.</td>
+    </tr>
+    <tr>
+      <td><span class="err-code">2303</span></td>
+      <td><span class="row-name">Hardware error during execution</span>
+        <div class="detail">Worker reports a driver fault mid-run.</div></td>
+      <td><span class="severity sev-high">High</span></td>
+      <td><span class="recovery rec-degrade">Degrade</span></td>
+      <td>Show degraded status; keep the run alive while the worker attempts recovery.</td>
+    </tr>
+    <tr>
+      <td><span class="err-code">2401</span></td>
+      <td><span class="row-name">Pause acknowledgement lost</span>
+        <div class="detail">No PAUSED status within 2&nbsp;s of the command.</div></td>
+      <td><span class="severity sev-medium">Medium</span></td>
+      <td><span class="recovery rec-resume">Resume</span></td>
+      <td>Re-send once, then reconcile against the next heartbeat.</td>
+    </tr>
+  </tbody>
+</table>
+<p class="table-footnote">Total: <strong>3 example failures</strong>. Always follow a matrix with its totals line.</p>
+
+<h3>Badge palette</h3>
+
+<p>
+  <span class="badge badge-blue">Blue — info / primary</span>&nbsp;
+  <span class="badge badge-green">Green — success / running</span>&nbsp;
+  <span class="badge badge-amber">Amber — warning / retry</span>&nbsp;
+  <span class="badge badge-red">Red — critical / abort</span>&nbsp;
+  <span class="badge badge-purple">Purple — special / degrade</span>&nbsp;
+  <span class="badge badge-teal">Teal — codes / IDs</span>&nbsp;
+  <span class="badge badge-neutral">Neutral — inactive</span>
+</p>
+
+<h3>Status pills (document / feature lifecycle)</h3>
+
+<p>
+  Feature name<span class="status s-draft">Draft</span>&nbsp;&nbsp;
+  Another feature<span class="status s-review">In Review</span>&nbsp;&nbsp;
+  Shipped feature<span class="status s-complete">Complete</span>&nbsp;&nbsp;
+  Future feature<span class="status s-planned">Planned</span>&nbsp;&nbsp;
+  Old feature<span class="status s-deprecated">Deprecated</span>
+</p>
+
+<h3>Legend strip (place above any badge-heavy table)</h3>
+
+<div class="legend">
+  <div class="legend-section">
+    <h5>Severity</h5>
+    <div class="legend-items">
+      <span class="severity sev-critical">Critical</span>
+      <span class="severity sev-high">High</span>
+      <span class="severity sev-medium">Medium</span>
+      <span class="severity sev-low">Low</span>
+    </div>
+  </div>
+  <div class="legend-section">
+    <h5>Recovery</h5>
+    <div class="legend-items">
+      <span class="recovery rec-abort">Abort</span>
+      <span class="recovery rec-retry">Retry</span>
+      <span class="recovery rec-resume">Resume</span>
+      <span class="recovery rec-degrade">Degrade</span>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     4. CALLOUTS & FEATURE BOXES
+     ══════════════════════════════════════════════════════════════ -->
+
+<h2 id="callouts">4. Callouts &amp; Feature Boxes</h2>
+
+<div class="note">
+  <strong>Note:</strong> Blue callout for scope statements, "how to read this document" guidance,
+  and neutral supplementary information.
+</div>
+
+<div class="warn">
+  <strong>Caution:</strong> Amber callout for gotchas, easy-to-miss constraints, and behavior that
+  surprises implementers.
+</div>
+
+<div class="danger">
+  <strong>Breaking:</strong> Red callout for breaking changes, deprecations with hard deadlines,
+  and unrecoverable failure conditions.
+</div>
+
+<div class="success">
+  <strong>Resolved:</strong> Green callout for confirmed decisions and closed questions.
+</div>
+
+<div class="cross-note">
+  <strong>Why this lives here:</strong> the cross-note explains a design decision in place — why a
+  field appears at multiple levels, why a component owns a responsibility, why the obvious
+  alternative was rejected. Use it liberally; it's the highest-value writing in the document.
+</div>
+
+<div class="feature-box teal">
+  <h3>Feature Box — <code>CPNN</code> error-code scheme</h3>
+  <p>
+    Feature boxes hold multi-paragraph spec blocks that deserve visual separation: numbering
+    schemes, implementation guidance, timeout tables. Color the left border by topic —
+    teal for identifier/code schemes, amber for timing and cautionary guidance, blue for general.
+  </p>
+  <table>
+    <thead><tr><th style="width:15%">Digit</th><th style="width:25%">Meaning</th><th>Values</th></tr></thead>
+    <tbody>
+      <tr><td><strong>C</strong></td><td>Channel</td><td><span class="err-code">1</span> = Core &nbsp; <span class="err-code">2</span> = Worker &nbsp; <span class="err-code">9</span> = Infrastructure</td></tr>
+      <tr><td><strong>P</strong></td><td>Phase</td><td><span class="err-code">0</span>–<span class="err-code">4</span>, <span class="err-code">9</span> = any phase</td></tr>
+      <tr><td><strong>NN</strong></td><td>Sequence</td><td><span class="err-code">01</span>–<span class="err-code">99</span> within channel + phase</td></tr>
+    </tbody>
+  </table>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     5. CARD GRID
+     ══════════════════════════════════════════════════════════════ -->
+
+<h2 id="cards">5. Card Grid</h2>
+
+<p>Use cards as a visual index of child documents — each card links to one page.</p>
+
+<div class="card-grid">
+  <div class="card">
+    <h4><span class="badge badge-neutral">Phase 0</span> Initialization</h4>
+    <p>Persistent connections established. Once per application lifetime.</p>
+    <a href="#">View diagram →</a>
+  </div>
+  <div class="card">
+    <h4><span class="badge badge-blue">Phase 1</span> Launch</h4>
+    <p>RUN command, subprocess spawn, worker connects back.</p>
+    <a href="#">View diagram →</a>
+  </div>
+  <div class="card">
+    <h4><span class="badge badge-purple">Phase 2</span> Handshake</h4>
+    <p>Configuration exchange; per-step SUCCESS / FAILURE reporting.</p>
+    <a href="#">View contract →</a>
+  </div>
+  <div class="card">
+    <h4><span class="badge badge-green">Phase 3</span> Execution</h4>
+    <p>Steady-state operation with a 200&nbsp;ms status heartbeat.</p>
+    <a href="#">View diagram →</a>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     6. GROUPED SECTIONS
+     ══════════════════════════════════════════════════════════════ -->
+
+<h2 id="grouped">6. Grouped Sections</h2>
+
+<p>For long reference pages (failure matrices, per-phase listings), group tables under colored headers:</p>
+
+<div class="phase-group">
+  <div class="phase-header">
+    <span class="phase-badge badge-blue">Phase 1</span>
+    <span class="phase-title">Script Launch</span>
+    <span class="section-count">3 failures</span>
+  </div>
+  <table>
+    <thead><tr><th style="width:12%">Code</th><th>Failure</th><th style="width:14%">Severity</th></tr></thead>
+    <tbody>
+      <tr><td><span class="err-code">1101</span></td><td><span class="row-name">Resource allocation denied</span></td><td><span class="severity sev-high">High</span></td></tr>
+      <tr><td><span class="err-code">1102</span></td><td><span class="row-name">Subprocess failed to spawn</span></td><td><span class="severity sev-critical">Critical</span></td></tr>
+    </tbody>
+  </table>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     7. CHANGELOG — last section of every document
+     ══════════════════════════════════════════════════════════════ -->
+
+<h2 id="changelog">7. Changelog</h2>
+
+<div class="changelog">
+  <div class="entry">
+    <div class="date">August 2026 — v1.0</div>
+    <div class="detail">Initial version.</div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════════════════════════
+     SCRIPTS — local files only, loaded at end of body.
+     Delete the mermaid pair if the page has no diagrams.
+     ══════════════════════════════════════════════════════════════ -->
+
+<script src="lib/mermaid.min.js"></script>
+<script src="lib/mermaid-init.js"></script>
+<script src="lib/lightbox.js"></script>
+
+</body>
+</html>

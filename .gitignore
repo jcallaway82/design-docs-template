@@ -1,0 +1,15 @@
+# Build artifact of this folder itself
+design-docs-template.zip
+*.zip
+
+# OS / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*~
+.idea/
+.vscode/
+
+# Claude Code local session state (agents/ is a tracked project asset)
+.claude/settings.local.json

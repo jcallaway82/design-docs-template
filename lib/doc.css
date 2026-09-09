@@ -1,0 +1,324 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Design Docs Template — Shared Stylesheet (doc.css)
+   One stylesheet for every narrative design / API document page.
+   Link it from every page:  <link rel="stylesheet" href="lib/doc.css">
+   (adjust the relative path for pages in subfolders: ../lib/doc.css)
+   ═══════════════════════════════════════════════════════════════════ */
+
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+/* ── Design tokens ─────────────────────────────────────────────── */
+:root {
+  /* Surfaces */
+  --bg:          #0d1117;   /* page background */
+  --bg-raised:   #161b22;   /* cards, table headers, containers */
+  --bg-inset:    #1c2129;   /* inline code, deepest wells */
+  --border:      #30363d;   /* primary borders */
+  --border-light:#21262d;   /* subtle row separators */
+
+  /* Text */
+  --text:        #c9d1d9;   /* body text */
+  --text-muted:  #7d8590;   /* secondary text, captions, labels */
+  --text-bright: #e6edf3;   /* headings, emphasis */
+
+  /* Semantic accents */
+  --accent:      #58a6ff;   /* blue   — links, primary, info */
+  --green:       #56d364;   /* green  — success, running, medium */
+  --amber:       #d29922;   /* amber  — warning, caution, retry */
+  --red:         #f47067;   /* red    — critical, danger, abort */
+  --purple:      #b48eff;   /* purple — special states, degrade */
+  --teal:        #39d2c0;   /* teal   — codes, identifiers */
+
+  /* Badge tint backgrounds (dark wash behind each accent) */
+  --tint-blue:   #1a3a5c;
+  --tint-green:  #1a3528;
+  --tint-amber:  #3b2e12;
+  --tint-red:    #3c1520;
+  --tint-purple: #2a1f4e;
+  --tint-teal:   #1a3040;
+  --tint-neutral:#1c2129;
+
+  /* Callout backgrounds */
+  --well-blue:   #111a2e;
+  --well-amber:  #1a1710;
+  --well-red:    #1a1012;
+  --well-green:  #101a14;
+
+  --font-body:  "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono:  "Cascadia Code", "Fira Code", "JetBrains Mono", Consolas, monospace;
+
+  --page-width: 960px;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.7;
+  max-width: var(--page-width);
+  margin: 0 auto;
+  padding: 0 2rem 6rem;
+}
+body.wide { --page-width: 1200px; }   /* for pages dominated by big tables */
+
+/* ── Typography ────────────────────────────────────────────────── */
+h1 {
+  font-size: 2rem; font-weight: 700; color: var(--text-bright);
+  margin: 2.5rem 0 0.2rem; letter-spacing: -0.02em;
+}
+h2 {
+  font-size: 1.3rem; font-weight: 600; color: var(--text-bright);
+  margin: 3rem 0 0.8rem; padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--border);
+}
+h3 {
+  font-size: 1.05rem; font-weight: 600; color: var(--text-bright);
+  margin: 2rem 0 0.5rem;
+}
+h4 {
+  font-size: 0.92rem; font-weight: 600; color: var(--text-bright);
+  margin: 1.5rem 0 0.4rem;
+}
+p  { margin-bottom: 0.9rem; font-size: 0.9rem; }
+strong { color: var(--text-bright); }
+em { color: var(--text); }
+ul, ol { margin: 0 0 1rem 1.4rem; font-size: 0.9rem; }
+li { margin-bottom: 0.3rem; }
+hr { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+
+code {
+  font-family: var(--font-mono); font-size: 0.82rem;
+  background: var(--bg-inset); padding: 0.12rem 0.35rem; border-radius: 3px;
+  color: var(--accent);
+}
+pre {
+  background: var(--bg-raised); border: 1px solid var(--border);
+  border-radius: 8px; padding: 1rem 1.25rem; margin: 0.8rem 0 1.5rem;
+  overflow-x: auto; font-size: 0.82rem; line-height: 1.55;
+}
+pre code { background: none; padding: 0; color: var(--text); }
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ── Document header ───────────────────────────────────────────── */
+.subtitle { font-size: 0.92rem; color: var(--text-muted); margin-bottom: 0.15rem; }
+.doc-meta { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 2.5rem; }
+.doc-meta span { margin-right: 1.5rem; }
+
+/* ── Table of contents ─────────────────────────────────────────── */
+.toc {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.25rem 1.5rem;
+  margin: 1.5rem 0 2.5rem;
+}
+.toc h4 {
+  font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--text-muted); margin: 0 0 0.6rem;
+}
+.toc ol { list-style: none; counter-reset: toc-counter; padding: 0; margin: 0; }
+.toc li { counter-increment: toc-counter; margin-bottom: 0.3rem; font-size: 0.88rem; }
+.toc li::before {
+  content: counter(toc-counter) ". ";
+  color: var(--text-muted); font-weight: 600; font-size: 0.82rem;
+  margin-right: 0.15rem;
+}
+
+/* ── Card grid ─────────────────────────────────────────────────── */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+  margin: 1rem 0 1.5rem;
+}
+.card {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.1rem 1.25rem;
+  transition: border-color 0.15s;
+}
+.card:hover { border-color: var(--accent); }
+.card h4 { font-size: 0.88rem; font-weight: 600; color: var(--text-bright); margin: 0 0 0.35rem; }
+.card p  { font-size: 0.82rem; color: var(--text-muted); margin-bottom: 0.5rem; line-height: 1.5; }
+.card a  { font-size: 0.8rem; font-weight: 500; }
+
+/* ── Tables ────────────────────────────────────────────────────── */
+table {
+  width: 100%; border-collapse: collapse;
+  font-size: 0.84rem; margin: 0.6rem 0 1.5rem;
+}
+table.fixed { table-layout: fixed; }
+thead th {
+  text-align: left; padding: 0.55rem 0.7rem;
+  font-weight: 600; font-size: 0.72rem;
+  text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-raised);
+}
+tbody td {
+  padding: 0.55rem 0.7rem;
+  border-bottom: 1px solid var(--border-light);
+  vertical-align: top;
+}
+tbody tr:hover { background: var(--bg-raised); }
+
+.table-footnote { font-size: 0.83rem; color: var(--text-muted); margin-top: 0.5rem; }
+
+/* Table cell helpers */
+.row-name { color: var(--text-bright); font-weight: 500; }
+.detail   { color: var(--text-muted); font-size: 0.76rem; margin-top: 0.12rem; }
+.mono-val { color: var(--text-bright); font-family: var(--font-mono); font-size: 0.82rem; }
+.err-code {
+  font-family: var(--font-mono); font-size: 0.78rem; font-weight: 600;
+  color: var(--teal); white-space: nowrap;
+}
+
+/* ── Badges (rectangular labels) ───────────────────────────────── */
+.badge {
+  display: inline-block; font-size: 0.68rem; font-weight: 600;
+  padding: 0.12rem 0.45rem; border-radius: 3px; white-space: nowrap;
+}
+.badge-blue    { background: var(--tint-blue);    color: var(--accent); }
+.badge-green   { background: var(--tint-green);   color: var(--green); }
+.badge-amber   { background: var(--tint-amber);   color: var(--amber); }
+.badge-red     { background: var(--tint-red);     color: var(--red); }
+.badge-purple  { background: var(--tint-purple);  color: var(--purple); }
+.badge-teal    { background: var(--tint-teal);    color: var(--teal); }
+.badge-neutral { background: var(--tint-neutral); color: var(--text-muted); }
+
+/* Semantic aliases — severity */
+.sev-critical { background: var(--tint-red);    color: var(--red); }
+.sev-high     { background: var(--tint-amber);  color: var(--amber); }
+.sev-medium   { background: var(--tint-green);  color: var(--green); }
+.sev-low      { background: var(--tint-blue);   color: var(--accent); }
+/* Semantic aliases — recovery strategy */
+.rec-abort    { background: var(--tint-red);    color: var(--red); }
+.rec-retry    { background: var(--tint-amber);  color: var(--amber); }
+.rec-resume   { background: var(--tint-green);  color: var(--green); }
+.rec-degrade  { background: var(--tint-purple); color: var(--purple); }
+.severity, .recovery {
+  display: inline-block; font-size: 0.68rem; font-weight: 600;
+  padding: 0.12rem 0.45rem; border-radius: 3px; white-space: nowrap;
+}
+
+/* ── Status pills (rounded — document/feature lifecycle) ───────── */
+.status {
+  display: inline-block; font-size: 0.7rem; font-weight: 600;
+  padding: 0.15rem 0.5rem; border-radius: 10px; margin-left: 0.5rem;
+  vertical-align: middle;
+}
+.s-draft      { background: var(--tint-amber);   color: var(--amber); }
+.s-review     { background: var(--tint-blue);    color: var(--accent); }
+.s-complete   { background: var(--tint-green);   color: var(--green); }
+.s-planned    { background: var(--tint-neutral); color: var(--text-muted); }
+.s-deprecated { background: var(--tint-red);     color: var(--red); }
+
+/* ── Callouts ──────────────────────────────────────────────────── */
+.note, .warn, .danger, .success {
+  padding: 0.8rem 1rem; border-radius: 5px; font-size: 0.83rem;
+  margin: 1rem 0 1.25rem; border-left: 3px solid var(--accent);
+  background: var(--well-blue);
+}
+.warn    { border-left-color: var(--amber); background: var(--well-amber); }
+.danger  { border-left-color: var(--red);   background: var(--well-red); }
+.success { border-left-color: var(--green); background: var(--well-green); }
+
+/* ── Feature boxes (bordered spec/guidance blocks) ─────────────── */
+.feature-box {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 6px;
+  padding: 1.25rem;
+  margin: 1rem 0 2rem;
+  font-size: 0.84rem;
+}
+.feature-box h3 { margin: 0 0 0.6rem; }
+.feature-box p:last-child { margin-bottom: 0; }
+.feature-box.amber  { border-left-color: var(--amber); }
+.feature-box.teal   { border-left-color: var(--teal); }
+.feature-box.purple { border-left-color: var(--purple); }
+.feature-box.red    { border-left-color: var(--red); }
+.feature-box.green  { border-left-color: var(--green); }
+
+/* ── Cross-reference note (why-this-lives-here commentary) ─────── */
+.cross-note {
+  background: var(--bg-raised);
+  border-left: 3px solid var(--purple);
+  padding: 10px 14px;
+  border-radius: 0 6px 6px 0;
+  margin: 0 0 24px;
+  color: var(--text-muted);
+  font-size: 0.83rem;
+}
+.cross-note strong { color: var(--purple); }
+
+/* ── Grouped sections with colored headers (e.g. failure matrix) ─ */
+.phase-group { margin-bottom: 2rem; }
+.phase-header { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.6rem; }
+.phase-badge {
+  font-size: 0.7rem; font-weight: 600; letter-spacing: 0.04em;
+  text-transform: uppercase; padding: 0.2rem 0.6rem; border-radius: 4px; white-space: nowrap;
+}
+.phase-title { font-size: 1rem; font-weight: 600; color: var(--text-bright); }
+.section-count { font-size: 0.75rem; color: var(--text-muted); font-weight: 400; margin-left: 0.5rem; }
+
+/* ── Legend strip ──────────────────────────────────────────────── */
+.legend {
+  display: flex; flex-wrap: wrap; gap: 1.5rem; margin-bottom: 1.5rem;
+  padding: 0.9rem 1.1rem; background: var(--bg-raised);
+  border: 1px solid var(--border); border-radius: 6px;
+}
+.legend-section h5 {
+  font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--text-muted); margin: 0 0 0.3rem;
+}
+.legend-items { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+/* ── Diagram containers (Mermaid) ──────────────────────────────── */
+.diagram-container {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 2rem 1.5rem;
+  margin: 1.5rem 0;
+  overflow-x: auto;
+  position: relative;
+}
+/* zoom affordance appears once lightbox.js binds (adds .zoomable) */
+.diagram-container.zoomable { cursor: zoom-in; }
+.diagram-container.zoomable::after {
+  content: '\1F50D\00A0\00A0Click to enlarge';
+  position: absolute; top: 0.5rem; right: 0.75rem;
+  font-size: 0.68rem; color: var(--text-muted); opacity: 0;
+  transition: opacity 0.2s; pointer-events: none;
+}
+.diagram-container.zoomable:hover::after { opacity: 1; }
+
+.diagram-caption {
+  font-size: 0.78rem; color: var(--text-muted);
+  text-align: center; margin: -0.75rem 0 1.5rem;
+}
+
+/* ── Changelog ─────────────────────────────────────────────────── */
+.changelog {
+  font-size: 0.83rem;
+  border-left: 2px solid var(--border);
+  padding-left: 1.25rem;
+  margin: 0.5rem 0 1.5rem;
+}
+.changelog .entry { margin-bottom: 0.8rem; }
+.changelog .date { font-weight: 600; color: var(--text-bright); font-size: 0.8rem; }
+.changelog .detail { color: var(--text-muted); margin-top: 0.15rem; }
+
+/* ── Scrollbars (subtle, matches theme) ────────────────────────── */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: #2a323d; border-radius: 5px; }
+::-webkit-scrollbar-thumb:hover { background: var(--border); }

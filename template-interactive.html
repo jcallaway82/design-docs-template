@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Interactive Reference Browser — Design Doc Template</title>
+<style>
+  /* ═══ Tokens — same palette as lib/doc.css, plus a light theme ═══ */
+  :root {
+    --bg: #0d1117;
+    --bg-2: #161b22;
+    --bg-3: #1f2630;
+    --bg-4: #2a323d;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --text-2: #9aa5b1;
+    --text-3: #6b7785;
+    --accent: #58a6ff;
+    --accent-2: #39d2c0;
+    --warn: #d29922;
+    --danger: #f47067;
+    --purple: #b48eff;
+    --mono: "Cascadia Code", "Fira Code", "JetBrains Mono", Consolas, monospace;
+  }
+  body.light {
+    --bg: #fafafa;
+    --bg-2: #ffffff;
+    --bg-3: #f1f3f5;
+    --bg-4: #e6e9ec;
+    --border: #d8dde2;
+    --text: #1a1a1a;
+    --text-2: #4a5560;
+    --text-3: #7a848e;
+    --accent: #1659a8;
+    --accent-2: #008b8b;
+    --warn: #b56a14;
+    --danger: #b83a3a;
+    --purple: #8b3aa1;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    font-size: 14px; line-height: 1.55;
+  }
+
+  /* ═══ Sticky header: title + search + actions ═══ */
+  header {
+    background: var(--bg-2); border-bottom: 1px solid var(--border);
+    padding: 12px 20px; display: flex; align-items: center; gap: 16px;
+    position: sticky; top: 0; z-index: 10;
+  }
+  header h1 { margin: 0; font-size: 16px; font-weight: 600; color: var(--accent); flex-shrink: 0; }
+  header h1 small { color: var(--text-3); font-weight: 400; margin-left: 6px; }
+  #search {
+    flex: 1; max-width: 380px; padding: 7px 12px;
+    background: var(--bg-3); border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); font-size: 13px; font-family: inherit;
+  }
+  #search:focus { outline: none; border-color: var(--accent); }
+  .header-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  .btn {
+    background: var(--bg-3); border: 1px solid var(--border); color: var(--text);
+    padding: 6px 12px; border-radius: 6px; cursor: pointer;
+    font-size: 13px; font-family: inherit;
+  }
+  .btn:hover { background: var(--bg-4); border-color: var(--accent); }
+
+  /* ═══ Two-pane layout ═══ */
+  .layout { display: grid; grid-template-columns: 320px 1fr; height: calc(100vh - 53px); }
+  #sidebar { background: var(--bg-2); border-right: 1px solid var(--border); overflow-y: auto; padding: 12px 8px; }
+  main { overflow-y: auto; padding: 24px 32px 80px; max-width: 980px; }
+
+  /* ═══ Sidebar tree ═══ */
+  .tree-section {
+    color: var(--text-3); font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.05em; padding: 12px 8px 4px; font-weight: 600;
+  }
+  .tree-row {
+    display: flex; align-items: center; padding: 4px 8px; border-radius: 4px;
+    cursor: pointer; font-family: var(--mono); font-size: 12.5px;
+    color: var(--text-2); white-space: nowrap; user-select: none;
+  }
+  .tree-row:hover { background: var(--bg-3); color: var(--text); }
+  .tree-row.active { background: var(--bg-4); color: var(--accent); }
+  .tree-row.hidden { display: none; }
+  .tree-children { padding-left: 16px; }
+
+  /* ═══ Content ═══ */
+  .breadcrumb { font-family: var(--mono); font-size: 12px; color: var(--text-3); margin-bottom: 12px; }
+  .breadcrumb a { color: var(--text-2); text-decoration: none; cursor: pointer; }
+  .breadcrumb a:hover { color: var(--accent); text-decoration: underline; }
+  .breadcrumb .sep { margin: 0 6px; color: var(--text-3); }
+
+  .item-title { display: flex; align-items: baseline; gap: 12px; margin: 0 0 4px; }
+  .item-title h2 { margin: 0; font-family: var(--mono); font-size: 22px; color: var(--accent); }
+  .item-section { color: var(--text-3); font-size: 12px; font-family: var(--mono); }
+  .item-plain { color: var(--text); margin: 0 0 8px; font-size: 15px; font-weight: 500; }
+  .item-desc { color: var(--text-2); margin: 0 0 16px; line-height: 1.7; }
+
+  .fields-header {
+    color: var(--text-3); font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.05em; margin: 24px 0 8px; font-weight: 600;
+  }
+  .field {
+    background: var(--bg-2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px 16px; margin-bottom: 10px;
+  }
+  .field-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+  .field-name { font-family: var(--mono); font-size: 14px; color: var(--text); font-weight: 600; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 11px; font-family: var(--mono);
+    border: 1px solid var(--border); background: var(--bg-3); color: var(--text-2);
+  }
+  .badge.type-ref { color: var(--accent); border-color: var(--accent); cursor: pointer; }
+  .badge.type-ref:hover { background: var(--accent); color: var(--bg); }
+  .badge.required { color: var(--danger); border-color: var(--danger); }
+  .badge.optional { color: var(--text-3); }
+  .badge.many { color: var(--purple); border-color: var(--purple); }
+  .badge.units { color: var(--text-3); font-size: 10.5px; }
+  .field-desc { color: var(--text-2); margin: 6px 0 0; font-size: 13.5px; }
+
+  .home-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 24px; }
+  .home-card {
+    background: var(--bg-2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 16px; cursor: pointer;
+  }
+  .home-card:hover { border-color: var(--accent); }
+  .home-card h3 { margin: 0 0 6px; font-family: var(--mono); font-size: 14px; color: var(--accent); }
+  .home-card p { margin: 0; color: var(--text-2); font-size: 13px; }
+
+  .used-at { margin-top: 16px; padding: 10px 14px; background: var(--bg-3); border-radius: 6px; font-size: 12.5px; }
+  .used-at-label { color: var(--text-3); margin-bottom: 6px; }
+  .used-at a {
+    display: inline-block; margin: 2px 4px 2px 0; padding: 2px 8px;
+    background: var(--bg-2); border: 1px solid var(--border); border-radius: 4px;
+    color: var(--accent); font-family: var(--mono); font-size: 11.5px;
+    text-decoration: none; cursor: pointer;
+  }
+  .used-at a:hover { background: var(--accent); color: var(--bg); }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--bg-4); border-radius: 5px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--border); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Project Name <small>Interactive Reference</small></h1>
+  <input id="search" placeholder="Search items and fields...">
+  <div class="header-actions">
+    <button class="btn" onclick="navigate('__home__')">Home</button>
+    <button class="btn" id="theme-toggle" onclick="toggleTheme()">Light theme</button>
+  </div>
+</header>
+
+<div class="layout">
+  <aside id="sidebar"></aside>
+  <main id="main"></main>
+</div>
+
+<script>
+// ============================================================================
+// DATA — replace with your schema / API. Each item:
+//   section : display section number
+//   parent  : key of parent item (builds the sidebar tree), or null for roots
+//   plain   : one-line plain-English summary (shown bold under the title)
+//   desc    : full prose description — explain the WHY, not just the what
+//   fields  : [{ n: name, t: type, c: cardinality "1"|"0..1"|"0..N"|"1..N",
+//                u: units or "—", d: description }]
+//             When t matches another ITEMS key, it renders as a click-through link.
+// ============================================================================
+
+const ITEMS = {
+  "RootRecord": {
+    section: "1", parent: null,
+    plain: "The top-level record everything hangs off of.",
+    desc: "Replace this sample data with your own schema. The sidebar tree, search, breadcrumbs, cross-links, and used-at backlinks all derive automatically from the ITEMS object.",
+    fields: [
+      { n: "id", t: "string", c: "1", u: "—", d: "Stable internal identifier used as the primary key." },
+      { n: "name", t: "string", c: "1", u: "—", d: "Human-readable display name." },
+      { n: "metadata", t: "Metadata", c: "1", u: "—", d: "Governance info: version, revision, timestamps." },
+      { n: "children", t: "ChildRecord", c: "1..N", u: "—", d: "At least one child must be defined." }
+    ]
+  },
+  "Metadata": {
+    section: "2", parent: "RootRecord",
+    plain: "Housekeeping: versions, revisions, timestamps.",
+    desc: "Schema version and record lifecycle. Kept separate from content fields so tooling can update it without touching the record body.",
+    fields: [
+      { n: "schema_version", t: "string", c: "1", u: "—", d: "Spec version, lowercase-hyphenated." },
+      { n: "revision", t: "uint32", c: "1", u: "—", d: "Monotonic revision number, bumped on every content change." },
+      { n: "updated_epoch_ns", t: "uint64", c: "0..1", u: "ns since epoch", d: "When the record was last modified." }
+    ]
+  },
+  "ChildRecord": {
+    section: "3", parent: "RootRecord",
+    plain: "One unit of behavior under the root.",
+    desc: "Sample child record demonstrating the tree nesting and the used-at backlinks (see Metadata — it lists every item that references it).",
+    fields: [
+      { n: "child_id", t: "string", c: "1", u: "—", d: "Stable identifier for this child." },
+      { n: "weight", t: "double", c: "0..1", u: "kg", d: "Always state units in the units column, never only in prose." }
+    ]
+  }
+};
+
+// ============================================================================
+// ENGINE — hash routing, sidebar tree, search, breadcrumbs, backlinks, theme.
+// Generally no edits needed below this line.
+// ============================================================================
+
+const $ = (id) => document.getElementById(id);
+
+function cardBadge(c) {
+  if (c === "1")    return '<span class="badge required">required · 1</span>';
+  if (c === "1..N") return '<span class="badge many">repeated · 1..N</span>';
+  if (c === "0..N") return '<span class="badge many">repeated · 0..N</span>';
+  return '<span class="badge optional">optional · 0..1</span>';
+}
+
+function typeBadge(t) {
+  if (ITEMS[t]) return `<span class="badge type-ref" onclick="navigate('${t}')">${t}</span>`;
+  return `<span class="badge">${t}</span>`;
+}
+
+function usedAt(key) {
+  const refs = Object.keys(ITEMS).filter(k =>
+    (ITEMS[k].fields || []).some(f => f.t === key));
+  if (!refs.length) return '';
+  return `<div class="used-at"><div class="used-at-label">Used by</div>` +
+    refs.map(r => `<a onclick="navigate('${r}')">${r}</a>`).join('') + `</div>`;
+}
+
+function breadcrumb(key) {
+  const chain = [];
+  let k = key;
+  while (k) { chain.unshift(k); k = ITEMS[k] && ITEMS[k].parent; }
+  return '<div class="breadcrumb"><a onclick="navigate(\'__home__\')">Home</a>' +
+    chain.map(c => `<span class="sep">›</span><a onclick="navigate('${c}')">${c}</a>`).join('') +
+    '</div>';
+}
+
+function renderItem(key) {
+  const it = ITEMS[key];
+  if (!it) return renderHome();
+  $('main').innerHTML =
+    breadcrumb(key) +
+    `<div class="item-title"><h2>${key}</h2><span class="item-section">§ ${it.section}</span></div>` +
+    `<p class="item-plain">${it.plain}</p>` +
+    `<p class="item-desc">${it.desc}</p>` +
+    `<div class="fields-header">Fields</div>` +
+    (it.fields || []).map(f => `
+      <div class="field">
+        <div class="field-head">
+          <span class="field-name">${f.n}</span>
+          ${typeBadge(f.t)}
+          ${cardBadge(f.c)}
+          ${f.u && f.u !== "—" ? `<span class="badge units">${f.u}</span>` : ''}
+        </div>
+        <p class="field-desc">${f.d}</p>
+      </div>`).join('') +
+    usedAt(key);
+  $('main').scrollTop = 0;
+}
+
+function renderHome() {
+  const roots = Object.keys(ITEMS).filter(k => !ITEMS[k].parent);
+  $('main').innerHTML =
+    `<h2 style="margin-top:0;">Interactive Reference</h2>
+     <p style="color:var(--text-2); max-width:640px;">
+       Single-file, fully offline reference browser. Use the sidebar tree or the search box.
+       Click any blue type badge to jump to that item's definition.</p>
+     <div class="home-cards">` +
+    roots.map(k => `<div class="home-card" onclick="navigate('${k}')">
+        <h3>${k}</h3><p>${ITEMS[k].plain}</p></div>`).join('') +
+    `</div>`;
+}
+
+function buildSidebar() {
+  const bar = $('sidebar');
+  bar.innerHTML = '<div class="tree-section">Reference</div>';
+  function addNode(key, container) {
+    const row = document.createElement('div');
+    row.className = 'tree-row';
+    row.dataset.key = key;
+    row.textContent = key;
+    row.onclick = () => navigate(key);
+    container.appendChild(row);
+    const kids = Object.keys(ITEMS).filter(k => ITEMS[k].parent === key);
+    if (kids.length) {
+      const kidBox = document.createElement('div');
+      kidBox.className = 'tree-children';
+      kids.forEach(k => addNode(k, kidBox));
+      container.appendChild(kidBox);
+    }
+  }
+  Object.keys(ITEMS).filter(k => !ITEMS[k].parent).forEach(k => addNode(k, bar));
+}
+
+function navigate(key) {
+  location.hash = key === '__home__' ? '' : encodeURIComponent(key);
+  route();
+}
+
+function route() {
+  const key = decodeURIComponent(location.hash.replace(/^#/, ''));
+  document.querySelectorAll('.tree-row').forEach(r =>
+    r.classList.toggle('active', r.dataset.key === key));
+  key && ITEMS[key] ? renderItem(key) : renderHome();
+}
+
+// ── Search: filter the sidebar tree by item name or field name ──
+$('search').addEventListener('input', function () {
+  const q = this.value.trim().toLowerCase();
+  document.querySelectorAll('.tree-row').forEach(row => {
+    const key = row.dataset.key;
+    const it = ITEMS[key];
+    const hit = !q ||
+      key.toLowerCase().includes(q) ||
+      (it.fields || []).some(f =>
+        f.n.toLowerCase().includes(q) || (f.d || '').toLowerCase().includes(q));
+    row.classList.toggle('hidden', !hit);
+  });
+});
+
+// ── Theme toggle, persisted ──
+function toggleTheme() {
+  const light = document.body.classList.toggle('light');
+  $('theme-toggle').textContent = light ? 'Dark theme' : 'Light theme';
+  try { localStorage.setItem('ref-theme', light ? 'light' : 'dark'); } catch (e) {}
+}
+try {
+  if (localStorage.getItem('ref-theme') === 'light') {
+    document.body.classList.add('light');
+    $('theme-toggle').textContent = 'Dark theme';
+  }
+} catch (e) {}
+
+window.addEventListener('hashchange', route);
+buildSidebar();
+route();
+</script>
+
+</body>
+</html>
