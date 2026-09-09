@@ -1,0 +1,24 @@
+# Normalize all text files to LF in the repository.
+# Working-tree checkout still gets native line endings per each user's core.autocrlf.
+* text=auto eol=lf
+
+# Explicit text types (kept LF)
+*.md    text eol=lf
+*.html  text eol=lf
+*.css   text eol=lf
+*.js    text eol=lf
+*.json  text eol=lf
+*.svg   text eol=lf
+
+# Vendored minified bundle — never normalize or diff
+lib/mermaid.min.js  binary
+
+# Binary assets (in case any are added later)
+*.zip   binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.webp  binary
+*.woff  binary
+*.woff2 binary
