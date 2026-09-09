@@ -25,9 +25,12 @@ non-functional requirement accounted for.
 3. **Cover every requirement.** Each `FR-*` and `NFR-*` must be satisfied by at
    least one task. Build a checklist; if something is unassigned at the end, that
    is a planning gap — list it in §5 Risks, do not hide it.
-4. **Right-size tasks.** Each task is S (≤2 h), M (≤1 day), or L (split it). A
-   task touches a coherent slice — one module, one endpoint, one migration.
-   Prefer many small tasks with clear edges over few big ones.
+4. **Right-size tasks.** Each task is S (≤2 h) or M (≤1 day). `L` is not a
+   final size — it means split the task before it goes in §3; if you catch
+   yourself writing `**Size:** L`, stop and decompose that task into two or
+   more S/M tasks first. A task touches a coherent slice — one module, one
+   endpoint, one migration. Prefer many small tasks with clear edges over
+   few big ones.
 5. **Order by dependency, then by risk.** Foundational and high-uncertainty work
    first; polish and cross-cutting concerns (docs, observability, perf tuning)
    later. Every task lists what it depends on.

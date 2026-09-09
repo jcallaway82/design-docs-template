@@ -33,6 +33,13 @@ numbered, atomic, testable, and traceable.
 5. **Ask before inventing scope.** If the user's input implies requirements the
    design does not cover, surface them and confirm rather than silently
    expanding the system.
+6. **Never firm up an open question.** If `DESIGN.md` §10 lists a decision as
+   unresolved, do not write a plain `SHALL` requirement for it — that
+   silently closes the question without the resolution `DESIGN.md` calls
+   for. Either carry it into `REQUIREMENTS.md` §8 Open questions unresolved,
+   or write the requirement with `**Status:** provisional` naming the open
+   question it depends on, so `tasks-planner` and `spec-validator` can see
+   it is not final.
 
 ## Output: `REQUIREMENTS.md`
 

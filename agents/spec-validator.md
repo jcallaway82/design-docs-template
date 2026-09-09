@@ -41,8 +41,9 @@ independence.
   are not objectively checkable; NFRs with a target but no verification method.
 - **Failure handling** — operations in the design or requirements whose failure
   path, severity, or recovery strategy is unspecified.
-- **Sizing & ordering** — `L` tasks that were never split; dependency cycles;
-  a task that depends on a later task.
+- **Sizing & ordering** — any task sized `L` (it should have been split into
+  S/M tasks before landing in `TASKS.md` §3); dependency cycles; a task that
+  depends on a later task.
 - **Counted claims** — "14 requirements" but 13 in the list; totals that do not
   add up.
 - **Staleness** — `REQUIREMENTS.md` cites a `DESIGN.md` version older than the
