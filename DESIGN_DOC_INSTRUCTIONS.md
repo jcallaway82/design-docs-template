@@ -4,7 +4,7 @@
 **Output format:** polished, self-contained HTML that renders perfectly offline.
 **Companion assets:** this file lives in the `design-docs-template/` folder alongside `template.html` (narrative-page skeleton + live component gallery), `template-interactive.html` (interactive reference browser skeleton), `lib/` (shared stylesheet, offline Mermaid bundle, init/lightbox/nav scripts), and `agents/` (subagent definitions for the Markdown → HTML authoring pipeline). Copy them when starting a new document suite. If you only have this file, everything needed to regenerate the system is in the appendices.
 
-**Two ways in:** author HTML directly from `template.html` (this document, §5 onward), or run the agent pipeline — `DESIGN.md` → `REQUIREMENTS.md` → `TASKS.md` as Markdown, validated, then rendered to the HTML suite. The Markdown documents follow the same structural rules as the HTML pages (§11). The pipeline is described in `agents/README.md`.
+**Two ways in:** author HTML directly from `template.html` (this document, §5 onward), or run the agent pipeline — `DESIGN.md` → `REQUIREMENTS.md` → `TASKS.md` as Markdown, validated, then rendered to the HTML suite. The Markdown documents follow the same structural rules as the HTML pages (§11). The pipeline is described in `README.md`.
 
 ---
 
@@ -443,7 +443,7 @@ it lands in the plan) · `4. Dependency graph` (optional Mermaid) · `5. Risks &
 
 ### 11.4 Rendering to HTML
 
-`html-suite-builder` maps each Markdown document to an Archetype-A page: front matter → `<h1>` + `.subtitle` + `.doc-meta`; `> **Why:**` blockquotes → `.cross-note`; failure tables → the severity/recovery legend + badges; ` ```mermaid ` blocks → `.diagram-container`; the changelog section → the `.changelog` component. The result passes the §10 checklist. Skeleton Markdown files matching these outlines live in `agents/templates/`.
+`html-suite-builder` maps each Markdown document to an Archetype-A page: front matter → `<h1>` + `.subtitle` + `.doc-meta`; `> **Why:**` blockquotes → `.cross-note`; failure tables → the severity/recovery legend + badges; ` ```mermaid ` blocks → `.diagram-container`; the changelog section → the `.changelog` component. The result passes the §10 checklist. Skeleton Markdown files matching these outlines live in `templates/`.
 
 ---
 

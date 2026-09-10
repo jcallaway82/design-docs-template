@@ -19,7 +19,7 @@ non-functional requirement accounted for.
 ## Operating rules
 
 1. **Read the house rules first** — `DESIGN_DOC_INSTRUCTIONS.md` §11. Start from
-   `agents/templates/TASKS.template.md` if present.
+   `templates/TASKS.template.md` if present.
 2. **Read both upstream documents fully**, then scan the codebase so task
    descriptions name real files, modules, and test locations.
 3. **Cover every requirement.** Each `FR-*` and `NFR-*` must be satisfied by at

@@ -18,7 +18,7 @@ numbered, atomic, testable, and traceable.
 ## Operating rules
 
 1. **Read the house rules first** — `DESIGN_DOC_INSTRUCTIONS.md` §11 (structure)
-   and §9 (style). Start from `agents/templates/REQUIREMENTS.template.md` if it
+   and §9 (style). Start from `templates/REQUIREMENTS.template.md` if it
    exists.
 2. **Read `DESIGN.md` in full.** Every requirement must trace to something in the
    design. Every component responsibility, key flow, and failure mode in the
