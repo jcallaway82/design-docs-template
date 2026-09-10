@@ -5,8 +5,8 @@
 > five subagents with one command instead of the symlink-or-copy dance now
 > documented in `README.md`.
 
-**Status:** T-1–T-3 done · T-4 not started, pending open questions · T-5
-declined · **Scoped:** September 2026 · **Updated:** September 2026
+**Status:** T-1–T-4 done · T-5 declined · plugin `name` still open (§5.1) ·
+**Scoped:** September 2026 · **Updated:** September 2026
 
 ---
 
@@ -114,7 +114,7 @@ plugin docs.
 `README.md` covering all four methods (plugin, symlink ×2 platforms, copy),
 plus the reason `templates/` and the former `agents/README.md` had to move.
 
-### T-4 — Orchestrator skill (optional — see Open questions §5.2)
+### T-4 — Orchestrator skill — done
 **Goal:** add `skills/design-pipeline/SKILL.md` that walks a user through
 the five-stage pipeline by name, so `/design-docs-template:design-pipeline`
 is a discoverable single entry point instead of requiring the user to know
@@ -125,6 +125,14 @@ all five agent names up front.
 `design-doc-author` first and names the four downstream stages; it does not
 duplicate the agents' own instructions, only points at them.
 **Size:** M
+**Result:** `claude plugin validate .` clean (no new warnings). Live smoke
+test: `--plugin-dir` + `/design-docs-template:design-pipeline` with a fresh
+brief drove straight into `design-doc-author`, which produced a complete
+`DESIGN.md` and stopped only at that sandbox's own write-permission prompt
+— unrelated to the skill. Built with the current default plugin name
+(`design-docs-template`); Open question §5.1 (rename before the namespace
+is "published") is still open and now genuinely live, since a skill
+invocation name now depends on it.
 
 ### T-5 — Marketplace entry — declined
 **Goal:** publish a `marketplace.json` (in this repo or a separate
@@ -152,17 +160,16 @@ T-5 dropped from the graph — declined, see its entry in §3.
 
 ## 5. Open questions
 
-1. **Plugin `name`.** `plugin.json`'s `name` becomes the skill-invocation
-   namespace (`/​<name>:skill`) if T-4 is built. `design-docs-template`
-   reads oddly as an installed tool's namespace (it's a repo name, not a
-   product name) — worth deciding the name now, before T-4 exists, to avoid
-   renaming a published namespace later. Resolved by the user.
-2. **Is T-4 (orchestrator skill) worth building?** The five agents are
-   already independently invocable by name and each prints its own "next
-   step" line (per every `agents/*.md`'s "When done" section) — a skill
-   would mainly help a first-time user who doesn't know the pipeline exists
-   yet. Resolved by the user; skip if the agent descriptions already
-   surface well enough in `/agents` browsing.
+1. **Plugin `name`.** Now live, not hypothetical: T-4 shipped with
+   `design-docs-template` as the namespace, so
+   `/design-docs-template:design-pipeline` is the invocation today. It
+   still reads oddly as a namespace (a repo name, not a product name).
+   Renaming later means updating `.claude-plugin/plugin.json`'s `name` and
+   nothing else — the skill/agent files don't hardcode it — so the cost of
+   deferring is low, but it should still be a deliberate choice rather than
+   drift. Resolved by the user.
+2. ~~Is T-4 (orchestrator skill) worth building?~~ **Closed 2026-09-10:
+   built.** See its entry in §3.
 3. ~~Is T-5 (marketplace) in scope now, or later?~~ **Closed 2026-09-10:
    declined.** `--plugin-dir` (T-1–T-3) already covers this repo's actual
    consumers.
@@ -176,6 +183,9 @@ T-5 dropped from the graph — declined, see its entry in §3.
 
 ## 6. Changelog
 
+- **v1.3 — September 2026** — T-4 built (orchestrator skill); bumped
+  `plugin.json` to 1.1.0 per open question §5.4's default versioning
+  assumption (a new skill is a substantive plugin change).
 - **v1.2 — September 2026** — T-5 declined by the user; open question §5.3
   closed.
 - **v1.1 — September 2026** — T-1–T-3 built; recorded the `agents/`

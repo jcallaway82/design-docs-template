@@ -1,5 +1,5 @@
 {
   "name": "design-docs-template",
   "description": "Markdown authoring pipeline (brief -> DESIGN.md -> REQUIREMENTS.md -> TASKS.md -> SPEC_REVIEW.md) plus an offline HTML rendering system for project-agnostic design documentation.",
-  "version": "1.0.0"
+  "version": "1.1.0"
 }
