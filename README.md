@@ -21,7 +21,9 @@ fully-offline HTML design documents and API references. Or run the agent pipelin
 | `lib/mermaid-init.js` | Shared Mermaid dark-theme configuration. |
 | `lib/lightbox.js` | Click-to-enlarge overlay for diagrams (no markup needed). |
 | `lib/nav.js` | Shared sticky nav bar — edit its `links` array once per suite. |
-| `agents/` | Subagent definitions for the authoring pipeline, plus `agents/templates/` Markdown skeletons. See `agents/README.md`. |
+| `agents/` | The five pipeline subagent definitions — nothing else lives in this directory (see below on why). |
+| `templates/` | Markdown skeletons (`DESIGN.template.md`, `REQUIREMENTS.template.md`, `TASKS.template.md`) matching `DESIGN_DOC_INSTRUCTIONS.md` §11.3. The agents start from these when present. |
+| `.claude-plugin/plugin.json` | Plugin manifest — lets a project install the five agents with `--plugin-dir` (or a marketplace, once one exists) instead of copying files. |
 
 ## The agent pipeline
 
@@ -43,21 +45,66 @@ brief ──▶ design-doc-author ──▶ DESIGN.md
                          html-suite-builder ──▶ index.html + per-section pages + lib/
 ```
 
-| Agent | Reads | Writes |
-|---|---|---|
-| `design-doc-author` | the user's prompt / brief | `DESIGN.md` |
-| `requirements-author` | `DESIGN.md` + user input | `REQUIREMENTS.md` |
-| `tasks-planner` | `DESIGN.md` + `REQUIREMENTS.md` | `TASKS.md` |
-| `spec-validator` | all three | `SPEC_REVIEW.md` (findings only) |
-| `html-suite-builder` | the approved Markdown set + `DESIGN_DOC_INSTRUCTIONS.md` | the offline HTML suite |
+| Agent | Reads | Writes | Edits |
+|---|---|---|---|
+| [`design-doc-author`](agents/design-doc-author.md) | the user's prompt / brief + codebase | `DESIGN.md` | — |
+| [`requirements-author`](agents/requirements-author.md) | `DESIGN.md` + user input | `REQUIREMENTS.md` | — |
+| [`tasks-planner`](agents/tasks-planner.md) | `DESIGN.md` + `REQUIREMENTS.md` | `TASKS.md` | `REQUIREMENTS.md` §7 only |
+| [`spec-validator`](agents/spec-validator.md) | all three | `SPEC_REVIEW.md` | nothing (report only) |
+| [`html-suite-builder`](agents/html-suite-builder.md) | the approved Markdown set + `DESIGN_DOC_INSTRUCTIONS.md` | the offline HTML suite | — |
+
+Each stage is a checkpoint: review the Markdown, then run the next agent. The
+authoring agents stay in their lane — `requirements-author` will not silently
+expand scope, `spec-validator` will not edit the specs.
+
+## Installing the agents in a project
+
+`agents/` holds exactly the five files above — nothing else — because Claude
+Code's plugin loader treats *every* `.md` file under an `agents/` directory
+as an agent definition, recursively. A stray `README.md` or a `templates/`
+subfolder in there gets registered as a broken agent with no name or
+description. That's also why `templates/` lives at the repo root instead of
+`agents/templates/`.
+
+**Plugin (recommended) — no copying, updates by re-pulling this repo:**
+```bash
+claude --plugin-dir /path/to/design-docs-template
+```
+Claude Code loads all five agents namespaced as `design-docs-template:<agent-name>`
+(e.g. `design-docs-template:design-doc-author`) for that session. Add the flag
+multiple times to load other plugins alongside it, or point it at a project
+that vendors this repo as a subfolder/submodule. There is no marketplace entry
+yet — see `PLUGIN_PACKAGING.md` if you want to add one.
+
+**Symlink (macOS/Linux) — updates flow through automatically:**
+```bash
+mkdir -p .claude/agents
+ln -s ../../design-docs-template/agents/*.md .claude/agents/
+```
+
+**Symlink (Windows, PowerShell, Developer Mode or admin):**
+```powershell
+New-Item -ItemType Directory -Force .claude\agents | Out-Null
+Get-ChildItem design-docs-template\agents\*.md |
+  ForEach-Object { New-Item -ItemType SymbolicLink -Path ".claude\agents\$($_.Name)" -Target $_.FullName }
+```
+
+**Copy (any OS) — re-copy to pick up updates:**
+```bash
+mkdir -p .claude/agents && cp design-docs-template/agents/*.md .claude/agents/
+```
+
+Whichever method you use, only the five files in `agents/*.md` land in
+`.claude/agents/` — the glob above only matches that directory's top level,
+and `templates/` is no longer inside it. Then invoke by name, e.g. *"Use
+design-doc-author to draft a design for …"*.
 
 ## Using it in a project
 
 1. Copy this whole folder into the project (e.g. `<project>/design-docs-template/`), or
-   keep it as a submodule / symlink.
-2. Make the agents discoverable: symlink or copy `agents/*.md` into the project's
-   `.claude/agents/` directory (`design-docs-template/agents/README.md` has the one-liners
-   for macOS/Linux/Windows).
+   keep it as a submodule / symlink — or skip copying entirely and use the plugin
+   install method above.
+2. Make the agents discoverable (see "Installing the agents" above).
 3. Invoke `design-doc-author` with your brief. Review `DESIGN.md`, then run the next agent.
 4. When the Markdown set is approved, run `html-suite-builder`, then work the §10
    checklist in `DESIGN_DOC_INSTRUCTIONS.md`.

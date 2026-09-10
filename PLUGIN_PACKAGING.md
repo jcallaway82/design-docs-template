@@ -2,10 +2,11 @@
 
 > HANDOFF.md next-step 2. Not a design doc for the pipeline itself — a scope
 > for turning `agents/` into an installable plugin, so a project adds the
-> five subagents with one command instead of the symlink-or-copy dance in
-> `agents/README.md`.
+> five subagents with one command instead of the symlink-or-copy dance now
+> documented in `README.md`.
 
-**Status:** Scoped, not started · **Scoped:** September 2026
+**Status:** T-1–T-3 done · T-4/T-5 not started, pending open questions ·
+**Scoped:** September 2026 · **Updated:** September 2026
 
 ---
 
@@ -45,13 +46,24 @@ plugin loader's point of view).
 **Consequence:** installing this repo as a plugin also ships `lib/`
 (including the ~2.7 MB vendored `mermaid.min.js`) and both HTML templates
 into the installing project's plugin cache. This is already true today for
-anyone who clones the repo to use the symlink method in `agents/README.md`,
-so it is not a new cost — just naming it here so it isn't a surprise during
+anyone who clones the repo to use the symlink method in `README.md`, so it
+is not a new cost — just naming it here so it isn't a surprise during
 review.
+
+**Correction found while building T-1/T-2:** the plugin loader scans
+`agents/` *recursively* and treats every `.md` file it finds as an agent
+definition — not just the five top-level agent files this scope assumed.
+`agents/README.md` (as it existed when this was scoped) and
+`agents/templates/*.md` both got picked up as broken pseudo-agents in the
+`--plugin-dir` smoke test. Fixed by relocating both: `templates/` moved to
+the repo root, and `agents/README.md`'s content merged into the top-level
+`README.md`. `agents/` now holds exactly the five agent files and nothing
+else — see `HANDOFF.md`'s "Plugin packaging T-1–T-3" entry for the full
+account.
 
 ## 3. Tasks
 
-### T-1 — Add the plugin manifest
+### T-1 — Add the plugin manifest — done
 **Goal:** create `.claude-plugin/plugin.json` at repo root (`name`,
 `description`, `version: "1.0.0"`, `author`).
 **Touches:** `.claude-plugin/plugin.json`
@@ -59,8 +71,15 @@ review.
 **Satisfies:** minimum viable plugin — everything below is additive.
 **Acceptance:** `claude plugin validate .` passes with no errors.
 **Size:** S
+**Result:** shipped with `name: "design-docs-template"` (Open question 1
+picked a default to unblock this, still open — see §5.1) and no `author`
+field (none was available to state truthfully; it's optional). Validates
+clean except two benign warnings: "no author" (as above), and `CLAUDE.md`
+"not loaded as project context" — correct behavior, since `CLAUDE.md` is
+this repo's own contributor guidance, not something meant to ship as
+context to a consuming project.
 
-### T-2 — Smoke-test local load
+### T-2 — Smoke-test local load — done
 **Goal:** confirm all five agents load and are invocable under
 `--plugin-dir`.
 **Touches:** none (verification only)
@@ -70,19 +89,30 @@ agents (`design-doc-author`, `requirements-author`, `tasks-planner`,
 `spec-validator`, `html-suite-builder`) under `/context` → Custom Agents;
 each is invocable by name.
 **Size:** S
+**Result:** first run surfaced 4 extra broken pseudo-agents (`README`,
+`templates:DESIGN.template`, `templates:REQUIREMENTS.template`,
+`templates:TASKS.template`) — see the "Correction" note in §2. Fixed by
+relocating `agents/README.md` and `agents/templates/`; re-ran clean, exactly
+the five real agents listed, each invocable by its namespaced name
+(`design-docs-template:<agent-name>`).
 
-### T-3 — Document the plugin install path
-**Goal:** add a "Plugin (recommended)" install method to `agents/README.md`
-above the existing symlink/copy instructions: `claude --plugin-dir
-/path/to/design-docs-template`, or (once T-5 lands) `/plugin marketplace
-add` + `/plugin install`. Keep the symlink/copy method for projects that
-want the files vendored in-tree instead of plugin-managed.
-**Touches:** `agents/README.md`
+### T-3 — Document the plugin install path — done
+**Goal:** add a "Plugin (recommended)" install method above the existing
+symlink/copy instructions: `claude --plugin-dir /path/to/design-docs-template`,
+or (once T-5 lands) `/plugin marketplace add` + `/plugin install`. Keep the
+symlink/copy method for projects that want the files vendored in-tree
+instead of plugin-managed.
+**Touches:** `README.md` (not `agents/README.md` — that file no longer
+exists; its content is merged into the top-level `README.md`, see §2's
+correction note)
 **Depends on:** T-1
 **Acceptance:** a reader who has never used Claude Code plugins can follow
 the new section and get the five agents loaded without also reading the
 plugin docs.
 **Size:** S
+**Result:** added an "Installing the agents in a project" section to
+`README.md` covering all four methods (plugin, symlink ×2 platforms, copy),
+plus the reason `templates/` and the former `agents/README.md` had to move.
 
 ### T-4 — Orchestrator skill (optional — see Open questions §5.2)
 **Goal:** add `skills/design-pipeline/SKILL.md` that walks a user through
@@ -147,4 +177,6 @@ graph LR
 
 ## 6. Changelog
 
+- **v1.1 — September 2026** — T-1–T-3 built; recorded the `agents/`
+  recursive-scan correction and its fix.
 - **v1.0 — September 2026** — Initial scope.

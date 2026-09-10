@@ -19,8 +19,10 @@ language, zero network dependencies) for the polished, shareable version.
 | `template.html` | Narrative-page skeleton + live component gallery. |
 | `template-interactive.html` | Self-contained interactive reference-browser skeleton. |
 | `lib/` | Shared stylesheet (`doc.css`), offline Mermaid bundle + init, lightbox, nav. |
-| `agents/` | The five pipeline subagents + `agents/README.md` (install) + `agents/templates/` Markdown skeletons. |
-| `PLUGIN_PACKAGING.md` | Scope for packaging `agents/` as an installable Claude Code plugin (next step 2, not started). |
+| `agents/` | The five pipeline subagents — nothing else (see below). |
+| `templates/` | Markdown skeletons for the three working documents. Moved out of `agents/templates/` on 2026-09-10 — see below. |
+| `.claude-plugin/plugin.json` | Plugin manifest — install via `claude --plugin-dir`. |
+| `PLUGIN_PACKAGING.md` | Scope + remaining tasks (T-4, T-5) for the plugin packaging work. |
 
 ## What the seeding session did (2026-09-08 / 09)
 
@@ -39,10 +41,10 @@ language, zero network dependencies) for the polished, shareable version.
 
 1. ~~**Dry-run the pipeline** on a sample brief~~ — done 2026-09-09, see
    below. Re-run after any further prompt changes.
-2. **Package as a Claude Code plugin** — scoped 2026-09-10, see
-   [`PLUGIN_PACKAGING.md`](PLUGIN_PACKAGING.md). Minimum viable version is
-   one file (`.claude-plugin/plugin.json` at repo root); the rest is
-   optional pending 4 open questions in that doc.
+2. **Package as a Claude Code plugin** — T-1–T-3 done 2026-09-10, see below.
+   T-4 (orchestrator skill) and T-5 (marketplace entry) remain, both
+   optional and gated on the open questions in
+   [`PLUGIN_PACKAGING.md`](PLUGIN_PACKAGING.md).
 3. **Mermaid bundle provenance** — record the exact `mermaid` version, source,
    and refresh command in `DESIGN_DOC_INSTRUCTIONS.md` Appendix C.
 4. **Optional CI** — HTML validation + internal-link check for the templates and
@@ -74,6 +76,26 @@ The other findings (a design component's responsibility with no
 requirement, an implicit command surface with no dedicated FR) were the
 pipeline working as intended — `spec-validator` catching what an authoring
 agent missed — not prompt bugs.
+
+## Plugin packaging T-1–T-3 (2026-09-10)
+
+Built the minimum viable plugin per `PLUGIN_PACKAGING.md`: `.claude-plugin/plugin.json`
+(name `design-docs-template`, no `author` field — none was available to put there
+truthfully), smoke-tested with `claude --plugin-dir`, and documented the install
+path in `README.md`.
+
+Running `claude plugin validate .` and the `--plugin-dir` smoke test surfaced a
+real bug the scope doc didn't anticipate: Claude Code's plugin loader treats
+**every** `.md` file under `agents/`, recursively, as an agent definition. With
+`agents/README.md` and `agents/templates/*.md` still in place, the smoke test
+showed four broken pseudo-agents (`design-docs-template:README`,
+`design-docs-template:templates:DESIGN.template`, etc.) alongside the five real
+ones. Fixed by moving `templates/` to the repo root and merging `agents/README.md`'s
+content into the top-level `README.md`; `agents/` now holds exactly the five agent
+files. Re-ran both checks clean (only the pre-existing "no author" warning remains).
+All in-repo references to the old `agents/templates/` and `agents/README.md` paths
+are updated (`agents/design-doc-author.md`, `agents/requirements-author.md`,
+`agents/tasks-planner.md`, `DESIGN_DOC_INSTRUCTIONS.md`).
 
 ## Conventions
 

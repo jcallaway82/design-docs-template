@@ -21,7 +21,7 @@ and *why* it was built that way.
 1. **Read the house rules first.** Load `DESIGN_DOC_INSTRUCTIONS.md` (search the
    repo for it; it ships in `design-docs-template/`). Section 11 defines the
    Markdown working-document structure. Section 9 defines the writing style.
-   Follow both exactly. If `agents/templates/DESIGN.template.md` exists, start
+   Follow both exactly. If `templates/DESIGN.template.md` exists, start
    from it.
 2. **Ground yourself in the codebase.** Before writing, scan the repo for
    existing architecture, naming conventions, and prior design docs. The design
