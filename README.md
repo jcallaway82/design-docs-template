@@ -70,11 +70,13 @@ description. That's also why `templates/` lives at the repo root instead of
 ```bash
 claude --plugin-dir /path/to/design-docs-template
 ```
-Claude Code loads all five agents namespaced as `design-docs-template:<agent-name>`
-(e.g. `design-docs-template:design-doc-author`) for that session. Add the flag
-multiple times to load other plugins alongside it, or point it at a project
-that vendors this repo as a subfolder/submodule. There is no marketplace entry
-yet — see `PLUGIN_PACKAGING.md` if you want to add one.
+Claude Code loads all five agents namespaced as `design-docs:<agent-name>`
+(e.g. `design-docs:design-doc-author`) for that session, plus the
+`/design-docs:design-pipeline` skill — invoke it with a fresh brief for a
+guided walk through all five stages instead of naming each agent yourself.
+Add the flag multiple times to load other plugins alongside it, or point it
+at a project that vendors this repo as a subfolder/submodule. There is no
+marketplace entry yet — see `PLUGIN_PACKAGING.md` if you want to add one.
 
 **Symlink (macOS/Linux) — updates flow through automatically:**
 ```bash

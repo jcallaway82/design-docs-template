@@ -22,8 +22,8 @@ language, zero network dependencies) for the polished, shareable version.
 | `agents/` | The five pipeline subagents — nothing else (see below). |
 | `templates/` | Markdown skeletons for the three working documents. Moved out of `agents/templates/` on 2026-09-10 — see below. |
 | `.claude-plugin/plugin.json` | Plugin manifest — install via `claude --plugin-dir`. |
-| `skills/design-pipeline/` | Orchestrator skill — `/design-docs-template:design-pipeline`. |
-| `PLUGIN_PACKAGING.md` | Plugin packaging record — done except the plugin `name` open question. |
+| `skills/design-pipeline/` | Orchestrator skill — `/design-docs:design-pipeline`. |
+| `PLUGIN_PACKAGING.md` | Plugin packaging record — done, including the rename. |
 
 ## What the seeding session did (2026-09-08 / 09)
 
@@ -43,9 +43,9 @@ language, zero network dependencies) for the polished, shareable version.
 1. ~~**Dry-run the pipeline** on a sample brief~~ — done 2026-09-09, see
    below. Re-run after any further prompt changes.
 2. ~~**Package as a Claude Code plugin**~~ — T-1–T-4 done, T-5 declined,
-   2026-09-10, see below. Only the plugin `name` (open question §5.1 in
-   [`PLUGIN_PACKAGING.md`](PLUGIN_PACKAGING.md)) is still undecided; low
-   cost to change later.
+   2026-09-10; renamed `design-docs-template` → `design-docs` the same day
+   (open question §5.1 in [`PLUGIN_PACKAGING.md`](PLUGIN_PACKAGING.md)
+   closed). See below.
 3. **Mermaid bundle provenance** — record the exact `mermaid` version, source,
    and refresh command in `DESIGN_DOC_INSTRUCTIONS.md` Appendix C.
 4. **Optional CI** — HTML validation + internal-link check for the templates and
@@ -100,11 +100,18 @@ are updated (`agents/design-doc-author.md`, `agents/requirements-author.md`,
 
 T-5 (marketplace entry) was declined: `--plugin-dir` already covers this
 repo's actual consumers. T-4 (`skills/design-pipeline/SKILL.md`, an
-orchestrator skill invocable as `/design-docs-template:design-pipeline`)
-was then built and smoke-tested live: a fresh brief drove straight into
-`design-doc-author`, which produced a full `DESIGN.md` and stopped only at
-the test sandbox's own write-permission prompt. Bumped `plugin.json` to
-1.1.0 for the new skill.
+orchestrator skill invocable as `/design-docs-template:design-pipeline` at
+the time) was then built and smoke-tested live: a fresh brief drove
+straight into `design-doc-author`, which produced a full `DESIGN.md` and
+stopped only at the test sandbox's own write-permission prompt. Bumped
+`plugin.json` to 1.1.0 for the new skill.
+
+**Renamed the plugin `design-docs-template` → `design-docs`** (same day,
+per the user's request) — closes open question §5.1. The old name read as
+a repo name, not a namespace; the invocation is now
+`/design-docs:design-pipeline` and agents load as `design-docs:<agent-name>`.
+Only `plugin.json`'s `name` field and the docs that quote the namespace
+needed updating — nothing else hardcoded it.
 
 ## Conventions
 
