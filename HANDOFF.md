@@ -20,6 +20,7 @@ language, zero network dependencies) for the polished, shareable version.
 | `template-interactive.html` | Self-contained interactive reference-browser skeleton. |
 | `lib/` | Shared stylesheet (`doc.css`), offline Mermaid bundle + init, lightbox, nav. |
 | `agents/` | The five pipeline subagents + `agents/README.md` (install) + `agents/templates/` Markdown skeletons. |
+| `PLUGIN_PACKAGING.md` | Scope for packaging `agents/` as an installable Claude Code plugin (next step 2, not started). |
 
 ## What the seeding session did (2026-09-08 / 09)
 
@@ -38,8 +39,10 @@ language, zero network dependencies) for the polished, shareable version.
 
 1. ~~**Dry-run the pipeline** on a sample brief~~ — done 2026-09-09, see
    below. Re-run after any further prompt changes.
-2. **Package as a Claude Code plugin** (`agents/` + a `skills/` entry) so a
-   project can install the pipeline in one command instead of copying files.
+2. **Package as a Claude Code plugin** — scoped 2026-09-10, see
+   [`PLUGIN_PACKAGING.md`](PLUGIN_PACKAGING.md). Minimum viable version is
+   one file (`.claude-plugin/plugin.json` at repo root); the rest is
+   optional pending 4 open questions in that doc.
 3. **Mermaid bundle provenance** — record the exact `mermaid` version, source,
    and refresh command in `DESIGN_DOC_INSTRUCTIONS.md` Appendix C.
 4. **Optional CI** — HTML validation + internal-link check for the templates and
