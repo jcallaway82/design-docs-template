@@ -438,7 +438,8 @@ The Markdown documents obey the same principles as the HTML pages (§1, §9):
 
 **`REQUIREMENTS.md`** — `1. Overview` (scope + link to `DESIGN.md`) · `2. Definitions` · `3. Functional requirements` (`FR-<n>`: statement using SHALL, rationale, acceptance criteria, traces-to design section) · `4. Non-functional requirements` (`NFR-<n>`: measurable target + method of verification) · `5. Constraints & assumptions` · `6. Out of scope` · `7. Traceability matrix` (requirement ID → design section → task ID, filled in as `TASKS.md` lands) · `8. Open questions` · `9. Changelog`.
 
-**`TASKS.md`** — `1. Overview` (links to both upstream docs) · `2. Milestones` · `3. Tasks` (`T-<n>`: goal, files/areas touched, `depends on:`, `satisfies:` FR/NFR IDs, acceptance criteria, rough size S/M/L) · `4. Dependency graph` (optional Mermaid) · `5. Risks & mitigations` · `6. Changelog`.
+**`TASKS.md`** — `1. Overview` (links to both upstream docs) · `2. Milestones` · `3. Tasks` (`T-<n>`: goal, files/areas touched, `depends on:`, `satisfies:` FR/NFR IDs, acceptance criteria, rough size S/M — an L-sized task means split it before
+it lands in the plan) · `4. Dependency graph` (optional Mermaid) · `5. Risks & mitigations` · `6. Changelog`.
 
 ### 11.4 Rendering to HTML
 

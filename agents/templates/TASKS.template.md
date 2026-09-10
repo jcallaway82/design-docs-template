@@ -26,7 +26,7 @@
 **Depends on:** <task IDs, or "none">
 **Satisfies:** <FR / NFR IDs>
 **Acceptance:** <checkable without later tasks>
-**Size:** S / M / L
+**Size:** S / M (never L — an L-sized task means split it before it lands here)
 
 ### T-2 — …
 
