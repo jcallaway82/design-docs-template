@@ -5,8 +5,8 @@
 > five subagents with one command instead of the symlink-or-copy dance now
 > documented in `README.md`.
 
-**Status:** T-1–T-3 done · T-4/T-5 not started, pending open questions ·
-**Scoped:** September 2026 · **Updated:** September 2026
+**Status:** T-1–T-3 done · T-4 not started, pending open questions · T-5
+declined · **Scoped:** September 2026 · **Updated:** September 2026
 
 ---
 
@@ -126,17 +126,18 @@ all five agent names up front.
 duplicate the agents' own instructions, only points at them.
 **Size:** M
 
-### T-5 — Marketplace entry (optional — see Open questions §5.3)
+### T-5 — Marketplace entry — declined
 **Goal:** publish a `marketplace.json` (in this repo or a separate
 marketplace repo) so the pipeline installs via `/plugin marketplace add
 jcallaway82/design-docs-template` + `/plugin install` instead of requiring
 a local clone path.
-**Touches:** `.claude-plugin/marketplace.json` (new) or a new repo,
-depending on the answer to §5.3
 **Depends on:** T-1, T-2
-**Acceptance:** a project with no local clone of this repo can install the
-plugin by marketplace name alone.
 **Size:** M
+**Result:** user declined 2026-09-10 (Open question §5.3, now closed).
+`--plugin-dir` (T-1–T-3) covers every consumer of a template repo, who by
+definition already has it cloned or vendored — a marketplace entry buys
+install-by-name for a stranger with no local copy, which isn't this repo's
+use case. Not built.
 
 ## 4. Dependency graph
 
@@ -145,9 +146,9 @@ graph LR
     T1 --> T2
     T1 --> T3
     T1 --> T4
-    T1 --> T5
-    T2 --> T5
 ```
+
+T-5 dropped from the graph — declined, see its entry in §3.
 
 ## 5. Open questions
 
@@ -162,11 +163,9 @@ graph LR
    would mainly help a first-time user who doesn't know the pipeline exists
    yet. Resolved by the user; skip if the agent descriptions already
    surface well enough in `/agents` browsing.
-3. **Is T-5 (marketplace) in scope now, or later?** `--plugin-dir` (T-1–T-3)
-   already gets any project that has cloned or added this repo to a working
-   one-command-ish install. A marketplace only matters for install-by-name
-   without a local clone. Resolved by the user — recommend deferring T-5
-   until there's a second consumer who isn't already working in this repo.
+3. ~~Is T-5 (marketplace) in scope now, or later?~~ **Closed 2026-09-10:
+   declined.** `--plugin-dir` (T-1–T-3) already covers this repo's actual
+   consumers.
 4. **Versioning policy.** `plugin.json`'s `version` is the update signal to
    installers (bump-and-users-get-updates). This repo doesn't currently
    version anything (the Markdown docs have their own `Version:` front
@@ -177,6 +176,8 @@ graph LR
 
 ## 6. Changelog
 
+- **v1.2 — September 2026** — T-5 declined by the user; open question §5.3
+  closed.
 - **v1.1 — September 2026** — T-1–T-3 built; recorded the `agents/`
   recursive-scan correction and its fix.
 - **v1.0 — September 2026** — Initial scope.

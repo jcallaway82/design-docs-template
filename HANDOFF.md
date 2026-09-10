@@ -42,8 +42,8 @@ language, zero network dependencies) for the polished, shareable version.
 1. ~~**Dry-run the pipeline** on a sample brief~~ — done 2026-09-09, see
    below. Re-run after any further prompt changes.
 2. **Package as a Claude Code plugin** — T-1–T-3 done 2026-09-10, see below.
-   T-4 (orchestrator skill) and T-5 (marketplace entry) remain, both
-   optional and gated on the open questions in
+   T-5 (marketplace entry) declined the same day. T-4 (orchestrator skill)
+   remains, optional, pending the open questions in
    [`PLUGIN_PACKAGING.md`](PLUGIN_PACKAGING.md).
 3. **Mermaid bundle provenance** — record the exact `mermaid` version, source,
    and refresh command in `DESIGN_DOC_INSTRUCTIONS.md` Appendix C.
