@@ -5,7 +5,7 @@
 > five subagents with one command instead of the symlink-or-copy dance now
 > documented in `README.md`.
 
-**Status:** T-1–T-4 done · T-5 declined · plugin `name` still open (§5.1) ·
+**Status:** T-1–T-4 done, renamed to `design-docs` · T-5 declined ·
 **Scoped:** September 2026 · **Updated:** September 2026
 
 ---
@@ -30,8 +30,8 @@ Confirmed against the current Claude Code plugin docs (`/docs/en/plugins`,
   publishing to `claude-community`.
 - Skills are model-invoked Markdown (`skills/<name>/SKILL.md`); a plugin can
   optionally ship one to give the pipeline a slash-command-style entry point
-  (`/design-docs-template:pipeline`), separate from the five agents
-  themselves.
+  (`/design-docs:design-pipeline`, built as T-4), separate from the five
+  agents themselves.
 
 ## 2. Recommendation: plugin root = repo root
 
@@ -71,13 +71,13 @@ account.
 **Satisfies:** minimum viable plugin — everything below is additive.
 **Acceptance:** `claude plugin validate .` passes with no errors.
 **Size:** S
-**Result:** shipped with `name: "design-docs-template"` (Open question 1
-picked a default to unblock this, still open — see §5.1) and no `author`
-field (none was available to state truthfully; it's optional). Validates
-clean except two benign warnings: "no author" (as above), and `CLAUDE.md`
-"not loaded as project context" — correct behavior, since `CLAUDE.md` is
-this repo's own contributor guidance, not something meant to ship as
-context to a consuming project.
+**Result:** shipped with `name: "design-docs-template"` as a default to
+unblock this (Open question §5.1, later renamed to `design-docs` — see
+§5.1) and no `author` field (none was available to state truthfully; it's
+optional). Validates clean except two benign warnings: "no author" (as
+above), and `CLAUDE.md` "not loaded as project context" — correct
+behavior, since `CLAUDE.md` is this repo's own contributor guidance, not
+something meant to ship as context to a consuming project.
 
 ### T-2 — Smoke-test local load — done
 **Goal:** confirm all five agents load and are invocable under
@@ -94,7 +94,7 @@ each is invocable by name.
 `templates:TASKS.template`) — see the "Correction" note in §2. Fixed by
 relocating `agents/README.md` and `agents/templates/`; re-ran clean, exactly
 the five real agents listed, each invocable by its namespaced name
-(`design-docs-template:<agent-name>`).
+(`design-docs:<agent-name>` since the §5.1 rename).
 
 ### T-3 — Document the plugin install path — done
 **Goal:** add a "Plugin (recommended)" install method above the existing
@@ -116,9 +116,9 @@ plus the reason `templates/` and the former `agents/README.md` had to move.
 
 ### T-4 — Orchestrator skill — done
 **Goal:** add `skills/design-pipeline/SKILL.md` that walks a user through
-the five-stage pipeline by name, so `/design-docs-template:design-pipeline`
-is a discoverable single entry point instead of requiring the user to know
-all five agent names up front.
+the five-stage pipeline by name, so `/<plugin-name>:design-pipeline` is a
+discoverable single entry point instead of requiring the user to know all
+five agent names up front.
 **Touches:** `skills/design-pipeline/SKILL.md`
 **Depends on:** T-1
 **Acceptance:** invoking the skill on a fresh brief prompts the user toward
@@ -126,13 +126,11 @@ all five agent names up front.
 duplicate the agents' own instructions, only points at them.
 **Size:** M
 **Result:** `claude plugin validate .` clean (no new warnings). Live smoke
-test: `--plugin-dir` + `/design-docs-template:design-pipeline` with a fresh
-brief drove straight into `design-doc-author`, which produced a complete
-`DESIGN.md` and stopped only at that sandbox's own write-permission prompt
-— unrelated to the skill. Built with the current default plugin name
-(`design-docs-template`); Open question §5.1 (rename before the namespace
-is "published") is still open and now genuinely live, since a skill
-invocation name now depends on it.
+test (at the time under `design-docs-template:design-pipeline`, pre-rename):
+`--plugin-dir` + the skill with a fresh brief drove straight into
+`design-doc-author`, which produced a complete `DESIGN.md` and stopped only
+at that sandbox's own write-permission prompt — unrelated to the skill.
+Invocation is now `/design-docs:design-pipeline` since the §5.1 rename.
 
 ### T-5 — Marketplace entry — declined
 **Goal:** publish a `marketplace.json` (in this repo or a separate
@@ -160,14 +158,13 @@ T-5 dropped from the graph — declined, see its entry in §3.
 
 ## 5. Open questions
 
-1. **Plugin `name`.** Now live, not hypothetical: T-4 shipped with
-   `design-docs-template` as the namespace, so
-   `/design-docs-template:design-pipeline` is the invocation today. It
-   still reads oddly as a namespace (a repo name, not a product name).
-   Renaming later means updating `.claude-plugin/plugin.json`'s `name` and
-   nothing else — the skill/agent files don't hardcode it — so the cost of
-   deferring is low, but it should still be a deliberate choice rather than
-   drift. Resolved by the user.
+1. ~~**Plugin `name`.**~~ **Closed 2026-09-10: renamed `design-docs-template`
+   → `design-docs`**, per the user's request. As predicted, the only file
+   that needed editing was `.claude-plugin/plugin.json`'s `name` field —
+   confirmed by grepping the repo for the old namespace string and updating
+   every doc that quoted it (`README.md`, `HANDOFF.md`, this file); nothing
+   in the agent or skill files themselves hardcoded it. Invocation is now
+   `/design-docs:design-pipeline`; agents load as `design-docs:<agent-name>`.
 2. ~~Is T-4 (orchestrator skill) worth building?~~ **Closed 2026-09-10:
    built.** See its entry in §3.
 3. ~~Is T-5 (marketplace) in scope now, or later?~~ **Closed 2026-09-10:
@@ -183,6 +180,8 @@ T-5 dropped from the graph — declined, see its entry in §3.
 
 ## 6. Changelog
 
+- **v1.4 — September 2026** — Renamed the plugin `design-docs-template` →
+  `design-docs` per the user's request; closed open question §5.1.
 - **v1.3 — September 2026** — T-4 built (orchestrator skill); bumped
   `plugin.json` to 1.1.0 per open question §5.4's default versioning
   assumption (a new skill is a substantive plugin change).
