@@ -343,6 +343,8 @@ sequenceDiagram
 
 ### 7.3 Legibility rules
 
+- **Gantt charts use calendar dates** (`dateFormat YYYY-MM-DD`, `after <id>, <n>d`). Never `dateFormat X`/`x`: the vendored Mermaid ignores numeric starts and stacks every bar.
+
 - **One idea per diagram.** Cap sequence diagrams at ~6 participants and ~20 messages; split longer flows into phases (that's why suites have per-phase pages).
 - Keep labels short; use `<br/>` (flowcharts) or `\n` (state/sequence) for two-line labels.
 - Every diagram sits in a `.diagram-container`; add a `.diagram-caption` when the page has more than one diagram (Fig. N — description).
@@ -438,7 +440,7 @@ The Markdown documents obey the same principles as the HTML pages (§1, §9):
 
 ### 11.3 Per-document outline
 
-**`DESIGN.md`** — `1. Overview` · `2. Goals & non-goals` · `3. Context & constraints` · `4. Architecture` (component Mermaid diagram + prose) · `5. Components` (one `###` per component: responsibility, interfaces, owned data) · `6. Key flows` (sequence diagrams) · `7. Design decisions` (`DD-<n>`: decision, rationale, alternatives rejected, consequences) · `8. Data model` (if applicable) · `9. Failure modes & recovery` · `10. Open questions` · `11. Changelog`.
+**`DESIGN.md`** — `1. Overview` · `2. Goals & non-goals` · `3. Context & constraints` · `4. Architecture` (component Mermaid diagram + prose) · `5. Components` (one `###` per component: responsibility, interfaces, owned data) · `6. Key flows` (sequence diagrams) · `7. Design decisions` (`DD-<n>`: decision, rationale, alternatives rejected, consequences) · `8. Data model` (if applicable) · `9. Failure modes & recovery` · `10. Open questions` (`OQ-<n>`, each with Owner, Level = Management | Technical, Blocks, Options) · `11. Changelog`.
 
 **`REQUIREMENTS.md`** — `1. Overview` (scope + link to `DESIGN.md`) · `2. Definitions` · `3. Functional requirements` (`FR-<n>`: statement using SHALL, rationale, acceptance criteria, traces-to design section) · `4. Non-functional requirements` (`NFR-<n>`: measurable target + method of verification) · `5. Constraints & assumptions` · `6. Out of scope` · `7. Traceability matrix` (requirement ID → design section → task ID, filled in as `TASKS.md` lands) · `8. Open questions` · `9. Changelog`.
 
@@ -462,12 +464,13 @@ Audience: project managers and management. The three working documents answer *h
 - **One headline per item.** Take the source's lead phrase and drop version tags, review history, and field-level detail. ~8 words in label cells, one sentence in outcome cells.
 - **Attention first.** Open decisions, Critical/High risks, and open Critical/High findings each get a table and a count in "At a glance".
 - **Link down.** Every row carries its source ID (`FR-7`, `DD-3`, `T-4`, `DESIGN §9`).
+- **Diagrams.** One diagram only (Architecture): `graph LR`, at most 8 nodes, one level of grouping, labels under ~4 words, rendered in a `.diagram-container compact` (max 260 px tall; click to enlarge). No milestone, Gantt, or dependency chart — the milestone table carries the schedule.
 - **Length.** Two to three printed pages: apply the §12.4 caps. Cut by severity or size, never by shrinking type.
 - **Status is sourced.** Show Done / In progress / Planned only when `TASKS.md` carries it (milestone table `Status` column, optional); never estimate progress.
 
 ### 12.2 Outline
 
-`1. At a glance` (count tiles) · `2. What & why` · `3. Scope` · `4. Architecture` (one diagram + component table) · `5. Milestones` (table + dependency diagram; Gantt only with calendar dates) · `6. Key numbers` (NFR targets) · `7. Top risks` · `8. Open decisions` · `9. Spec health` · `10. Visuals` (optional) · `11. Changelog`.
+`1. At a glance` (count tiles) · `2. What & why` · `3. Scope` · `4. Architecture` (one compact diagram + component table) · `5. Milestones` (table only — no chart) · `6. Key numbers` (NFR targets) · `7. Top risks` · `8. Open decisions` · `9. Spec health` · `10. Visuals` (optional) · `11. Changelog`.
 
 ### 12.3 Rendering
 
@@ -488,7 +491,7 @@ A row that is cut is never silently dropped: the At-a-glance tile keeps the full
 | Milestones | 12 rows | **consecutive Done milestones collapse into one row** once there are 3 or more (`1–4 · Scaffolding … · Done`); remaining rows stay one per milestone |
 | Key numbers | 6 | NFRs with a stated target first |
 | Top risks | 6 | Critical before High; then by earliest milestone affected |
-| Open decisions | 5 | by earliest milestone blocked; phrase each as a question a non-developer can answer |
+| Open decisions | 5 | `Level: Management` first (source Owner/Level fields), then by earliest milestone blocked; phrase each as a question a non-developer can answer; show Owner |
 | Spec contradictions | 4 | cross-document before within-document |
 
 **Key milestone.** If the source names one milestone as the first demo, release, or buyer/customer-visible build, mark that single row `row-key` (§6.3 highlight) and say why in its outcome cell. At most one row.

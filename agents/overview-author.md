@@ -55,11 +55,9 @@ they want detail.
      current ones, "Ready to build?" is `Not re-validated — review covers
      v<x>, sources are v<y>`, never `Yes`, whatever the open count is.
      Only a review of the current versions can say Yes.
-   - *Gantt* only when the source gives **calendar dates** (use
-     `dateFormat YYYY-MM-DD`; `after <id>, <n>d` for chained bars). Never use
-     `dateFormat X`/`x` — numeric axes are ignored by the vendored Mermaid and
-     stack every bar. Week-only or duration-only sources get no Gantt: the
-     Weeks column carries it, plus a milestone dependency graph if useful.
+   - *Milestones* are a table only — no Gantt, dependency graph, or other
+     chart. The one diagram in the overview is the Architecture diagram:
+     `graph LR`, at most 8 nodes, one level of grouping, short labels.
    - *Dates*: `Updated` is today's date; `Derived from` carries the source
      versions. `Status` stays Draft until the user approves.
    - *Links*: write the ID as text and link the file (`[FR-1](REQUIREMENTS.md)`);
@@ -67,7 +65,15 @@ they want detail.
    - A component, ID or section referenced in a source but never defined
      (e.g. in a diagram but with no Components entry) is reported in the
      "omitted" list; do not fill the gap.
-10. **Apply the §12.4 caps.** Collapse consecutive Done milestones (3 or more)
+10. **Open decisions come from the register's Owner/Level fields.** List
+    `Level: Management` questions first (these are what a manager can act
+    on), phrased as a question a non-developer can answer, with the Owner in
+    the row. Fill any remaining slots from `Level: Technical` only if fewer
+    than 5 Management items exist; otherwise end with `+N technical — see
+    <section>`. If the source has no Level field, fall back to ordering by
+    earliest milestone blocked and list "no Owner/Level in source" under
+    omitted.
+11. **Apply the §12.4 caps.** Collapse consecutive Done milestones (3 or more)
     into one row, mark at most one `row-key` milestone, cap every table, and end
     a capped table with `+N more — see <section>`. Counts in At a glance stay
     full. Phrase open decisions as questions a non-developer can answer; if

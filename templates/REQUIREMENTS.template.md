@@ -56,8 +56,8 @@ reader should already know.>
 
 ## 8. Open questions
 
-1. <question — and which FR/NFR it blocks>
-2. <design element with no requirement yet, if any>
+- **OQ-<n> — <short title>.** <question>. **Owner:** <role>. **Level:** Management | Technical. **Blocks:** <FR/NFR>.
+- <design element with no requirement yet, if any>
 
 ## 9. Changelog
 

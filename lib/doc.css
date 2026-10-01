@@ -303,6 +303,9 @@ tbody tr:hover { background: var(--bg-raised); }
   overflow-x: auto;
   position: relative;
 }
+/* compact: keeps one-glance diagrams (overview) from dominating the page */
+.diagram-container.compact { padding: 1rem 1.5rem; }
+.diagram-container.compact svg { max-height: 260px; width: auto; max-width: 100%; display: block; margin: 0 auto; }
 /* zoom affordance appears once lightbox.js binds (adds .zoomable) */
 .diagram-container.zoomable { cursor: zoom-in; }
 .diagram-container.zoomable::after {

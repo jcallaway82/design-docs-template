@@ -27,6 +27,7 @@
 
 ```mermaid
 graph LR
+    %% max 8 nodes, one level of grouping, short labels
     A[Component] --> B[Component]
 ```
 
@@ -42,12 +43,6 @@ graph LR
 |---|---|---|---|---|
 | 1 | <name> | <one sentence> | T-1–T-3 | Planned |
 
-<!-- Gantt only with calendar dates (dateFormat YYYY-MM-DD, never X); week-only sources: Weeks column + this dependency graph -->
-```mermaid
-graph LR
-    M1 --> M2
-```
-
 ## 6. Key numbers
 
 | Measure | Target | Ref |
@@ -62,9 +57,9 @@ graph LR
 
 ## 8. Open decisions
 
-| Decision needed | Options (≤3, comma-separated) | Blocks | Ref |
-|---|---|---|---|
-| <headline> | <A>, <B> | M2 | DESIGN §10 |
+| Decision needed (Management-level first) | Owner | Options (≤3) | Blocks | Ref |
+|---|---|---|---|---|
+| <question a non-developer can answer> | <role> | <A>, <B> | M2 | DESIGN OQ-1 |
 
 ## 9. Spec health
 
