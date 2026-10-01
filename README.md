@@ -107,6 +107,21 @@ design-doc-author to draft a design for …"*.
 
 ## Using the agents with GitHub Copilot
 
+**One-command setup** — from a clone of this repo:
+
+```bash
+python3 scripts/bootstrap-copilot.py /path/to/your-project   # add --vendor submodule, --docs-dir docs/specs
+```
+
+It vendors the template into `your-project/design-docs-template/` (copy by
+default; `--vendor submodule` uses `git submodule add`), generates
+`.github/agents/*.agent.md`, adds a managed design-docs block to
+`.github/copilot-instructions.md` (existing content is preserved; re-running
+replaces only the block between its marker comments), and creates the docs
+folder (default `docs/design/`). The block's text comes from
+`templates/COPILOT_INSTRUCTIONS.snippet.md`. The manual steps below do the
+same thing piece by piece.
+
 The agents are Claude Code subagents, but their prompt bodies are plain
 Markdown. `scripts/export-copilot.py` converts them into Copilot custom agents
 (`tools:` mapped to Copilot aliases, `model:` dropped, body copied verbatim):
