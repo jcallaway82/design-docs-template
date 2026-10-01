@@ -101,7 +101,9 @@ sequenceDiagram
 
 ## 10. Open questions
 
-1. <question> — resolved by <who / what>.
+Each question has a stable `OQ-<n>` ID (never renumbered). A resolved question stays, marked `Resolved <Month Year>: <answer>`.
+
+- **OQ-1 — <short title>.** <the question, one or two sentences>. **Owner:** <role that decides, e.g. product lead, tech lead, customer>. **Level:** Management | Technical. **Blocks:** <FR/NFR/milestone, or "nothing">. **Options:** <up to 3, or "open">.
 
 ## 11. Changelog
 

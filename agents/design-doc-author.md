@@ -60,7 +60,10 @@ Write it to the repo root unless the user names another location. Structure
   (Critical/High/Medium/Low), recovery (Abort/Retry/Resume/Degrade), handling.
   Enumerate every operation's failure paths — a design without this is
   incomplete.
-- `## 10. Open questions` — numbered, each with who/what would resolve it.
+- `## 10. Open questions` — stable `OQ-<n>` IDs, each with **Owner** (the role
+  that decides), **Level** (`Management` = a schedule, scope, cost, or
+  priority call a non-engineer can make; `Technical` = an engineering call),
+  **Blocks**, and up to 3 **Options**. Never leave Owner or Level blank.
 - `## 11. Changelog` — newest first; `- **v1.0 — <Month Year>** — Initial draft.`
 
 ## Style (from §9)

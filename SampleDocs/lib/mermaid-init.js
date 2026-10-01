@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════
-   Design Docs Template — Shared Mermaid Initialization
+   PRISM Design Docs — Shared Mermaid Initialization
    Include AFTER mermaid.min.js on every page that has diagrams:
 
      <script src="lib/mermaid.min.js"></script>
@@ -40,20 +40,6 @@
       actorBorder:        '#58a6ff',
       signalColor:        '#c9d1d9',
       signalTextColor:    '#c9d1d9',
-      /* Gantt: readable labels on done / active / planned bars */
-      taskBkgColor:       '#1a3a5c',
-      taskBorderColor:    '#58a6ff',
-      taskTextColor:      '#e6edf3',
-      taskTextLightColor: '#e6edf3',
-      taskTextDarkColor:  '#e6edf3',
-      taskTextOutsideColor:'#c9d1d9',
-      doneTaskBkgColor:   '#1a3528',
-      doneTaskBorderColor:'#56d364',
-      activeTaskBkgColor: '#3b2e12',
-      activeTaskBorderColor:'#d29922',
-      gridColor:          '#30363d',
-      sectionBkgColor:    '#161b22',
-      altSectionBkgColor: '#0d1117',
     },
     sequence: {
       mirrorActors:  false,

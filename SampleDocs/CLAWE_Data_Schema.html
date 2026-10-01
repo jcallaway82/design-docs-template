@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CLAWE Interactive Emitters App — Data Schema Design</title>
+<link rel="stylesheet" href="lib/doc.css">
+</head>
+<body class="wide">
+
+<div id="page-nav"></div>
+<script src="lib/nav.js"></script>
+
+<h1>CLAWE Interactive Emitters App — Data Schema Design</h1>
+<p class="subtitle">ClaweRadarInstance / ClaweRadarModeInstance / ClaweWaveformInstance — approved protobuf + SQLite schema for CLAWE UI, a standalone application</p>
+<div class="doc-meta">
+  <span><strong>Version:</strong> 3.3</span>
+  <span><strong>Status:</strong> Approved (v3.2 records the waveform schema as shipped in iteration 3; no approved field changed)</span>
+  <span><strong>Date:</strong> September 2026</span>
+</div>
+
+<div class="toc">
+  <h4>Contents</h4>
+  <ol>
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#diagrams">Schema Diagrams</a></li>
+    <li><a href="#storage">Two-Layer Storage Rationale</a></li>
+    <li><a href="#fields">Field Reference</a></li>
+    <li><a href="#changelog">Changelog</a></li>
+  </ol>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     1. OVERVIEW
+     ══════════════════════════════════════════════════════════════ -->
+
+<h2 id="overview">1. Overview</h2>
+
+<p>
+  This document specifies the data schema for <strong>CLAWE UI</strong> — a <strong>standalone
+  application</strong> (its own process, own executable, own database) with a maintenance mode for
+  authoring radars/modes/waveforms and an operate mode for runtime control, which STS UI drives over a
+  TCP network connection (interface B) to play a closed-loop CLAWE radar inside a static scenario. CLAWE
+  UI is <strong>not a PRISM plugin</strong> — it is architecturally independent of STS, though it is built
+  to look, feel, and be organized like it. This document covers only CLAWE UI's own data — not the
+  STS-side "Add Emitter to Static Scenario" integration or the interface B message contract, which are
+  out of scope here.
+</p>
+<p>
+  The schema below is built from the <code>ClaweRadarInstance</code> / <code>ClaweRadarModeInstance</code> /
+  <code>ClaweWaveformInstance</code> structures defined in the <code>CLAWE UI Requirements.pptx</code> deck
+  (slides 5–13, 27–32), cross-referenced against the existing legacy CLAWE implementation in
+  <code>sparta/Components/libSPARTABase/.../SMDLObjects/CLAWE/</code>, and designed to persist as its own
+  <strong>SQLite</strong> database (<code>CLAWE DB</code>). Where this document references STS's
+  <code>PRISM.Database</code> project, it is strictly as a <strong>design-pattern reference</strong> —
+  matching conventions for consistency and familiarity — not a shared codebase, shared connection, or
+  shared schema. See §3 for exactly what is and isn't shared.
+</p>
+<div class="success">
+  <strong>Approved:</strong> this schema was reviewed and approved as-is at the 2026-08-18 design meeting.
+  Subsequent changes: <code>AlternateName</code> narrowed to one NATO + one ELNOT per radar to match STS
+  (v2.1; confirmed by the lead), <code>Modes</code> narrowed to require at least one mode per radar
+  (v2.2; confirmed directly by the lead), and <strong>v3.0</strong> folds in the changes the
+  <code>CLAWE Waveform Calculations.pptx</code> deck requires — the Phase modifier splits into
+  Full / Partial Phase Encoded, <code>NumPulses</code> is added as distinct from FFT size, and
+  <code>BaseWaveform</code> gains a <code>CW</code> value — see the Changelog.
+  <code>CLAWE DB</code> and <code>PrismDB</code> are <strong>completely separate, independent
+  databases</strong> — CLAWE UI gets its own <code>ClaweDbContext</code> and its own SQLite file, not
+  entities registered into STS's shared <code>PrismDbContext</code>.
+</div>
+<div class="note">
+  <strong>Related documents:</strong> this document covers CLAWE UI's own persisted data model. The
+  <a href="CLAWE_Interface_B.html">Interface B design</a> covers the STS UI ↔ CLAWE UI network contract,
+  including the derived <code>ClaweRadarSummary</code> projection (§4.5). The waveform-calculation formulas
+  the summary screen and waveform browser depend on are specified in <code>CLAWE Waveform
+  Calculations.pptx</code> (a tracked spec doc is planned).
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     2. SCHEMA DIAGRAMS
+     ══════════════════════════════════════════════════════════════ -->
+
+<h2 id="diagrams">2. Schema Diagrams</h2>
+
+<p>
+  Two diagrams, deliberately paired at different levels of detail: the <strong>class diagram</strong> shows
+  the full nested data model as it will be authored and round-tripped (matching the protobuf message shape),
+  while the <strong>ER diagram</strong> shows only what actually becomes queryable SQLite columns — see
+  §3 for why so much detail collapses into a single blob between the two.
+</p>
+
+<h3>Class diagram — full nested data model</h3>
+
+<div class="diagram-container">
+  <pre class="mermaid">
+classDiagram
+    class ClaweRadarInstance {
+      +string name
+      +string description
+      +AlternateName[] alternate_names
+    }
+    class ClaweAlternateName {
+      +AlternateNameType type
+      +string value
+    }
+    class ClaweRadarModeInstance {
+      +string name
+      +string description
+      +RadarModeType radar_mode_type
+    }
+    class ClaweWaveformInstance {
+      +uint32 waveform_id
+      +string name
+      +string description
+      +double range_resolution_s
+      +uint32 num_pulses
+      +BaseWaveform base_waveform
+    }
+
+    ClaweRadarInstance "1" *-- "0..2" ClaweAlternateName : one per kind
+    ClaweRadarInstance "1" *-- "1..N" ClaweRadarModeInstance
+    ClaweRadarModeInstance "1" *-- "0..N" ClaweWaveformInstance
+
+    class OperatingMode {
+      &lt;&lt;oneof&gt;&gt;
+    }
+    class Manual { }
+    class Auto {
+      +WaveformSchedule[] schedule
+    }
+    class Cognitive {
+      +OptimizationType optimization_type
+    }
+    OperatingMode <|-- Manual
+    OperatingMode <|-- Auto
+    OperatingMode <|-- Cognitive
+    ClaweRadarModeInstance "1" --> "1" OperatingMode
+
+    class ConstraintEnvelope {
+      +CFConstraint carrier_frequency
+      +double max_duty_cycle_percent
+      +CPIDurationConstraint cpi_duration
+    }
+    class PDConstraints {
+      +PriKind pri_kind
+      +PwKind pw_kind
+      +PriConstraint pri
+      +PwConstraint pw
+      +PDAllowedModifiers allowed_modifiers
+    }
+    class SPConstraints {
+      +PwKind pw_kind
+      +PwConstraint pw
+      +SPAllowedModifiers allowed_modifiers
+    }
+    class PriConstraint {
+      +PriRange range
+      +PriDiscretes discretes
+    }
+    class PwConstraint {
+      +PwRange range
+      +PwDutyCycle duty_cycle
+    }
+    class PDAllowedModifiers {
+      +PhaseModifierType[] phase
+      +FrequencyModifierType[] frequency
+      +PulseCompressionModifierType[] pulse_compression
+      +PriModifierType[] pri
+      +PwModifierType[] pw
+      +LeadingEdgeModifierType[] leading_edge
+      +TrailingEdgeModifierType[] trailing_edge
+      +DiscriminationModifierType[] discrimination
+    }
+    ClaweRadarModeInstance "1" --> "1" ConstraintEnvelope
+    ConstraintEnvelope "1" o-- "0..1" PDConstraints
+    ConstraintEnvelope "1" o-- "0..1" SPConstraints
+
+    class ModifierStack {
+      &lt;&lt;oneof per modifier&gt;&gt;
+      +PhaseModifier phase
+      +FrequencyModifier frequency
+      +PulseCompressionModifier pulse_compression
+      +PRIModifier pri
+      +PWModifier pw
+      +AmplitudeModifier amplitude
+      +LeadingEdgeModifier leading_edge
+      +TrailingEdgeModifier trailing_edge
+      +DiscriminationModifier discrimination
+    }
+    ClaweWaveformInstance "1" --> "1" ModifierStack
+
+    class LeadingEdgeModifier {
+      &lt;&lt;oneof&gt;&gt;
+    }
+    class LENone { }
+    class Rampup {
+      +double ramp_time_s
+    }
+    class Prepulse {
+      +double pw_s
+      +double gap_s
+      +FreqType freq_type
+      +double freq_offset_hz
+      +bool apply_freq_mods
+    }
+    LeadingEdgeModifier <|-- LENone
+    LeadingEdgeModifier <|-- Rampup
+    LeadingEdgeModifier <|-- Prepulse
+    ModifierStack --> LeadingEdgeModifier
+
+    class DiscriminationModifier {
+      &lt;&lt;oneof&gt;&gt;
+    }
+    class DiscNone { }
+    class LeadingEdgeTrack {
+      +bytes reserved
+    }
+    class WBLFM {
+      +double lfm_bandwidth_hz
+      +int repeat
+    }
+    DiscriminationModifier <|-- DiscNone
+    DiscriminationModifier <|-- LeadingEdgeTrack
+    DiscriminationModifier <|-- WBLFM
+    ModifierStack --> DiscriminationModifier
+
+    class PhaseModifier {
+      &lt;&lt;oneof&gt;&gt;
+    }
+    class PhaseNone { }
+    class PartialPhaseEncoded {
+      +double phase_pattern_duration_s
+    }
+    class FullPhaseEncoded {
+      +bytes reserved
+    }
+    PhaseModifier <|-- PhaseNone
+    PhaseModifier <|-- PartialPhaseEncoded
+    PhaseModifier <|-- FullPhaseEncoded
+    ModifierStack --> PhaseModifier
+  </pre>
+</div>
+<p class="diagram-caption">
+  Fig. 1 — Full nested schema. <code>&lt;&lt;oneof&gt;&gt;</code> stereotypes mark discriminated unions
+  ("valid only when a sibling enum selects this branch") — Mermaid has no native oneof primitive, so
+  each is modeled as an abstract parent with one concrete subclass per branch. Only three of the nine
+  modifier oneofs (Phase, Leading Edge, Discrimination) are expanded here for legibility; all nine follow
+  the identical None/detail branch shape (see §4 for the full set).
+</p>
+
+<div class="success">
+  <strong>Decided:</strong> identity is <code>Name</code> alone — <code>radar_id</code>/<code>mode_id</code>
+  as separate public identifiers were dropped. <code>FullPhaseEncoded</code> and <code>LeadingEdgeTrack</code>
+  carry a reserved placeholder field so a future parameter can be added without a wire break — note both
+  above. A mode's constraint envelope may have <strong>both</strong> <code>PDConstraints</code> and
+  <code>SPConstraints</code> populated at once — a mode is not restricted to one base waveform type.
+</div>
+<div class="note">
+  <strong>Phase modifier split (v3.0):</strong> the <code>CLAWE Waveform Calculations.pptx</code> deck
+  requires three phase cases, not two — the range-ambiguity zone (<code>RAZD</code>/<code>RAZ</code>) and
+  processing range switch on which one is selected: <code>None</code> → <code>RAZ = PRI</code>;
+  <code>PartialPhaseEncoded</code> → <code>RAZ = phase_pattern_duration</code>;
+  <code>FullPhaseEncoded</code> → no range ambiguity (<code>RAZ = end range</code>). The v2.x reserved
+  placeholder on <code>PhaseEncoded</code> is the wire-compatible hook this split uses.
+</div>
+
+<h3>Entity-relationship diagram — proposed SQLite tables</h3>
+
+<div class="diagram-container">
+  <pre class="mermaid">
+erDiagram
+    ClaweRadar ||--o{ ClaweRadarAlternateName : "has (max 1 per Type)"
+    ClaweRadar ||--|{ ClaweRadarMode : has
+    ClaweRadar ||--|| ClaweRadarProtoBlob : "canonical data"
+    ClaweRadarMode ||--o{ ClaweRadarModeWaveform : has
+
+    ClaweRadar {
+      long ClaweRadarPk PK
+      string Name "unique, sole external handle"
+      string Description
+      int ModeCount "cached"
+    }
+    ClaweRadarAlternateName {
+      long ClaweRadarAlternateNamePk PK
+      long ClaweRadarPk FK
+      enum Type "Nato or Elnot; unique per radar"
+      string Value
+    }
+    ClaweRadarMode {
+      long ClaweRadarModePk PK
+      long ClaweRadarPk FK
+      string Name "unique within radar"
+      enum RadarModeType
+      enum OperatingMode
+      enum OptimizationType "nullable, gated by OperatingMode=Cognitive"
+      int WaveformCount "cached"
+    }
+    ClaweRadarModeWaveform {
+      long ClaweRadarModeWaveformPk PK
+      long ClaweRadarModePk FK
+      long WaveformId "unique within mode, from 1"
+      string Name "unique within mode"
+      enum BaseWaveform "Pd, Sp, or Cw (Cw: enum only, authoring deferred)"
+    }
+    ClaweRadarProtoBlob {
+      long ClaweRadarPk PK "shared PK with ClaweRadar"
+      bytes ProtoBytes "full ClaweRadarInstance, serialized"
+      string ProtoVersion
+      enum Compression
+      bytes Sha256
+    }
+  </pre>
+</div>
+<p class="diagram-caption">
+  Fig. 2 — Recommended thin SQLite schema. Deliberately sparse next to Fig. 1: every constraint envelope
+  field and every modifier's parameters live only inside <code>ClaweRadarProtoBlob.ProtoBytes</code>,
+  never as their own columns. These tables live in CLAWE UI's <strong>own SQLite database file</strong>
+  (<code>CLAWE DB</code>), entirely separate from STS's <code>PRISM.Database</code>/<code>emitters.db</code>
+  — see §3.
+</p>
+
+<!-- ══════════════════════════════════════════════════════════════
+     3. TWO-LAYER STORAGE RATIONALE
+     ══════════════════════════════════════════════════════════════ -->
+
+<h2 id="storage">3. Two-Layer Storage Rationale</h2>
+
+<div class="success">
+  <strong>Decided:</strong> <code>CLAWE DB</code> and STS's <code>PrismDB</code> are <strong>completely
+  separate, independent databases</strong> running in two independent applications. CLAWE UI gets its own
+  <code>ClaweDbContext</code> and its own SQLite file (e.g. <code>clawe.db</code>) in its own process — not
+  a set of entities registered into STS's <code>PrismDbContext</code> alongside <code>Emitter</code>/
+  <code>TestSuite</code>/etc. The rest of this section borrows <code>PRISM.Database</code>'s
+  <em>conventions</em> for consistency and familiarity, but nothing is shared at runtime: no shared
+  connection, no shared <code>SchemaVersion</code> table, no shared PK sequence, no shared process.
+</div>
+
+<p>
+  STS's <code>PRISM.Database</code> establishes a two-layer pattern for its Emitter schema that CLAWE UI's
+  own database borrows as a design reference: a canonical protobuf blob holding the full nested object
+  graph (<code>EmitterProtoBlob</code>), plus a family of flat, EF-mapped "rollup" tables
+  (<code>EmitterModeRollup</code>, <code>EmitterModeBehaviorRollup</code>, <code>EmitterModeModulationRollup</code>)
+  that exist purely to serve range/flag filtering across a shared library tuned for
+  <span class="mono-val">1–2 million</span> emitter rows.
+</p>
+
+<div class="cross-note">
+  <strong>Why this schema is thinner:</strong> EmitterMaker filters a large, largely read-only shared
+  library it doesn't author — the rollup tables exist to answer "find emitters where PRI is between X and
+  Y" without deserializing a blob per row. The CLAWE Emitters App is its own authoring tool: the database
+  <em>is</em> the save file for a UI directly editing radars, modes, and waveforms it owns. There is no
+  bulk-import pipeline and no requirement in the deck for range/threshold filtering across a radar
+  library — the only listed UI need is a picker list (radar/mode/waveform name and type). Building a
+  full rollup layer for all nine modifier shapes now, with no filter query to validate the design against,
+  risks getting it wrong and redoing it later. The blob stays canonical either way, so adding rollup
+  tables later is <strong>additive</strong> — a new schema-update step walks the existing blobs and
+  populates new tables — not a rework of what's already there.
+</div>
+
+<p>
+  <strong>Kept from the established pattern</strong> (conventions only — nothing is actually shared at
+  runtime, per the independent-database decision above): a single protobuf blob per radar as the canonical,
+  full-fidelity, round-trippable source of truth (<code>ClaweRadarProtoBlob</code>, 1:1 shared-PK child
+  of <code>ClaweRadar</code>, mirroring <code>EmitterProtoBlob</code>); <code>long</code> surrogate
+  autoincrement primary keys named <code>&lt;Entity&gt;Pk</code>; plain C# enums stored as native SQLite
+  integers; no EF Core Migrations project — schema built procedurally in <code>ClaweDbContext.OnModelCreating</code>
+  and evolved via <code>ClaweDB</code>'s own versioned <code>ApplySchemaUpdatesAsync()</code>-style patch
+  list and its own <code>SchemaVersion</code> table.
+</p>
+<p>
+  <strong>Diverged from the established pattern:</strong> STSSE emitters carry a separate 26-char ULID
+  string as their public-facing identity, decoupled from the surrogate PK. For CLAWE UI we decided the
+  already-required-unique <code>Name</code> is sufficient as the sole external handle — no separate public
+  ID field is modeled.
+</p>
+<p>
+  <strong>Thinned from the established pattern:</strong> one summary row per radar / mode / waveform
+  (id, name, type only — enough for picker and dropdown UI, e.g. an Auto-mode schedule's WaveformID
+  selector) instead of a rollup table per queryable dimension. No behavior/modulation rollup equivalent
+  is proposed for the modifier stack.
+</p>
+
+<h3>3.1 Worked example — how a mode links back to its radar</h3>
+
+<p>
+  Slide 5 states the cardinality directly: <em>"Radar includes 0 to many radar modes."</em> That
+  one-to-many relationship is represented <strong>twice</strong>, once per storage layer, and the two
+  representations look different on purpose:
+</p>
+
+<div class="note">
+  <strong>Narrowed to 1..N (v2.2, Sep 2026):</strong> confirmed directly with the lead that
+  there is no use case for a radar with zero modes — matching STS, which effectively
+  requires <code>&gt;=1</code> mode per emitter too. The deck's own "0 to many" wording above is
+  left as a direct quote of slide 5; CLAWE's schema itself now requires at least one.
+</div>
+
+<div class="note">
+  <strong>Two representations, one relationship:</strong> in the canonical blob, a mode has no identity
+  outside its parent — it's just an element of the <code>modes</code> list inside that radar's
+  <code>ClaweRadarInstance</code> message. In the thin SQLite index, a mode <em>is</em> its own row, so it
+  needs an explicit foreign key back to the radar row it belongs to. Same relationship, expressed as
+  <strong>containment</strong> in one layer and as a <strong>key reference</strong> in the other.
+</div>
+
+<p>Concretely, for a radar with two modes:</p>
+
+<table class="fixed">
+  <thead>
+    <tr><th style="width:20%">Table</th><th>Example rows</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>ClaweRadar</code></td>
+      <td><code>ClaweRadarPk = 1</code>, <code>Name = "AN/APQ-Demo"</code>, <code>ModeCount = 2</code></td>
+    </tr>
+    <tr>
+      <td><code>ClaweRadarMode</code></td>
+      <td>
+        <code>ClaweRadarModePk = 101</code>, <code>ClaweRadarPk = 1</code>, <code>Name = "TTR Search"</code><br>
+        <code>ClaweRadarModePk = 102</code>, <code>ClaweRadarPk = 1</code>, <code>Name = "TTR Track"</code>
+      </td>
+    </tr>
+  </tbody>
+</table>
+<p class="table-footnote">
+  Both mode rows carry <code>ClaweRadarPk = 1</code> — that's the entire linkage. It's the same pattern
+  <code>EmitterModeRollup.EmitterPk</code> uses in the existing PRISM.Database schema (Fig. 2's
+  <code>ClaweRadar ||--|{ ClaweRadarMode</code> line is exactly this: "one radar has one-or-more modes,
+  each mode row points back to exactly one radar").
+</p>
+
+<p>
+  Meanwhile, inside <code>ClaweRadarProtoBlob.ProtoBytes</code> for <code>ClaweRadarPk = 1</code>, the same
+  two modes exist only as the two entries of one <code>repeated ClaweRadarModeInstance modes</code> field
+  on the single <code>ClaweRadarInstance</code> message — there's no <code>ClaweRadarPk</code> column to
+  point anywhere, because both modes are physically inside that one radar's serialized bytes. If you
+  deleted the <code>ClaweRadar</code> row, the cascade delete removes the <code>ClaweRadarMode</code> rows
+  <em>and</em> the one blob row that contains both modes' full data — nothing can be "orphaned" at the
+  blob layer the way a dangling foreign key could at the SQLite layer.
+</p>
+
+<p>
+  This is also why <code>ClaweRadarMode.Name</code> is only required to be unique <strong>per radar</strong>
+  (via the composite index on <code>(ClaweRadarPk, Name)</code>, not <code>Name</code> alone) — two
+  different radars are free to both have a mode named <code>"Search"</code>, because uniqueness is scoped
+  to the parent, exactly like the deck's own wording ("unique within a radar").
+</p>
+
+<!-- ══════════════════════════════════════════════════════════════
+     4. FIELD REFERENCE
+     ══════════════════════════════════════════════════════════════ -->
+
+<h2 id="fields">4. Field Reference</h2>
+
+<p>
+  Sourced from the requirements deck (slides 5–13, 27–32). The <strong>Legacy</strong> column
+  cross-references the existing implementation in <code>sparta/Components/libSPARTABase/.../SMDLObjects/CLAWE/</code>
+  (primarily <code>ClaweControlSettings.cs</code>) — <span class="status s-complete">Direct match</span>
+  means legacy has an equivalent field of the same shape; <span class="status s-planned">New concept</span>
+  means legacy has no equivalent at all.
+</p>
+
+<h3>4.1 ClaweRadarInstance</h3>
+
+<table class="fixed">
+  <thead>
+    <tr><th style="width:16%">Field</th><th style="width:14%">Type</th><th style="width:10%">Cardinality</th><th style="width:32%">Description</th><th>Legacy</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>Name</code></td><td>string</td><td>1</td><td>Unique within the radar database.</td><td><span class="status s-planned">New concept</span></td></tr>
+    <tr><td><code>Description</code></td><td>string</td><td>0..1</td><td>Free-text description.</td><td><span class="status s-planned">New concept</span></td></tr>
+    <tr><td><code>AlternateName</code></td><td>message</td><td>0..1 per kind</td><td>One NATO name and one ELNOT designator, at most. Mirrors STS's existing alt-name fields — verified 2026-09-02 that PRISM's EmitterMaker exposes exactly one textbox per identifier kind (and the DB enforces ELNOT uniqueness via <code>IX_Identifier_Elnot_Unique</code>). CLAWE enforces this at UI, repository, and DB (<code>IX_ClaweRadarAlternateName_OnePerKind</code>) levels. Narrows the 2026-08-18-approved "0..N"; confirmed directly by the lead (2026-09-09).</td><td><span class="status s-planned">New concept</span></td></tr>
+    <tr><td><code>Modes</code></td><td>ClaweRadarModeInstance</td><td>1..N</td><td>Radar modes belonging to this radar. A radar always has at least one — narrows the 2026-08-18-approved <code>0..N</code>, confirmed directly by the lead (2026-09-04); matches STS's own effective <code>&gt;=1</code>-mode requirement.</td><td><span class="status s-planned">New concept</span></td></tr>
+  </tbody>
+</table>
+
+<h3>4.2 ClaweRadarModeInstance</h3>
+
+<table class="fixed">
+  <thead>
+    <tr><th style="width:16%">Field</th><th style="width:14%">Type</th><th style="width:10%">Cardinality</th><th style="width:32%">Description</th><th>Legacy</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>Name</code></td><td>string</td><td>1</td><td>Unique within the parent radar.</td><td><span class="status s-planned">New concept</span></td></tr>
+    <tr><td><code>Description</code></td><td>string</td><td>0..1</td><td>Free-text description.</td><td><span class="status s-planned">New concept</span></td></tr>
+    <tr><td><code>RadarModeType</code></td><td>enum {Search, TAR, TTR, Missile}</td><td>1</td><td>Only TTR is initially planned/supported.</td><td><span class="status s-planned">New concept</span> (closest: <code>RADAR_BW</code> is a bandwidth selector, not a mode identity)</td></tr>
+    <tr><td><code>OperatingMode</code></td><td>enum {Manual, Auto, Cognitive}</td><td>1</td><td>Manual = operator-in-the-loop. Auto/Cognitive require no operator intervention.</td><td><span class="status s-planned">New concept</span> (legacy <code>UI_MODE</code> governs UI behavior, not radar identity)</td></tr>
+    <tr><td><code>Auto.Schedule</code></td><td>WaveformID + Duration_s</td><td>0..N</td><td>Repeating waveform schedule; Duration_s=0 means play once.</td><td><span class="status s-planned">New concept</span></td></tr>
+    <tr><td><code>Cognitive.OptimizationType</code></td><td>enum {Learning, Speed}</td><td>1 (if Cognitive)</td><td>Learning interrogates fully before settling; Speed settles as soon as jamming is defeated.</td><td><span class="status s-planned">New concept</span></td></tr>
+    <tr><td><code>CFConstraintType</code></td><td>enum {Range, Discretes}</td><td>1</td><td>Range optionally Channelized (ChanSpacing_hz). Discretes lists allowed center frequencies.</td><td><span class="status s-planned">New concept</span> (legacy uses hardcoded discrete lookup tables, not parametric ranges)</td></tr>
+    <tr><td><code>&nbsp;&nbsp;Range.MinFreq_hz</code></td><td>double (<code>CFRange.min_hz</code>)</td><td>1 (Range)</td><td>Lowest allowed carrier frequency.</td><td><span class="status s-planned">New concept</span></td></tr>
+    <tr><td><code>&nbsp;&nbsp;Range.MaxFreq_hz</code></td><td>double (<code>CFRange.max_hz</code>)</td><td>1 (Range)</td><td>Highest allowed carrier frequency.</td><td><span class="status s-planned">New concept</span></td></tr>
+    <tr><td><code>&nbsp;&nbsp;Range.Channelized</code></td><td>bool (<code>CFRange.channelized</code>)</td><td>0..1</td><td>If true, the range is divided into evenly spaced channels and a waveform's CF must be at a channel centre.</td><td><span class="status s-planned">New concept</span></td></tr>
+    <tr><td><code>&nbsp;&nbsp;Range.ChanSpacing_hz</code></td><td>double (<code>CFRange.chan_spacing_hz</code>)</td><td>0..1</td><td>Channel spacing; meaningful only when <code>Channelized</code>.</td><td><span class="status s-planned">New concept</span></td></tr>
+    <tr><td><code>&nbsp;&nbsp;Discretes.Frequency_hz</code></td><td>repeated double (<code>CFDiscretes.freqs_hz</code>)</td><td>0..N (Discretes)</td><td>The allowed center frequencies, one per entry.</td><td><span class="status s-planned">New concept</span></td></tr>
+    <tr><td><code>MaxDutyCycle_percent</code></td><td>double</td><td>1</td><td>If exceeded, radar blanks to reduce duty cycle to comply.</td><td><span class="status s-planned">New concept</span> (legacy: discrete duty-cycle dropdown, not a constraint field)</td></tr>
+    <tr><td><code>CPIDurationType</code></td><td>enum {Fixed, Variable}</td><td>1</td><td>Fixed carries Duration_s; Variable gives each waveform its minimum required duration.</td><td><span class="status s-planned">New concept</span></td></tr>
+    <tr><td><code>&nbsp;&nbsp;Fixed.Duration_s</code></td><td>double (<code>CPIDurationConstraint.duration_s</code>)</td><td>1 (Fixed)</td><td>Waveform instances cannot exceed this duration; blanking is inserted for shorter ones.</td><td><span class="status s-planned">New concept</span></td></tr>
+    <tr><td><code>PDConstraints</code></td><td>message</td><td>0..1</td><td>Present iff PD waveforms are allowed. Carries <code>pri_kind</code>/<code>pw_kind</code> selectors, a <code>PriConstraint</code> (<code>PriRange</code> min/max <em>or</em> <code>PriDiscretes</code> list — same Range/Discretes shape as <code>CFConstraint</code>, <strong>v3.1</strong>), a <code>PwConstraint</code> (<code>PwRange</code> min/max <em>or</em> <code>PwDutyCycle</code> percent, <strong>v3.1</strong>), and <code>PDAllowedModifiers</code>. <strong>May be populated together with SPConstraints.</strong></td><td><span class="status s-planned">New concept</span></td></tr>
+    <tr><td><code>&nbsp;&nbsp;PRIType</code></td><td>enum {Range, Discretes} (<code>PDConstraints.pri_kind</code>)</td><td>1</td><td>Selects the shape of the PRI constraint (<code>PDConstraints.pri</code>).</td><td><span class="status s-planned">New concept</span></td></tr>
+    <tr><td><code>&nbsp;&nbsp;&nbsp;&nbsp;Range.MinPRI_s</code></td><td>double (<code>PriRange.min_s</code>)</td><td>1 (Range)</td><td>Smallest allowed PRI.</td><td><span class="status s-planned">New concept</span></td></tr>
+    <tr><td><code>&nbsp;&nbsp;&nbsp;&nbsp;Range.MaxPRI_s</code></td><td>double (<code>PriRange.max_s</code>)</td><td>1 (Range)</td><td>Largest allowed PRI.</td><td><span class="status s-planned">New concept</span></td></tr>
+    <tr><td><code>&nbsp;&nbsp;&nbsp;&nbsp;Discretes.PRI_s</code></td><td>repeated double (<code>PriDiscretes.pri_s</code>)</td><td>0..N (Discretes)</td><td>The allowed PRIs, one per entry.</td><td><span class="status s-planned">New concept</span></td></tr>
+    <tr><td><code>&nbsp;&nbsp;PWType</code></td><td>enum {Range, DutyCycle} (<code>PDConstraints.pw_kind</code>)</td><td>1</td><td>Selects the shape of the PW constraint (<code>PDConstraints.pw</code>).</td><td><span class="status s-planned">New concept</span></td></tr>
+    <tr><td><code>&nbsp;&nbsp;&nbsp;&nbsp;Range.MinPW_s</code></td><td>double (<code>PwRange.min_s</code>)</td><td>1 (Range)</td><td>Smallest allowed PW.</td><td><span class="status s-planned">New concept</span></td></tr>
+    <tr><td><code>&nbsp;&nbsp;&nbsp;&nbsp;Range.MaxPW_s</code></td><td>double (<code>PwRange.max_s</code>)</td><td>1 (Range)</td><td>Largest allowed PW.</td><td><span class="status s-planned">New concept</span></td></tr>
+    <tr><td><code>&nbsp;&nbsp;&nbsp;&nbsp;DutyCycle.DutyCycle_percent</code></td><td>double (<code>PwDutyCycle.duty_cycle_percent</code>)</td><td>1 (DutyCycle)</td><td>Required duty cycle for a pulsed waveform. Example: 20 % at a 10 &micro;s PRI gives a 2 &micro;s PW.</td><td><span class="status s-planned">New concept</span></td></tr>
+    <tr><td><code>SPConstraints</code></td><td>message</td><td>0..1</td><td>Present iff SP waveforms are allowed. <code>PwConstraint</code> is Range only (SP has no PRI or duty cycle). <code>SPAllowedModifiers</code> omits PRI/PW/TrailingEdge and adds Amplitude. <strong>May be populated together with PDConstraints.</strong></td><td><span class="status s-planned">New concept</span></td></tr>
+    <tr><td><code>&nbsp;&nbsp;PWType</code></td><td>enum {Range} (<code>SPConstraints.pw_kind</code>)</td><td>1</td><td>Single pulse allows a PW range only (<code>SPConstraints.pw</code>).</td><td><span class="status s-planned">New concept</span></td></tr>
+    <tr><td><code>&nbsp;&nbsp;&nbsp;&nbsp;Range.MinPW_s / MaxPW_s</code></td><td>double (<code>PwRange.min_s</code> / <code>.max_s</code>)</td><td>1 (Range)</td><td>Smallest and largest allowed single-pulse PW.</td><td><span class="status s-planned">New concept</span></td></tr>
+    <tr><td><code>{PD,SP}AllowedModifiers</code></td><td>message</td><td>1</td><td><strong>v3.1: was <code>repeated ModifierType allowed_modifiers</code> (flat category list).</strong> Now one repeated sub-type enum per category — deck slide 9 lists the permitted sub-types under each category node (e.g. <code>PRIModifier { BaseAgile, RandomAgile }</code>), so the author selects sub-types, not just categories. Enums (<code>PhaseModifierType</code>, <code>PriModifierType</code>, …) are shared with the §4.4 per-waveform modifier stack.</td><td><span class="status s-planned">New concept</span></td></tr>
+    <tr><td><code>Waveforms</code></td><td>ClaweWaveformInstance</td><td>0..N</td><td>Waveform instances authored under this mode.</td><td><span class="status s-planned">New concept</span></td></tr>
+  </tbody>
+</table>
+
+<h3>4.3 ClaweWaveformInstance</h3>
+
+<table class="fixed">
+  <thead>
+    <tr><th style="width:16%">Field</th><th style="width:14%">Type</th><th style="width:10%">Cardinality</th><th style="width:32%">Description</th><th>Legacy</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>WaveformID</code></td><td>uint32</td><td>1</td><td>Unique within the parent mode. Assigned automatically as the lowest unused ID, <strong>starting at 1</strong> — 0 is proto3's unset value, so it never names a waveform (a schedule entry with ID 0 names none).</td><td><span class="status s-complete">Direct match</span> (<code>ClaweWaveformDefinition.WaveformID</code> — but legacy semantics = runtime-assigned int, not a catalog key)</td></tr>
+    <tr><td><code>Name</code></td><td>string</td><td>1</td><td>Unique within the parent mode.</td><td><span class="status s-planned">New concept</span></td></tr>
+    <tr><td><code>Description</code></td><td>string</td><td>0..1</td><td>Free-text description.</td><td><span class="status s-planned">New concept</span></td></tr>
+    <tr><td><code>RangeResolution_s</code></td><td>double</td><td>0..1</td><td>Optional; default used if missing (typ. 100–400 ns).</td><td><span class="status s-planned">New concept</span></td></tr>
+    <tr><td><code>NumPulses</code></td><td>uint32</td><td>0..1</td><td><strong>New in v3.0.</strong> PD only. Number of pulses actually transmitted in the waveform. Defaults to the FFT size (1024). May be set lower to shorten CPI duration at the cost of waveform-compression processing gain (nonideal effect <code>10·log10(NumPulses / FFTSize)</code> per the calc deck). Distinct from <code>WaveformCompression</code>'s fixed 1024-pt FFT. On the wire, 0 (unset) means "use the FFT size"; the editor shows it as 1024.</td><td><span class="status s-planned">New concept</span> (legacy always transmits <code>FFTSize</code> pulses)</td></tr>
+    <tr><td><code>CenterFreqType</code></td><td>enum {Fixed, Random}</td><td>1</td><td>Random respects mode constraints; optional ClearChan bool picks freq by measured noise.</td><td><span class="status s-planned">New concept</span></td></tr>
+    <tr><td><code>WaveformCompression</code></td><td>message {<code>fft_size</code>, <code>compression_db</code>}</td><td>1</td><td>Fixed at 30 dB / 1024-pt FFT for now; the editor always writes those two constants.</td><td><span class="status s-review">Partial match</span> (legacy <code>ProcessingGain</code> is selectable, 27/30/33 dB → 512/1,024/2,048-pt FFT — see OQ-15)</td></tr>
+    <tr><td><code>BaseWaveform</code></td><td>enum {PD, SP, CW}</td><td>1</td><td>Determines which PD-only/SP-only fields apply. <strong><code>CW</code> added in v3.0</strong> for the interface-B <code>WaveformType</code> vocabulary — <strong>CW authoring (its parameter and modifier set) is out of scope for v1</strong>; no deck specifies it. The value exists so the wire format is stable when CW support lands. "PD" is surfaced in the UI as "Pulsed" to match the newer deck vocabulary.</td><td><span class="status s-review">Structural match</span> (legacy expresses PD/SP via subclassing: <code>ClaweWaveformDefinitionForPD</code>/<code>ForSP</code>, not a field; no CW)</td></tr>
+    <tr><td><code>CF_hz</code></td><td>double (<code>cf_hz</code>)</td><td>0..1</td><td><strong>Added in v3.3.</strong> The center frequency when <code>CenterFreqType</code> = Fixed. Must fall inside the mode's carrier-frequency range (at a channel centre when channelized) or be one of its discretes. Unset when Random.</td><td><span class="status s-planned">New concept</span></td></tr>
+    <tr><td><code>BasePRI_s</code></td><td>double (<code>base_pri_s</code>)</td><td>0..1 (PD only)</td><td><strong>Added in v3.3.</strong> The PRI when <code>PRIType</code> = Fixed. Must fall inside the mode's PRI range or be one of its discretes.</td><td><span class="status s-planned">New concept</span></td></tr>
+    <tr><td><code>BasePW_s</code></td><td>double (<code>base_pw_s</code>)</td><td>0..1</td><td><strong>Added in v3.3.</strong> The PW when <code>PWType</code> = Fixed (PD), and always for SP, which has no other PW (the deck: SP is always Fixed). Must fall inside the mode's PD or SP PW range. A mode that sets PW by duty cycle needs waveforms set to DutyCycle.</td><td><span class="status s-planned">New concept</span></td></tr>
+    <tr><td><code>PRIType</code> / <code>PWType</code></td><td>enum <code>WaveformPriType</code> {Fixed, Random} / <code>WaveformPwType</code> {Fixed, DutyCycle}</td><td>1 (PD only)</td><td>How this waveform picks its PRI / PW. (The deck has no Random PW type; the enum keeps a retired <code>RANDOM</code> value so old blobs parse, read as Fixed.) Deliberately separate enums from the mode-level <code>PriKind</code> / <code>PwKind</code>, which describe the constraint's shape (Range vs. Discretes), not the waveform's choice.</td><td><span class="status s-planned">New concept</span></td></tr>
+    <tr><td><code>RDIIntegration</code></td><td>enum {None,2,4,8,16,32,64}</td><td>1 (PD only)</td><td>Integrating multiple RDI maps improves SNR at the cost of range/velocity resolution.</td><td><span class="status s-planned">New concept</span></td></tr>
+  </tbody>
+</table>
+
+<h3>4.4 Modifier stack (all nine, each independently toggleable)</h3>
+
+<table class="fixed">
+  <thead>
+    <tr><th style="width:16%">Modifier</th><th style="width:20%">Branches</th><th style="width:10%">Applies to</th><th style="width:28%">Key parameters</th><th>Legacy</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>PhaseModifier</code></td><td>None, PartialPhaseEncoded, FullPhaseEncoded</td><td>PD + SP</td><td><strong>Split in v3.0</strong> (was None / PhaseEncoded). <code>PartialPhaseEncoded</code> carries <code>phase_pattern_duration</code> — a repeating random phase pattern (the range-ambiguity zone equals the pattern duration). <code>FullPhaseEncoded</code> — every pulse/subpulse at a random phase, removing range ambiguity entirely; carries the reserved placeholder for a future parameter. Drives <code>RAZD</code>/<code>RAZ</code>/processing-range in the calc engine.</td><td><span class="status s-review">Partial match</span> (legacy <code>PhaseModifier</code> has one "Phase Encoded" state, which already behaves as Full on PD and as Partial on SP; the split makes it a choice)</td></tr>
+    <tr><td><code>FrequencyModifier</code></td><td>None, SpreadSpectrum</td><td>PD + SP</td><td>ChannelSpread, SubchannelSpread (bool); SpreadBW1/2 {10,20,30,40,50 MHz}; SidelobeDetection {None, R1–4, L1–4} (proto <code>SIDELOBE_DETECTION_RIGHT_1</code> … <code>LEFT_4</code>)</td><td><span class="status s-complete">Direct match</span> (legacy <code>FreqModifier</code> "Spread Spectrum", same parameters and bandwidths; legacy makes sidelobe detection a separate option rather than a setting)</td></tr>
+    <tr><td><code>PulseCompressionModifier</code></td><td>None, PSK16 (12 dB), Barker13 (11 dB), LFM (12 dB)</td><td>PD + SP</td><td>LFM: LFMBandwidth_hz</td><td><span class="status s-review">Nearest match</span> — legacy <code>BandwidthModifier</code> ("BW Spread": random PSK/BPSK at 5–15 MHz) is intra-pulse phase coding, i.e. pulse compression, despite its name; the fixed codes and LFM are new</td></tr>
+    <tr><td><code>PRIModifier</code></td><td>None, BaseAgile, RandomAgile</td><td>PD only</td><td>BaseAgile: DropRate_percent 25–75%. RandomAgile: Agility_percent 0–75%.</td><td><span class="status s-complete">Direct match</span> (<code>PRIBaseAgile</code>/<code>PRIRandomAgile</code>)</td></tr>
+    <tr><td><code>PWModifier</code></td><td>None, RandomAgile</td><td>PD only</td><td>Agility_percent 0–50%.</td><td><span class="status s-complete">Direct match</span> (<code>PWRandomAgile</code>)</td></tr>
+    <tr><td><code>AmplitudeModifier</code></td><td>None, Chop</td><td>SP only</td><td>DutyCycle_percent 25–75%, MaxOnTime_s, IncreaseDutyCycleBeforeTargetRange (bool)</td><td><span class="status s-complete">Direct match</span> (<code>AmpChop</code> — legacy's only amp modifier)</td></tr>
+    <tr><td><code>LeadingEdgeModifier</code></td><td>None, Rampup, Prepulse</td><td>PD + SP</td><td>Rampup: RampTime_s 0.25–2 µs. Prepulse: PW_s 0.25–1 µs, Gap_s 0–0.5 µs, FreqType {Stable,Random}, FreqOffset_hz, ApplyFreqMods (bool).</td><td><span class="status s-complete">Direct match</span> (<code>LERampup</code>/<code>LEPrepulse</code>)</td></tr>
+    <tr><td><code>TrailingEdgeModifier</code></td><td>None, Postpulse</td><td>PD only</td><td>Same shape as Prepulse.</td><td><span class="status s-complete">Direct match</span> (<code>TEPostpulse</code>)</td></tr>
+    <tr><td><code>DiscriminationModifier</code></td><td>None, LeadingEdgeTrack, WBLFM</td><td>PD + SP</td><td>WBLFM: LFMBandwidth_hz 0–2 GHz, Repeat 1–4. <code>LeadingEdgeTrack</code> carries a reserved placeholder field, no functional params yet.</td><td><span class="status s-review">Partial match</span> — legacy implements <code>DiscriminationWBLFM</code> only; <code>LeadingEdgeTrack</code> is an enum stub with no data class in legacy. Legacy also offers a PD "Scintillation Detect" option the deck omits (OQ-15).</td></tr>
+  </tbody>
+</table>
+<p class="table-footnote">Total: <strong>9 modifier categories</strong>, every one with a legacy counterpart. Field-by-field detail, including where legacy pick-list values fall outside the deck's ranges: <code>CLAWE_Legacy_Reconciliation.md</code>.</p>
+
+<h4>Proto identifiers (as shipped in iteration 3)</h4>
+<p>Each modifier is a message with a <code>oneof selection</code>; an unset selection means None.</p>
+<table class="fixed">
+  <thead>
+    <tr><th style="width:26%">Message</th><th>Branches (<code>oneof selection</code>) and their messages</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><code>PhaseModifier</code></td><td><code>partial</code> → <code>PartialPhaseEncoded{phase_pattern_duration_s}</code>; <code>full</code> → <code>FullPhaseEncoded{}</code></td></tr>
+    <tr><td><code>FrequencyModifier</code></td><td><code>spread_spectrum</code> → <code>SpreadSpectrum{channel_spread, subchannel_spread, spread_bw1_hz, spread_bw2_hz, sidelobe_detection}</code></td></tr>
+    <tr><td><code>PulseCompressionModifier</code></td><td><code>psk16</code> → <code>Psk16Compression{}</code>; <code>barker13</code> → <code>Barker13Compression{}</code>; <code>lfm</code> → <code>LfmCompression{lfm_bandwidth_hz}</code></td></tr>
+    <tr><td><code>PriModifier</code></td><td><code>base_agile</code> → <code>BaseAgilePri{drop_rate_percent}</code>; <code>random_agile</code> → <code>RandomAgilePri{agility_percent}</code></td></tr>
+    <tr><td><code>PwModifier</code></td><td><code>random_agile</code> → <code>RandomAgilePw{agility_percent}</code></td></tr>
+    <tr><td><code>AmplitudeModifier</code></td><td><code>chop</code> → <code>ChopAmplitude{duty_cycle_percent, max_on_time_s, increase_duty_cycle_before_target_range}</code></td></tr>
+    <tr><td><code>LeadingEdgeModifier</code></td><td><code>rampup</code> → <code>Rampup{ramp_time_s}</code>; <code>prepulse</code> → <code>Prepulse{pw_s, gap_s, freq_type, freq_offset_hz, apply_freq_mods}</code></td></tr>
+    <tr><td><code>TrailingEdgeModifier</code></td><td><code>postpulse</code> → <code>Postpulse{…}</code> (same fields as <code>Prepulse</code>)</td></tr>
+    <tr><td><code>DiscriminationModifier</code></td><td><code>leading_edge_track</code> → <code>LeadingEdgeTrackDiscrimination{}</code>; <code>wblfm</code> → <code>WblfmDiscrimination{lfm_bandwidth_hz, repeat}</code></td></tr>
+  </tbody>
+</table>
+<p class="table-footnote">Shared enums: <code>EdgeFreqType</code> {Stable, Random} (Prepulse / Postpulse), <code>SidelobeDetection</code>, <code>CenterFreqType</code>, <code>WaveformPriType</code>, <code>WaveformPwType</code>, <code>RDIIntegration</code> {None, 2 … 64}. Fields the deck leaves unbounded are checked <code>≥ 0</code> only, pending OQ-15.</p>
+
+<h3>4.5 Derived projections (not stored)</h3>
+
+<p>
+  Two projections are computed from the canonical model and never persisted as their own entities:
+</p>
+
+<table class="fixed">
+  <thead>
+    <tr><th style="width:20%">Projection</th><th style="width:16%">Consumed by</th><th>Derivation</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>ClaweRadarSummary</code></td>
+      <td>Interface B — <code>RequestRadars()</code> response</td>
+      <td>A flattened, rolled-up view of a radar and its modes for STS's Add-Emitter picker — radar/mode
+        identity plus per-mode <code>WaveformType[]</code> {Pulsed, Single&nbsp;Pulse, CW},
+        <code>MinFreq/MaxFreq</code>, <code>MinPRI/MaxPRI</code>, <code>MinPW/MaxPW</code>, and
+        <code>ModulationType[]</code> (a 6-value subset of the modifier categories). Deliberately carries
+        <strong>no</strong> <code>ClaweWaveformInstance</code> detail. Field list and rollup rules:
+        <a href="CLAWE_Interface_B.html">Interface B design §5</a>.</td>
+    </tr>
+    <tr>
+      <td>Waveform calc rollup</td>
+      <td>Waveform Summary Screen; Waveform browser filters</td>
+      <td>Scalar metrics per waveform (CPI duration, processing gain, eclipsing fraction, range/velocity
+        ambiguity zone size + count) plus min/max freq/PRI/PW and modulation-type flags, computed by the
+        <code>CLAWE.Calc</code> engine from the waveform + its mode's envelope + fixed scenario
+        assumptions. Cached in a <code>ClaweWaveformCalcRollup</code> table (added by an <em>additive</em>
+        schema-update that walks existing blobs — the blob format is unchanged), so the browser filters
+        thousands of waveforms without deserializing a blob per row. Formulas: <code>CLAWE Waveform
+        Calculations.pptx</code>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="cross-note">
+  <strong>Why these are not in the blob:</strong> both are functions of data already in the canonical
+  model (plus, for the calc rollup, a set of fixed scenario assumptions that live in code, not the
+  schema). Storing them would create a second source of truth to keep in sync on every edit. They are
+  recomputed on write and cached only where a query needs them — the same "rollup tables are additive"
+  reasoning in §3.
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════
+     5. CHANGELOG
+     ══════════════════════════════════════════════════════════════ -->
+
+<h2 id="changelog">5. Changelog</h2>
+
+<div class="changelog">
+  <div class="entry">
+    <div class="date">September 2026 — v3.3</div>
+    <div class="detail">Closes a gap found in the lead's v0.3.0 review: the deck's waveform instance (slide 12)
+      carries the values behind its Fixed choices, which this schema had dropped.
+      <ul>
+        <li><strong>Added</strong> <code>CF_hz</code>, <code>BasePRI_s</code> and <code>BasePW_s</code> to the
+          waveform table (proto fields 22–24, additive; a v3.2 blob still parses with them unset).</li>
+        <li><code>WaveformPwType</code> is {Fixed, DutyCycle} as in the deck; the <code>Random</code> value
+          stays in the enum only so old blobs parse.</li>
+        <li>Spread BW 1 / 2 can be None (0), as slide 12 lists.</li>
+        <li>&sect;4.2 now has a field-level row for every carrier-frequency, CPI, PRI and PW constraint parameter the deck names (<code>MinFreq_hz</code>, <code>MaxFreq_hz</code>, <code>Frequency_hz</code>, <code>MinPRI_s</code>, <code>MaxPRI_s</code>, <code>PRI_s</code>, <code>MinPW_s</code>, <code>MaxPW_s</code>, <code>DutyCycle_percent</code>, <code>Duration_s</code>); they were only described at message level.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="entry">
+    <div class="date">September 2026 — v3.2</div>
+    <div class="detail">Synced with the waveform schema as iteration 3 (v0.3.0) shipped it. No approved field
+      changed; this records the concrete proto shape and corrects the legacy column.
+      <ul>
+        <li><strong>Proto identifiers</strong> for all nine modifiers and their branches are now listed under
+          §4.4, along with the waveform-level enums (<code>WaveformPriType</code> / <code>WaveformPwType</code>,
+          separate from the mode's <code>PriKind</code> / <code>PwKind</code>) and
+          <code>WaveformCompression</code>'s two constant fields.</li>
+        <li><strong>Waveform IDs start at 1</strong>; 0 is proto3's unset value and never names a waveform.
+          <code>NumPulses</code> 0 on the wire means "use the FFT size".</li>
+        <li><strong><code>SidelobeDetection</code></strong> carries the deck's nine choices (None, R1–R4,
+          L1–L4). The first iteration-3 proto shipped a 2-value placeholder; it now matches this table.</li>
+        <li><strong>Legacy column corrected</strong> after a pass over the legacy code
+          (<code>CLAWE_Legacy_Reconciliation.md</code>, resolving <code>DESIGN.md</code> OQ-5).
+          <ul>
+            <li>Legacy "Bandwidth Modifier" is intra-pulse phase coding, so it's the nearest match to
+              Pulse Compression. It was previously filed under Frequency, with Pulse Compression listed
+              as having no legacy counterpart.</li>
+            <li>Legacy's single Phase state already behaves as Full on PD and as Partial on SP.</li>
+          </ul></li>
+        <li>The <code>ClaweRadarModeWaveform</code> index row's name is unique within its mode (schema
+          update v5).</li>
+      </ul></div>
+  </div>
+  <div class="entry">
+    <div class="date">September 2026 — v3.1</div>
+    <div class="detail">Aligned the mode constraint envelope with <strong>Requirements deck slide 9</strong>
+      after the lead's v0.2.0 review:
+      <ul>
+        <li><strong>PRI / PW constraint detail.</strong> New <code>PriConstraint</code>
+          (<code>PriRange</code> min/max <em>or</em> <code>PriDiscretes</code> list) and
+          <code>PwConstraint</code> (<code>PwRange</code> min/max <em>or</em> <code>PwDutyCycle</code>
+          percent) on <code>PDConstraints</code>; SP gets a Range-only <code>PwConstraint</code>. Same
+          Range/Discretes shape the deck already uses for carrier frequency.</li>
+        <li><strong>Per-category allowed-modifier sub-types.</strong>
+          <code>repeated ModifierType allowed_modifiers</code> (a flat list of the eight category
+          names) is replaced by <code>PDAllowedModifiers</code> / <code>SPAllowedModifiers</code> —
+          one repeated sub-type enum per category (<code>PhaseModifierType</code>,
+          <code>PriModifierType</code>, …). Deck slide 9 spells out the permitted sub-types under each
+          category, so the author selects, e.g., <em>Base Agile</em> and/or <em>Random Agile</em>
+          individually. The sub-type enums are shared with the §4.4 per-waveform modifier stack.</li>
+      </ul>
+      Not wire-compatible with the v0.2.0 draft blob (field 3 of <code>PDConstraints</code> changed
+      from packed-enum to message); v0.2.0 was unreleased and dev DBs were reset. All changes land in
+      the iteration-2 <code>v0.2.1</code> build.</div>
+  </div>
+  <div class="entry">
+    <div class="date">September 2026 — v3.0</div>
+    <div class="detail">Folded in the changes required by the <code>CLAWE Waveform Calculations.pptx</code>
+      deck (2026-09-08), which introduces a Waveform Summary Screen driven by a new calculation engine:
+      <ul>
+        <li><strong>Phase modifier split</strong> — <code>{None, PhaseEncoded}</code> becomes
+          <code>{None, PartialPhaseEncoded, FullPhaseEncoded}</code>. <code>PartialPhaseEncoded</code>
+          carries <code>phase_pattern_duration</code>. The range-ambiguity and processing-range formulas
+          switch on which case is selected, so two states are not enough. Uses the wire-compatible
+          reserved placeholder added to <code>PhaseEncoded</code> in v1.1.</li>
+        <li><strong><code>NumPulses</code></strong> added to <code>ClaweWaveformInstance</code> (§4.3),
+          distinct from <code>WaveformCompression</code>'s fixed 1024-pt FFT — a waveform may transmit
+          fewer pulses than the FFT size to shorten CPI duration at a processing-gain cost.</li>
+        <li><strong><code>BaseWaveform += CW</code></strong> — enum value only, so the interface-B
+          <code>WaveformType</code> vocabulary {Pulsed, Single Pulse, CW} has a stable wire form. CW
+          authoring (parameters, modifier set) is out of scope for v1 — undefined by any deck.</li>
+        <li>New §4.5 documents <code>ClaweRadarSummary</code> and the waveform calc rollup as
+          <em>derived</em> projections, not stored entities.</li>
+      </ul>
+      All three field changes are additive proto3 fields — existing <code>clawe-v1</code> blobs
+      deserialize with defaults and re-serialize as <code>clawe-v2</code> on next save. The nine-modifier
+      stack and PD/SP fields are still being written into the proto in iteration 3; these changes land as
+      part of that work, not as a retrofit.</div>
+  </div>
+  <div class="entry">
+    <div class="date">September 2026 — v2.2</div>
+    <div class="detail">Narrowed <code>ClaweRadarInstance</code>&lt;-&gt;<code>ClaweRadarModeInstance</code> cardinality from <code>0..N</code> to <code>1..N</code> — a radar always has at least one mode. Confirmed directly with the lead: there is no use case for a modeless radar, matching STS, which effectively requires <code>&gt;=1</code> mode per emitter too (its proto states "Required (&gt;=1)"; EmitterMaker seeds a first mode on create and blocks deleting the last one). CLAWE enforces the same end to end: <code>RadarListViewModel.SaveSelectedRadarAsync</code> seeds a default mode (<code>DefaultRadarMode.Create()</code>) right after creating a new radar; <code>RadarModeRepository.DeleteModeAsync</code> refuses to remove a radar's last mode; a schema-update (v4) seeds a default mode into any radar left over from before this change with zero. The lead confirmed this narrowing directly.</div>
+  </div>
+  <div class="entry">
+    <div class="date">September 2026 — v2.1</div>
+    <div class="detail">Narrowed <code>AlternateName</code> cardinality from <code>0..N</code> to <code>0..1 per kind</code> — a radar has at most one NATO name and one ELNOT. This follows from the existing "UI mirrors STS's existing alt-name fields" note: verified 2026-09-02 that PRISM's EmitterMaker exposes exactly one textbox per identifier kind across all three editor tiers, backed by single-value wrapper properties and (for ELNOT) a partial unique DB index. CLAWE enforces the same at UI, repository (<code>SetAlternateNameAsync</code> upsert), and DB (<code>IX_ClaweRadarAlternateName_OnePerKind</code> unique on <code>(ClaweRadarPk, Type)</code>) levels. The <code>repeated ClaweAlternateName</code> proto field is unchanged (mirrors STS's <code>repeated Identifier</code>). This narrows the schema that was approved as-is on 2026-08-18; the lead confirmed the narrowing on 2026-09-09.</div>
+  </div>
+  <div class="entry">
+    <div class="date">August 2026 — v2.0</div>
+    <div class="detail">Refreshed for the corrected project scope: CLAWE UI is a standalone application, not a PRISM plugin. Reworded every PRISM/PRISM.Database reference throughout the document to read as a design-pattern reference only — CLAWE DB is its own independent SQLite database in its own process, sharing no connection, schema, or PK sequence with PrismDB. Removed the "Open Questions" section and its inline "(open question N)"/"(decided)" annotations now that all 9 prior questions are resolved and folded directly into the schema as stated fact; the resolution history remains available in prior versions of this document if needed. Status moved from In Review to Approved, reflecting the 2026-08-18 meeting's sign-off on the schema as-is.</div>
+  </div>
+  <div class="entry">
+    <div class="date">August 2026 — v1.2</div>
+    <div class="detail">Schema had its initial review and looked good, status moved to In Review. Resolved the last open question (plugin/DbContext ownership): ClaweDB and PrismDB will be completely separate, independent databases — CLAWE gets its own ClaweDbContext and SQLite file, not entities registered into the shared PrismDbContext. All 9 open questions were decided as of this version. This version was the reference for the design-walkthrough meeting.</div>
+  </div>
+  <div class="entry">
+    <div class="date">August 2026 — v1.1</div>
+    <div class="detail">Applied decisions on 8 of 9 open questions: list-of-enum for AllowedModifiers; WaveformID stays per-mode; kept the deck's single FrequencyModifier/SpreadSpectrum as-is; added reserved placeholder fields to PhaseEncoded and LeadingEdgeTrack; confirmed PDConstraints and SPConstraints may coexist on one mode; dropped radar_id/mode_id in favor of Name as the sole identity; kept WaveformCompression modeled; confirmed no near-term filtering requirement. The plugin/DbContext-ownership question remained open.</div>
+  </div>
+  <div class="entry">
+    <div class="date">August 2026 — v1.0</div>
+    <div class="detail">Initial schema design draft for discussion — proto message shape, thin SQLite table proposal, field reference cross-referenced against legacy CLAWE code, and 9 open questions.</div>
+  </div>
+</div>
+
+<script src="lib/mermaid.min.js"></script>
+<script src="lib/mermaid-init.js"></script>
+<script src="lib/lightbox.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,46 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="common.css"><script src="common.js"></script></head><body>
+<div class="win">
+  <div class="ribbon">MOCKUP · ITERATION 9 · NOT BUILT YET</div>
+  <div class="title"><div class="logo"></div><b>CLAWE Controller</b><span style="color:var(--t3)">— Radar editor</span><span class="ctl">— ▢ ✕</span></div>
+  <div class="band" style="padding:10px 20px"><b style="font-size:15px">AN/APQ-Demo</b><span style="color:var(--t3)">›</span><span class="pill">TTR Track</span><span class="pill">Mode 2</span><span style="color:var(--t3)">›</span><span class="pill sel">Waveforms</span><span class="pill">Constraints</span></div>
+  <div class="body" style="padding:12px;gap:12px">
+    <div class="card" style="width:230px"><div class="hdr">Waveforms <span class="u">(6)</span></div><table><tr><td>Track-1 fixed</td></tr><tr class="sel"><td>Track-3 spread</td></tr><tr><td>Track-2 PRI agile</td></tr><tr><td>Track-4 barker</td></tr><tr><td>Burst-1</td></tr><tr><td>Burst-2 chopped</td></tr></table></div>
+    <div class="card" style="width:430px;display:flex;flex-direction:column;gap:10px"><div class="hdr">Track-3 spread</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px"><div><div class="lbl">Center freq</div><div class="field">9.25 GHz</div></div><div><div class="lbl">Base PRI</div><div class="field">80 µs</div></div><div><div class="lbl">Base PW</div><div class="field">2.0 µs</div></div></div>
+      <div class="hdr" style="margin-top:6px">Modifiers</div>
+      <div style="display:grid;grid-template-columns:110px 1fr;row-gap:9px;align-items:center;color:var(--t2)">
+        <span>FREQUENCY</span><div class="seg"><span>None</span><span class="on">Spread spectrum</span></div>
+        <span>PULSE COMP.</span><div class="seg"><span>None</span><span>PSK16</span><span class="on">Barker13</span><span>LFM</span></div>
+        <span>LEADING EDGE</span><div class="seg"><span>None</span><span>Rampup</span><span class="on">Prepulse</span></div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div><div class="lbl">Spread BW 1</div><div class="field">30 MHz</div></div><div><div class="lbl">Sidelobe</div><div class="field">Left 2</div></div>
+        <div><div class="lbl">Prepulse PW</div><div class="field">0.5 µs</div></div><div><div class="lbl">Prepulse gap</div><div class="field">0.2 µs</div></div></div></div>
+    <!-- preview: several coordinated views -->
+    <div style="flex:1;display:flex;flex-direction:column;gap:12px;min-width:0">
+      <div class="card" style="flex:1;display:flex;flex-direction:column"><div class="hdr" style="display:flex">Pulse detail — first 6 pulses<span style="margin-left:auto;text-transform:none;letter-spacing:0;font-weight:400;color:var(--info)">PRI 80 µs · PW 2.0 µs · prepulse 0.5 µs, gap 0.2 µs</span></div><div style="flex:1;min-height:0"><canvas id="p1"></canvas></div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;flex:1.1;min-height:0">
+        <div class="card" style="display:flex;flex-direction:column"><div class="hdr">PRI histogram — all 1,024 pulses</div><div style="flex:1;min-height:0"><canvas id="p2"></canvas></div></div>
+        <div class="card" style="display:flex;flex-direction:column"><div class="hdr">Spectrum over time <span class="u">(spread spectrum)</span></div><div style="flex:1;min-height:0"><canvas id="p3"></canvas></div></div></div>
+    </div>
+  </div>
+  <div class="caption"><b>Iteration 9 — Live signal preview.</b> Redraws as you change a field. Several coordinated views, since 1,024 pulses can't be drawn one by one. <span style="color:var(--warn)">Exact views to be decided with the lead.</span><span class="sim">Illustrative</span></div>
+</div>
+<script>
+// p1: pulse train with prepulse
+(()=>{const cv=document.getElementById('p1'),w=cv.clientWidth,h=cv.clientHeight;cv.width=w;cv.height=h;const g=cv.getContext('2d');const m={l:46,r:14,t:14,b:34};const T=6*80,X=t=>m.l+t/T*(w-m.l-m.r),Y=v=>h-m.b-v*(h-m.t-m.b);
+ g.strokeStyle='#3e3e42';g.fillStyle='#808080';g.font='11px Segoe UI';for(let i=0;i<=6;i++){g.beginPath();g.moveTo(X(i*80),m.t);g.lineTo(X(i*80),h-m.b);g.stroke();g.fillText(i*80+' µs',X(i*80)-14,h-12)}
+ g.fillText('1.0',10,Y(1)+4);g.fillText('0',16,Y(0)+4);
+ g.fillStyle='rgba(88,166,255,.35)';g.strokeStyle='#58a6ff';g.lineWidth=2;
+ for(let i=0;i<6;i++){const t0=i*80+14;g.fillRect(X(t0),Y(.95),X(t0+2)-X(t0),Y(0)-Y(.95));g.strokeRect(X(t0),Y(.95),X(t0+2)-X(t0),Y(0)-Y(.95));
+  g.fillStyle='rgba(210,153,34,.5)';g.strokeStyle='#d29922';g.fillRect(X(t0-.7),Y(.45),X(t0-.2)-X(t0-.7),Y(0)-Y(.45));g.strokeRect(X(t0-.7),Y(.45),X(t0-.2)-X(t0-.7),Y(0)-Y(.45));g.fillStyle='rgba(88,166,255,.35)';g.strokeStyle='#58a6ff'}
+ g.fillStyle='#d29922';g.fillText('prepulse',X(14-1)-18,Y(.45)-6);g.fillStyle='#58a6ff';g.fillText('main pulse',X(14)+8,Y(.95)-6)})();
+// p2: density strip — PRI jitter histogram-ish
+(()=>{const cv=document.getElementById('p2'),w=cv.clientWidth,h=cv.clientHeight;cv.width=w;cv.height=h;const g=cv.getContext('2d');const r=rng(5);const bins=64,m={l:40,r:10,t:8,b:30};
+ g.fillStyle='#808080';g.font='11px Segoe UI';g.strokeStyle='#3e3e42';for(let i=0;i<=4;i++){const y=m.t+(h-m.t-m.b)*i/4;g.beginPath();g.moveTo(m.l,y);g.lineTo(w-m.r,y);g.stroke();g.fillText(String(100-i*25)+'%',4,y+4)}
+ for(let b=0;b<bins;b++){const v=(b===32?1:0.04+0.03*r());const bw=(w-m.l-m.r)/bins;g.fillStyle=b===32?'#58a6ff':'rgba(88,166,255,.5)';g.fillRect(m.l+b*bw+1,h-m.b-v*(h-m.t-m.b),bw-2,v*(h-m.t-m.b))}
+ g.fillStyle='#808080';g.fillText('PRI 76 µs',m.l,h-10);g.fillText('80 µs (fixed)',w/2-30,h-10);g.fillText('84 µs',w-m.r-40,h-10)})();
+// p3: spectrogram
+(()=>{const cv=document.getElementById('p3'),w=cv.clientWidth,h=cv.clientHeight;cv.width=w;cv.height=h;const g=cv.getContext('2d');const r=rng(9);const nx=120,ny=60,m={l:40,r:10,t:8,b:30};const iw=w-m.l-m.r,ih=h-m.t-m.b;
+ for(let x=0;x<nx;x++){const c=Math.floor(ny/2+(r()-.5)*ny*.5);for(let y=0;y<ny;y++){const d=Math.abs(y-c);const v=0.12+(d<5?0.8*(1-d/5):0)+(d>=10&&d<13?0.3:0)+0.05*r();const col=viridis(v);g.fillStyle=`rgb(${col})`;g.fillRect(m.l+x*iw/nx,m.t+y*ih/ny,iw/nx+1,ih/ny+1)}}
+ g.fillStyle='#808080';g.font='11px Segoe UI';g.fillText('+30 MHz',2,m.t+10);g.fillText('0',24,m.t+ih/2+4);g.fillText('−30',12,m.t+ih);g.fillText('pulse 1',m.l,h-10);g.fillText('pulse 1024',w-m.r-60,h-10)})();
+</script></body></html>

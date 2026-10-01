@@ -209,14 +209,14 @@ Tables are the workhorse. Header cells are auto-styled (uppercase, small, muted)
   ```
 - `table-layout: fixed` via `class="fixed"` when long content should wrap rather than stretch columns.
 
-### 6.4 Badges, status pills, legend
+### 6.4 Badges, status pills, legend (optional)
 
 **Badges** (rectangular, for categories): `badge badge-blue|badge-green|badge-amber|badge-red|badge-purple|badge-teal|badge-neutral`.
 Severity/recovery aliases keep markup semantic: `severity sev-critical|sev-high|sev-medium|sev-low`, `recovery rec-abort|rec-retry|rec-resume|rec-degrade`.
 
 **Status pills** (rounded, for lifecycle): `status s-draft|s-review|s-complete|s-planned|s-deprecated`, placed after the thing they describe.
 
-**Legend strip** — required above any table using severity/recovery badges:
+**Legend strip** — not used by default. Severity, recovery, and status badges print their word (`High`, `Retry`, `Done`), so a table stands alone with no key above it. Use a legend only when a badge encodes something its text does not (a color-only dot, an abbreviation, a code the reader cannot guess). The component remains available:
 
 ```html
 <div class="legend">
@@ -231,6 +231,10 @@ Severity/recovery aliases keep markup semantic: `severity sev-critical|sev-high|
   </div>
 </div>
 ```
+
+**Lifecycle word → pill** (fixed): Done / Resolved / Approved → `s-complete` · In progress / In Review → `s-review` · Planned → `s-planned` · Open / Draft → `s-draft`. In a table cell, wrap the pill's `<td>` in `class="status-cell"` so it sits flush left.
+
+**Stat strip** — count tiles for an at-a-glance row (`.stat-strip` > `.stat` > `.stat-value` + `.stat-label`, optional `.stat-note`). Add `stat-warn` (amber) or `stat-bad` (red) to a tile whose count needs attention; use them only for "open decisions / High risks / open findings > 0", never decoratively.
 
 Color-to-meaning mapping is fixed suite-wide (see §4). Never repurpose a color.
 
@@ -339,6 +343,8 @@ sequenceDiagram
 
 ### 7.3 Legibility rules
 
+- **Gantt charts use calendar dates** (`dateFormat YYYY-MM-DD`, `after <id>, <n>d`). Never `dateFormat X`/`x`: the vendored Mermaid ignores numeric starts and stacks every bar.
+
 - **One idea per diagram.** Cap sequence diagrams at ~6 participants and ~20 messages; split longer flows into phases (that's why suites have per-phase pages).
 - Keep labels short; use `<br/>` (flowcharts) or `\n` (state/sequence) for two-line labels.
 - Every diagram sits in a `.diagram-container`; add a `.diagram-caption` when the page has more than one diagram (Fig. N — description).
@@ -395,7 +401,7 @@ Before delivering, verify every item:
 - [ ] `doc-meta` present (Version / Status / Date); changelog section exists and matches the version.
 - [ ] TOC numbering matches `h2` numbering.
 - [ ] All colors via tokens; badge colors match the fixed semantic mapping (§4).
-- [ ] Tables: header widths set, badge tables have a legend, counted tables have a totals footnote.
+- [ ] Tables: header widths set, badge text is self-explanatory (no legend needed unless a badge is color- or code-only), counted tables have a totals footnote.
 - [ ] Wide content (tables, diagrams) scrolls inside its container — no horizontal scroll on the page body.
 - [ ] Hover states work: cards, table rows, nav links, diagram zoom affordance.
 - [ ] index.html links every child page; every child page's nav highlights the active entry.
@@ -415,7 +421,7 @@ Before a project has a polished HTML suite it has a set of **Markdown working do
 | `REQUIREMENTS.md` | `requirements-author` | `DESIGN.md` + user input | Numbered, individually testable functional and non-functional requirements, each traced back to a design section, each with acceptance criteria. |
 | `TASKS.md` | `tasks-planner` | `DESIGN.md` + `REQUIREMENTS.md` | An ordered, dependency-aware implementation breakdown. Each task cites the requirement IDs it satisfies and has its own acceptance criteria. |
 
-A fourth agent, `spec-validator`, reads all three and writes `SPEC_REVIEW.md` — a findings report (gaps, contradictions, untestable requirements, orphaned design decisions, traceability holes). It never edits the documents. A fifth agent, `html-suite-builder`, converts the approved Markdown set into the HTML suite per §3–§10.
+A fourth agent, `spec-validator`, reads all three and writes `SPEC_REVIEW.md` — a findings report (gaps, contradictions, untestable requirements, orphaned design decisions, traceability holes). It never edits the documents. A fifth agent, `html-suite-builder`, converts the approved Markdown set into the HTML suite per §3–§10. A sixth, `overview-author`, condenses the approved set into `OVERVIEW.md` for non-developer readers (§12); it is derived from the other documents and never a source of facts.
 
 ### 11.2 Shared structural rules (all three documents)
 
@@ -434,7 +440,7 @@ The Markdown documents obey the same principles as the HTML pages (§1, §9):
 
 ### 11.3 Per-document outline
 
-**`DESIGN.md`** — `1. Overview` · `2. Goals & non-goals` · `3. Context & constraints` · `4. Architecture` (component Mermaid diagram + prose) · `5. Components` (one `###` per component: responsibility, interfaces, owned data) · `6. Key flows` (sequence diagrams) · `7. Design decisions` (`DD-<n>`: decision, rationale, alternatives rejected, consequences) · `8. Data model` (if applicable) · `9. Failure modes & recovery` · `10. Open questions` · `11. Changelog`.
+**`DESIGN.md`** — `1. Overview` · `2. Goals & non-goals` · `3. Context & constraints` · `4. Architecture` (component Mermaid diagram + prose) · `5. Components` (one `###` per component: responsibility, interfaces, owned data) · `6. Key flows` (sequence diagrams) · `7. Design decisions` (`DD-<n>`: decision, rationale, alternatives rejected, consequences) · `8. Data model` (if applicable) · `9. Failure modes & recovery` · `10. Open questions` (`OQ-<n>`, each with Owner, Level = Management | Technical, Blocks, Options) · `11. Changelog`.
 
 **`REQUIREMENTS.md`** — `1. Overview` (scope + link to `DESIGN.md`) · `2. Definitions` · `3. Functional requirements` (`FR-<n>`: statement using SHALL, rationale, acceptance criteria, traces-to design section) · `4. Non-functional requirements` (`NFR-<n>`: measurable target + method of verification) · `5. Constraints & assumptions` · `6. Out of scope` · `7. Traceability matrix` (requirement ID → design section → task ID, filled in as `TASKS.md` lands) · `8. Open questions` · `9. Changelog`.
 
@@ -443,7 +449,54 @@ it lands in the plan) · `4. Dependency graph` (optional Mermaid) · `5. Risks &
 
 ### 11.4 Rendering to HTML
 
-`html-suite-builder` maps each Markdown document to an Archetype-A page: front matter → `<h1>` + `.subtitle` + `.doc-meta`; `> **Why:**` blockquotes → `.cross-note`; failure tables → the severity/recovery legend + badges; ` ```mermaid ` blocks → `.diagram-container`; the changelog section → the `.changelog` component. The result passes the §10 checklist. Skeleton Markdown files matching these outlines live in `templates/`.
+`html-suite-builder` maps each Markdown document to an Archetype-A page: front matter → `<h1>` + `.subtitle` + `.doc-meta`; `> **Why:**` blockquotes → `.cross-note`; failure tables → severity/recovery badges (no legend); ` ```mermaid ` blocks → `.diagram-container`; the changelog section → the `.changelog` component. The result passes the §10 checklist. Skeleton Markdown files matching these outlines live in `templates/`.
+
+---
+
+## 12. The overview view (`OVERVIEW.md`)
+
+Audience: project managers and management. The three working documents answer *how* and *why*; the overview answers *what, when, how big, what needs me*. It is a **view over the same source documents**, not a parallel set of facts: every cell is derived, and every row links to the ID it came from.
+
+### 12.1 Rules
+
+- **Derived only.** Nothing appears in `OVERVIEW.md` that is not in `DESIGN.md`, `REQUIREMENTS.md`, `TASKS.md`, or `SPEC_REVIEW.md`. Regenerate it after any source version bump; its front matter records the versions it was derived from.
+- **Tables, diagrams, badges.** No prose except the 2–3 sentence "What & why". No rationale, alternatives, or decision history (§9's why-first rule applies to the source documents; the overview links to them instead).
+- **One headline per item.** Take the source's lead phrase and drop version tags, review history, and field-level detail. ~8 words in label cells, one sentence in outcome cells.
+- **Attention first.** Open decisions, Critical/High risks, and open Critical/High findings each get a table and a count in "At a glance".
+- **Link down.** Every row carries its source ID (`FR-7`, `DD-3`, `T-4`, `DESIGN §9`).
+- **Diagrams.** One diagram only (Architecture): `graph LR`, at most 8 nodes, one level of grouping, labels under ~4 words, rendered in a `.diagram-container compact` (max 260 px tall; click to enlarge). No milestone, Gantt, or dependency chart — the milestone table carries the schedule.
+- **Length.** Two to three printed pages: apply the §12.4 caps. Cut by severity or size, never by shrinking type.
+- **Status is sourced.** Show Done / In progress / Planned only when `TASKS.md` carries it (milestone table `Status` column, optional); never estimate progress.
+
+### 12.2 Outline
+
+`1. At a glance` (count tiles) · `2. What & why` · `3. Scope` · `4. Architecture` (one compact diagram + component table) · `5. Milestones` (table only — no chart) · `6. Key numbers` (NFR targets) · `7. Top risks` · `8. Open decisions` · `9. Spec health` · `10. Visuals` (optional) · `11. Changelog`.
+
+### 12.3 Rendering
+
+`html-suite-builder` renders it to `overview.html` using the same tokens and components: section 1 as a stat strip (§6.4), tables per §6.3 with status pills per §6.4, diagrams per §7. The hub `index.html` leads with an "Overview" card.
+
+**ID anchors (all pages).** Every ID gets a lowercase `id` on its heading or row: `fr-1`, `nfr-2`, `dd-3`, `t-4`, `f-6`, `q-1`, `sr-1`; milestones `m2`; components by slug (`#parser`). Every ID or `§` reference in an overview table, including Ref columns, is a link to `<page>.html#<id>` — none left as plain text. A bare section reference inherits the document it appears under.
+
+**Gate.** Detail pages are not rendered while Critical/High spec findings are open, but `overview.html` is exempt: it is where those findings are shown. When rendered with findings open, its Spec-health tile carries `stat-bad` and the page states the gate.
+
+### 12.4 Length caps
+
+A row that is cut is never silently dropped: the At-a-glance tile keeps the full count, and the table ends with an overflow line `+N more — see <source section>` linking to the full list.
+
+| Table | Cap | Order / rule |
+|---|---|---|
+| Scope | 5 per side | most load-bearing first |
+| Components | 8 | the system's own before external |
+| Milestones | 12 rows | **consecutive Done milestones collapse into one row** once there are 3 or more (`1–4 · Scaffolding … · Done`); remaining rows stay one per milestone |
+| Key numbers | 6 | NFRs with a stated target first |
+| Top risks | 6 | risks that still affect a not-yet-Done milestone first, Critical before High within each group; risks whose milestones are all Done rank last (they are largely mitigated) |
+| Open decisions | 5 | `Level: Management` first (source Owner/Level fields), then by earliest milestone blocked; phrase each as a question a non-developer can answer; show Owner |
+| Spec contradictions | 4 | cross-document before within-document |
+
+**Key milestone.** If the source names one milestone as the first demo, release, or buyer/customer-visible build, mark that single row `row-key` (§6.3 highlight) and say why in its outcome cell. At most one row.
+
+**Visuals (optional).** If the sources ship mockups or screenshots, add up to 3 as captioned thumbnails linking to the full image, one-line caption each, in an optional `Visuals` section before the changelog. Never invent or generate images.
 
 ---
 

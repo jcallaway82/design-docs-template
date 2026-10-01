@@ -1,0 +1,670 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CLAWE UI — Iterative Delivery Timeline</title>
+<link rel="stylesheet" href="lib/doc.css">
+</head>
+<body class="wide">
+
+<div id="page-nav"></div>
+<script src="lib/nav.js"></script>
+
+<h1>CLAWE UI — Iterative Delivery Timeline</h1>
+<p class="subtitle">The dated delivery plan — what each two-week iteration ships and the demo bar it has to clear</p>
+<div class="doc-meta">
+  <span><strong>Version:</strong> Draft v5</span>
+  <span><strong>Status:</strong> Living plan</span>
+  <span><strong>Date:</strong> 30 September 2026</span>
+</div>
+
+<div class="note">
+  <strong>Rendered from <code>CLAWE_UI_Iterative_Timeline.md</code></strong>, which stays the editable
+  working doc — regenerate this page after a substantive plan change (the
+  <code>html-suite-builder</code> agent does this). If the two ever disagree, the Markdown wins.
+</div>
+
+<div class="warn">
+  <strong>This plan is fluid.</strong> It is a working draft, not a commitment — expect it to move as
+  new requirements surface once building is underway and as the open questions in
+  the <a href="CLAWE_Design.html#open">design's open-questions register</a> get answered. Treat each iteration
+  boundary as a checkpoint to re-baseline, not just a status update.
+</div>
+
+<div class="toc">
+  <h4>Contents</h4>
+  <ol>
+    <li><a href="#overview">Overview &amp; ground rules</a></li>
+    <li><a href="#v5">Draft v5 changes (2026-09-30)</a></li>
+    <li><a href="#v4">Draft v4 changes (2026-09-08)</a></li>
+    <li><a href="#spike">De-risking: do the visualization spike early</a></li>
+    <li><a href="#table">Iteration table</a></li>
+    <li><a href="#levers">Compression levers &amp; option for the PM</a></li>
+    <li><a href="#overlay">Mid-course addition: Radar search/filter overlay</a></li>
+    <li><a href="#shift">What would still shift this plan</a></li>
+    <li><a href="#cadence">Cadence</a></li>
+    <li><a href="#changelog">Changelog</a></li>
+  </ol>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="overview">1. Overview &amp; ground rules</h2>
+
+<div class="feature-box blue">
+  <h3>Pace &amp; cadence</h3>
+  <table>
+    <tbody>
+      <tr><td style="width:22%"><strong>Pace</strong></td><td>~20 hrs/week (half time).</td></tr>
+      <tr><td><strong>Cadence</strong></td><td>2-week iterations, each ending in a runnable demo <code>.exe</code> the lead can open and click through.</td></tr>
+      <tr><td><strong>Additive</strong></td><td>Iterations are additive — each one keeps every prior demo working.</td></tr>
+      <tr><td><strong>Total</strong></td><td><strong>12 iterations &times; 2 weeks &asymp; 24 weeks / ~480 hours</strong> (Draft v5; unchanged from Draft v4). Grew from 9 / ~18 weeks when interface B was specified and the waveform-calculation engine, summary screen, and browser were added. Draft v5 only reordered iterations 5&ndash;12.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<p>
+  Two rebalances shaped the plan and still hold:
+</p>
+
+<ol>
+  <li>
+    <strong>Framework / CRUD iterations compressed.</strong> Scaffolding, <code>CLAWE DB</code> setup,
+    and basic list/CRUD screens are well-trodden ground — <code>PRISM.Database</code> /
+    <code>PRISM.UI</code> patterns to copy, the approved schema already in hand, no open questions
+    blocking them — so they go faster than first budgeted.
+  </li>
+  <li>
+    <strong>Visualization gets its own runway, earlier.</strong> The lead developer is visual and
+    wants CLAWE UI's charts / waveform previews / tables / signal displays to mirror STS's existing
+    data-visualization work (<code>PRISM.UI</code> signal-preview controls, the RTSA-window pattern,
+    <code>PRISM.EmitterMaker</code>'s preview graphs). That is the highest-risk, least-precedented part
+    of this project for CLAWE UI specifically, so time saved on the framework iterations is
+    <em>reallocated</em> there — not used to compress the schedule — so visualization is not crunched
+    at the end.
+  </li>
+</ol>
+
+<div class="cross-note">
+  <strong>Why re-baseline at every boundary:</strong> iterations 11&ndash;12 are the most
+  likely to shift, because they depend on HOCA and the RTSA-window pattern, both still open. Revisit
+  them once those are located.
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="v5">2. Draft v5 changes (2026-09-30)</h2>
+
+<p>
+  The PM wants to start demos to potential buyers as soon as a radar can be shown <em>running</em>, and
+  the HOCA / hardware side is the least important part. Changes:
+</p>
+<ul>
+  <li><strong>Running-radar path pulled forward.</strong> A simulated radar behind a runtime interface
+    (6), then the graph container + 2D RDI scope (7). The demo-able build moves from iteration 11
+    (week 22) to <strong>iteration 7 (week 14)</strong>, eight weeks sooner.</li>
+  <li><strong>HOCA moves last</strong> (iteration 11, with its data wiring). The simulator stays as the
+    demo source.</li>
+  <li><strong>Authoring polish moves later:</strong> summary screen 6 &rarr; 8, live preview 7 &rarr; 9,
+    rollups + browser 8 &rarr; 10.</li>
+  <li><strong>Total unchanged:</strong> 12 iterations, ~24 weeks. Nothing was dropped; the target table
+    and Control tab came from old iterations 9 and 10, and the 2D RDI scope from old 11.</li>
+  <li>The traceability matrix in <code>REQUIREMENTS.md</code> &sect;7 still uses the old numbers; it will
+    be remapped once the PM approves this order.</li>
+</ul>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="v4">3. Draft v4 changes (2026-09-08)</h2>
+
+<p>Three design inputs landed and are folded into the iteration table:</p>
+
+<table>
+  <thead><tr><th style="width:28%">Input</th><th>Effect on the plan</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>STS SW Interface Descriptions.pptx</code></td>
+      <td>Interface B is now a concrete spec (TCP + RabbitMQ + Protobuf, a <code>ClaweRadarSummary</code>
+        response, a radar-modified pub/sub event, "one maintenance UI at a time: yes"), and interface C
+        now has a control-message spec. Interface B's iteration grows to also carry the
+        <strong>proxy + split single-purpose view</strong> process-model restructure (an always-on
+        proxy, a singleton maintenance view that is the sole DB writer, <code>0..n</code> execution
+        views). See <a href="CLAWE_Interface_B.html">Interface B</a>.</td>
+    </tr>
+    <tr>
+      <td><code>CLAWE Waveform Calculations.pptx</code></td>
+      <td>A new <strong>Waveform Summary Screen</strong> requirement backed by a <strong>calculation
+        engine</strong> (five formula families), and the lead wants the results browsable across a
+        mode's hundreds&ndash;thousands of waveforms via a <strong>filterable list</strong>.</td>
+    </tr>
+    <tr>
+      <td>Schema change (v3.0)</td>
+      <td>Phase modifier splits into Full / Partial Phase Encoded; FFT size vs. <code>NumPulses</code>;
+        <code>BaseWaveform += CW</code> (enum value only). Documented in
+        <a href="CLAWE_Data_Schema.html">Data Schema</a> v3.0; the proto edits land inside iteration 3's
+        waveform stack.</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  <strong>Net effect:</strong> 9 &rarr; 12 iterations, ~18 &rarr; ~24 weeks. The +6 weeks are the calc
+  engine, summary screen, waveform browser, and rollup foundation, plus the proxy restructure inside
+  the interface-B iteration. See the <a href="#levers">compression levers</a> if ~24 weeks is not
+  acceptable.
+</p>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="spike">4. De-risking: do the visualization spike early, not late</h2>
+
+<p>
+  Rather than discovering charting / rendering problems in iteration 7 when the graph
+  windows are due, iteration 2 includes a <strong>half-iteration spike</strong>: pick and prove out the
+  charting / rendering approach CLAWE UI will use for <em>everything visual</em> — waveform / pulse-train
+  previews in the maintenance-mode editors <strong>and</strong> the RDI scopes / target table in operate
+  mode later — before either depends on it.
+</p>
+
+<p>Before iteration 2 ends, answer:</p>
+<ul>
+  <li>What does STS / <code>PRISM.UI</code> actually use for its signal-preview controls and (once
+    located) the RTSA window — a WPF charting library (OxyPlot, ScottPlot, LiveCharts), custom
+    <code>Canvas</code> / <code>DrawingVisual</code> rendering, or something else? Match it — don't
+    introduce a second charting stack into a codebase meant to look and feel like STS.</li>
+  <li>Does that approach comfortably handle CLAWE UI's two very different visual jobs:
+    (a) static / low-frequency parameter previews (a waveform's pulse train, a modifier's effect) in
+    the editors, and (b) higher-rate streaming data (2D/3D RDI scope, target-table updates) in operate
+    mode?</li>
+  <li>One throwaway prototype control, themed with real <code>PRISM.UI</code> tokens, rendering a
+    representative CLAWE waveform (a PD pulse train with a PRI modifier applied) — proof the visual
+    language will match STS before it is load-bearing in four editors and two graph-window types.</li>
+</ul>
+
+<div class="success">
+  <strong>Resolved (iteration 2):</strong> STS's charting stack is <strong>ScottPlot 5.1.58</strong>
+  (<code>ScottPlot</code> + <code>ScottPlot.WPF</code> + <code>SkiaSharp.Views.WPF</code>), themed via a
+  <code>GraphThemeHelper</code>. The spike shipped a throwaway pulse-train page against real mode
+  constraint data; the lead confirmed it matches STS. Safe to build on for iterations 6&ndash;11.
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="table">5. Iteration table</h2>
+
+<p>
+  <strong>Dependency spine:</strong> schema extension (3) &rarr; interface B + proxy (4) &rarr; calc
+  engine (5) &rarr; simulated radar + Control tab (6) &rarr; graph container + 2D RDI scope (7,
+  <strong>buyer-demo milestone</strong>) &rarr; summary screen (8) &rarr; live preview (9) &rarr; rollup
+  + browser (10) &rarr; interface C + real HOCA (11) &rarr; cognitive + 3D scope + polish (12).
+</p>
+
+<div class="diagram-container">
+  <pre class="mermaid">
+graph LR
+    I3["3 · Schema extension<br/>+ waveform data entry"] --> I4["4 · Interface B<br/>+ proxy restructure"]
+    I4 --> I5["5 · Calc engine<br/>CLAWE.Calc"]
+    I5 --> I6["6 · Simulated radar<br/>+ Control tab"]
+    I6 --> I7["7 · Graph windows<br/>+ 2D RDI scope<br/>BUYER DEMO"]
+    I7 --> I8["8 · Waveform<br/>Summary Screen"]
+    I8 --> I9["9 · Live signal<br/>preview"]
+    I9 --> I10["10 · Rollup +<br/>waveform browser"]
+    I10 --> I11["11 · Interface C<br/>+ real HOCA"]
+    I11 --> I12["12 · Cognitive mode<br/>+ 3D scope + polish + 1.0.0"]
+  </pre>
+</div>
+<p class="diagram-caption">Fig. 1 — Dependency spine, iterations 3&ndash;12 (Draft v5 order). Iterations 1&ndash;4 (scaffolding, CRUD, mode editor, viz spike, waveform editor + schema extension, interface B + proxy restructure) are complete.</p>
+
+<div class="cross-note">
+  <strong>Why this order (Draft v5):</strong> the product demo is a <em>running</em> radar, and
+  HOCA / hardware is the least important dependency. So the running-radar path (calc engine &rarr;
+  simulated radar &rarr; scope) comes first, behind a runtime interface that real HOCA replaces in
+  iteration 11. The authoring-side polish (summary, preview, browser) follows, since the editor already
+  works.
+</div>
+
+<table>
+  <thead>
+    <tr><th style="width:5%">#</th><th style="width:7%">Weeks</th><th style="width:44%">Focus</th><th>Demo-able at end</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>1 <span class="status s-complete">Done</span></td>
+      <td>1&ndash;2</td>
+      <td><strong>Scaffolding + DB + Radar CRUD.</strong> <em>Shipped v0.1.0 / v0.1.1.</em> Standalone
+        CLAWE UI solution (WPF, .NET 10), <code>PRISM.UI</code> theme, <code>CLAWE DB</code> (EF Core +
+        SQLite), Maintenance / Operate nav shell, Radar CRUD + NATO/ELNOT alt-names, plus the mid-course
+        Radar search/filter overlay and delete-confirmation dialog.</td>
+      <td>Exe launches themed to match STS; create / rename / alt-name / delete radars persist across
+        relaunch.</td>
+    </tr>
+    <tr>
+      <td>2 <span class="status s-complete">Done</span></td>
+      <td>3&ndash;4</td>
+      <td><strong>Radar Mode editor + visualization spike.</strong> <em>Complete and merged to
+        <code>master</code> — shipped v0.2.0, then three rounds of lead feedback fixes as
+        v0.2.1/v0.2.2/v0.2.3.</em> Add / edit
+        <code>ClaweRadarModeInstance</code>: identity, <code>RadarModeType</code> (TTR enabled, others
+        disabled), <code>OperatingMode</code> (Manual / Auto / Cognitive) with Auto schedule + Cognitive
+        <code>OptimizationType</code>, full constraint envelope — built as a <strong>combined radar +
+        mode editor</strong> (STS EmitterMaker style: radar identity + first mode in one form, mode-pill
+        strip to switch modes). <strong>Plus the visualization spike</strong> (ScottPlot 5 — PRISM's
+        stack — one throwaway themed pulse-train page + a <code>GraphThemeHelper</code> copy). Also:
+        relabel "PD" &rarr; "Pulsed" in UI text; <strong>extracted proto compilation into a new
+        <code>CLAWE.Proto</code> project</strong> so <code>CLAWE.Calc</code> / <code>CLAWE.Contracts</code>
+        / <code>CLAWE.Proxy</code> can reference the types without <code>CLAWE.Database</code>'s EF
+        dependency.</td>
+      <td>Author a full TTR mode, validated. One themed ScottPlot pulse-train control matching STS's
+        visual approach — the charting foundation for iterations 6&ndash;11.</td>
+    </tr>
+    <tr>
+      <td>3 <span class="status s-complete">Done</span></td>
+      <td>5&ndash;6</td>
+      <td><strong>Waveform editor — data entry + schema extension.</strong> <em>Complete —
+        <code>v0.3.0</code> on <code>feature/waveform-editor</code>, merge pending the lead's
+        click-through. The editor is a searchable list + form on a fourth Waveforms tab, with a static
+        preview placeholder; OQ-9 measured at 63 ms for 2,000 waveforms; OQ-5 resolved &rarr;
+        OQ-15. A hardening pass from a third-party implementation review is folded into
+        <code>v0.3.0</code>: the Save is one transaction (DD-16), there is one name rule (DD-17, schema
+        update v6), the blob checksum is checked, and NaN values are refused.</em> Write the full
+        <code>ClaweWaveformInstance</code> proto: base + PD/SP fields, <code>num_pulses</code> (distinct
+        from the fixed 1024-pt FFT), the nine-modifier stack with the requirements deck's hard min/max
+        validation, the phase-modifier split (<code>None</code> /
+        <code>PartialPhaseEncoded(phase_pattern_duration)</code> / <code>FullPhaseEncoded</code>), and
+        the <code>CW</code> enum value (no CW authoring UI — value only). Promote the stub
+        <code>ClaweRadarModeWaveform</code> table to a real entity + <code>IWaveformRepository</code>
+        (blob-graph upsert + index-in-step, same pattern as <code>RadarModeRepository</code>). Bump the
+        proto version tag &rarr; <code>clawe-v2</code>. Forms only — live preview lands in iteration 7.</td>
+      <td>Author a complete waveform with several modifiers enabled, every field validated against deck
+        ranges; persists and round-trips through the blob.</td>
+    </tr>
+    <tr>
+      <td>4 <span class="status s-complete">Done</span></td>
+      <td>7&ndash;8</td>
+      <td><strong>Interface B + proxy / process-model restructure.</strong> <em>Complete —
+        <code>v0.4.0</code> on <code>feature/interface-b</code>, pending review and the
+        <code>v0.3.0</code> merge, built in one iteration. Database access: a context per operation from
+        a writer or read-only factory, with writes through a unit of work that writes the blob once (full
+        Save of a 2,000-waveform radar: 56 &rarr; 16 ms), a post-commit change journal (DD-18), and a
+        write-owner row (FR-35). An internal mode ID (DD-19). The process split:
+        <code>CLAWE.Host --mode maintenance</code> / <code>--mode execution</code>, the mutex, and an
+        execution stub. <code>CLAWE.Proxy</code> as a user-session process (DD-21), reached by the views
+        over local named pipes (DD-20). <code>CLAWE.Messaging</code> on RabbitMQ and an envelope-only
+        <code>ClaweRadarSummary</code> builder. A test client and a Docker dev broker. Measured: a
+        1,000-radar <code>RequestRadars</code> in 37 ms. OQ-2 resolved: RabbitMQ.</em> Database access for
+        multiple processes: replaced the single long-lived <code>ClaweDbContext</code> with an
+        <code>IDbContextFactory</code> (a context per operation or unit of work), with separate
+        <strong>read-only</strong> (the proxy) and <strong>writer</strong> (Maintenance View, gated by
+        the singleton mutex) factories, keeping DD-16's rollback ownership. Added a stable
+        <strong>internal</strong> mode ID for blob-to-index matching; names stay interface B's handles
+        (DD-11, DD-17). New <strong><code>CLAWE.Proxy</code></strong> always-on process. Split
+        <code>CLAWE.Host</code> into <code>--mode maintenance</code> (singleton, sole DB writer) /
+        <code>--mode execution</code> (<code>0..n</code>); dropped the <code>NavigationView</code>.
+        Swapped the pinned <code>NetMQ</code> &rarr; <code>RabbitMQ.Client</code>.
+        <code>CLAWE.Contracts</code> + <code>clawe_interface_b.proto</code> compiled via
+        <code>CLAWE.Proto</code>; transport helpers in a new <code>CLAWE.Messaging</code>.
+        <code>LaunchMaintenanceUI()</code> + single-instance (named mutex &rarr; focus-or-refuse).
+        <code>RequestRadars()</code> &rarr; <code>List&lt;ClaweRadarSummary&gt;</code> via a
+        <strong>hand-rolled builder</strong> that walks blobs (replaced by the rollup layer in
+        iteration 8). Pub/sub <code>RadarModifiedEvent</code> published from one write chokepoint. A
+        small test client. See <a href="CLAWE_Interface_B.html">Interface B</a>.</td>
+      <td>Over RabbitMQ from a test client: fetch radar summaries, remote-launch maintenance (2nd launch
+        focuses / refused), receive modified-events on edits. Double-click still launches maintenance, and
+        the view registers with the proxy.</td>
+    </tr>
+    <tr>
+      <td>5</td>
+      <td>9&ndash;10</td>
+      <td><strong>First task: domain validation outside the ViewModels.</strong> Move the mode and
+        waveform authoring rules, and the proto&harr;field conversion, out of
+        <code>RadarModeEditorViewModel</code> / <code>WaveformEditorViewModel</code> into a WPF-free
+        module that every write path calls: editor, repositories, and later the proxy and execution
+        view. The VMs keep only UI affordances and map the module's errors onto fields.
+        <strong>Then: Waveform Calculation Engine, a new <code>CLAWE.Calc</code> library</strong>
+        (<code>net10.0</code>, no WPF/EF). Five stateless calculators (<code>CpiDuration</code>,
+        <code>ProcessingGain</code>, <code>Eclipsing</code>, <code>RangeAmbiguity</code>,
+        <code>VelocityAmbiguity</code>) + <code>WaveformDescriptionGenerator</code>, behind a
+        <code>WaveformMetricsCalculator.Compute(WaveformCalcInput)</code> facade. <code>ScenarioAssumptions</code>
+        record with the calc deck's documented defaults (end range 150 km, target range 50 km for PG,
+        FPGA clock 4 ns, MaxV 2500 mph, default range resolution). xUnit <code>[Theory]</code> /
+        <code>[InlineData]</code> — one row per deck worked example. Dev-only debug panel. <em>(Unchanged from
+        Draft v4. The calc engine now feeds the simulated radar in iteration 6, as well as the summary
+        screen.)</em></td>
+      <td>Every worked example in <code>CLAWE Waveform Calculations.pptx</code> is reproduced by a
+        passing unit test; a debug screen shows all computed metrics for any authored waveform.</td>
+    </tr>
+    <tr>
+      <td>6</td>
+      <td>11&ndash;12</td>
+      <td><strong>Simulated radar + Execution View Control tab.</strong> <em>New in Draft v5; pulls the
+        useful half of old iterations 9 and 10 forward.</em> A <strong>runtime interface</strong>
+        (<code>IRadarRuntime</code>: activate / deactivate, load waveforms and a schedule, play a
+        waveform, and streams of RDI frames, target reports and status) with a
+        <strong><code>SimulatedRadar</code></strong> behind it. The simulator generates plausible data
+        from a waveform's own parameters, using <code>CLAWE.Calc</code> for CPI, processing gain,
+        eclipsing and ambiguities: a few moving targets, clutter, and detection SNR from the processing
+        gain. It is deterministic (seeded) and <strong>always labelled &ldquo;Simulated&rdquo;</strong>
+        in the UI. The <strong>Execution View Control tab</strong>: locked to its assigned radar mode,
+        operating-mode switch (operator-in-the-loop; Cognitive shown but disabled), a waveform picker
+        (a plain searchable list), Play / Stop and status, <strong>Auto-schedule playback</strong> (an
+        empty schedule refuses to start, FR-52), now-playing summary, and an event log. The first window
+        of the future graph container: the <strong>target table</strong>. A <strong>&ldquo;Run this
+        mode&rdquo; button</strong> in the editor launches an Execution View for the open mode (a demo
+        launcher; the real launch path is HOCA's, in iteration 11). Resolves
+        <a href="CLAWE_Design.html#open">OQ-16</a> for the demo by keeping waveform edits out of the
+        Execution View for now (select only). <em>Mockup: <code>m06_control_tab</code>.</em></td>
+      <td>Open a mode in the editor, click Run, pick a waveform, press Play, and watch simulated targets
+        appear in the table; switch waveforms live; run an Auto schedule; a second Execution View
+        launches fine (<code>0..n</code>).</td>
+    </tr>
+    <tr>
+      <td>7</td>
+      <td>13&ndash;14</td>
+      <td><strong>Graph-window container + 2D RDI scope &mdash; the buyer-demo milestone.</strong>
+        <em>Old iterations 10 and 11, minus the target table, which moved to 6.</em> Dockable /
+        resizable / removable graph-window container per the requirements deck (built against the
+        RTSA-window pattern if located by week 13; otherwise a placeholder custom container, swapped
+        later without changing outward behaviour). <strong>2D RDI scope</strong> fed by the simulator:
+        compressed range-Doppler heatmap, axes, colour scale, target markers, integration and PG
+        readout. A 3D RDI scope placeholder window. <strong>Gated by
+        <a href="CLAWE_Design.html#open">OQ-13</a></strong>: the heatmap and any later pulse-train
+        drawing must not paint every pulse, and the lead expects review-and-redo cycles here. Packaged
+        demo script for buyer demos. <em>Mockup: <code>m07_graph_windows</code>.</em></td>
+      <td><strong>A running radar, simulated: pick a waveform, press Play, and watch the 2D RDI scope and
+        target table update live; add, resize and remove windows.</strong> This is the first build
+        suitable for demos to potential buyers.</td>
+    </tr>
+    <tr>
+      <td>8</td>
+      <td>15&ndash;16</td>
+      <td><strong>Waveform Summary Screen + editor layout rework.</strong> <em>Old iteration 6.</em>
+        Companion pane beside the waveform editor; <code>WaveformSummaryViewModel</code> subscribes to
+        the editor VM's <code>PropertyChanged</code>, rebuilds <code>WaveformCalcInput</code>,
+        recomputes (no timer, NaN / divide-by-zero guarded per <code>GraphsAndFieldsReview.md</code>).
+        Plain-language description; CPI duration + CTD/CPD breakdown; PG + per-nonideal-effect
+        breakdown; eclipsing % + the <strong>PG-loss-vs-target-range ScottPlot chart</strong>;
+        range/velocity ambiguity zone size + count; and a <strong>&ldquo;What if&hellip;&rdquo;
+        trade-offs</strong> list showing what a candidate change would do. <strong>Layout
+        rework</strong> (the PM's feedback that the tabs under a mode are near the limit of one window):
+        waveforms get their own workspace instead of a fourth tab under the mode. The summary and
+        metrics are also shown in the Control tab for the playing waveform. <strong>Visual
+        checkpoint.</strong> <em>Mockup: <code>m08_waveform_summary</code>.</em></td>
+      <td>Build a waveform, watch every metric, the eclipsing chart and the trade-offs update live,
+        themed to match STS.</td>
+    </tr>
+    <tr>
+      <td>9</td>
+      <td>17&ndash;18</td>
+      <td><strong>Waveform editor &mdash; live signal preview.</strong> <em>Old iteration 7.</em>
+        Pulse-train / PRI-PW detail, a whole-CPI PRI histogram, a spread-spectrum spectrogram, and
+        modifier-effect visualization (prepulse / postpulse shaping, pulse-compression gain) updating as
+        fields change. Built on the <a href="CLAWE_Design.html#open">OQ-13</a> decision made for
+        iteration 7's scope. <strong>Visual checkpoint.</strong> <em>Mockup:
+        <code>m09_live_preview</code>.</em></td>
+      <td>Edit a waveform's modifiers and watch the signal-shape preview update live alongside the
+        summary.</td>
+    </tr>
+    <tr>
+      <td>10</td>
+      <td>19&ndash;20</td>
+      <td><strong>Rollup infrastructure + Waveform browser.</strong> <em>Old iteration 8.</em> New
+        <code>ClaweWaveformCalcRollup</code> table (scalar calc metrics + Min/Max Freq/PRI/PW +
+        modulation-type flags), populated on every <code>SaveWaveformAsync</code>, backfilled by an
+        additive schema-update step. <code>WaveformFilterPanel</code> generalizing
+        <code>RadarFilterPanel</code> (range sections for Freq, PRI, PW, CPI duration, PG; enum-flag
+        sections for modulation type and base waveform). Queries hit rollup rows, <strong>never blob
+        deserialization</strong>. <strong>Retrofit</strong> the <code>ClaweRadarSummary</code> builder
+        onto rollups (widening FR-40's bounds by per-waveform values); <strong>retrofit</strong> the
+        radar filter overlay's Freq/PRI sections. The Control tab's waveform picker upgrades from a plain
+        list to this browser. <em>Mockup: <code>m10_waveform_browser</code>.</em></td>
+      <td>Browse / filter thousands of waveforms by name, parameter ranges, computed-metric ranges and
+        modulation type; the radar overlay gains its Freq/PRI filters; the Control tab picks from the
+        browser.</td>
+    </tr>
+    <tr>
+      <td>11</td>
+      <td>21&ndash;22</td>
+      <td><strong>Interface C + real HOCA wiring.</strong> <em>Old iteration 9's interface half, plus
+        iteration 12's data wiring.</em> Swap <code>SimulatedRadar</code> for a <strong>HOCA-backed
+        <code>IRadarRuntime</code></strong>: <code>LaunchExecutionUI(ActiveRadarMode)</code> launching
+        the Execution View through the proxy, <code>ActivateRadar</code> /
+        <code>DeactivateRadar</code>, <code>LoadWaveforms</code> / <code>LoadSchedule</code>, and the
+        RDI / target-report stream adapter. The simulator stays as the demo and test source. A source
+        badge in the UI flips &ldquo;Simulated&rdquo; &harr; &ldquo;HOCA&rdquo;. <strong>Gated by
+        <a href="CLAWE_Design.html#open">OQ-3</a></strong> (what HOCA is as a deployable thing; the
+        data-stream message), <a href="CLAWE_Design.html#open">OQ-14</a> (<code>LoadWaveforms</code>
+        scope); if HOCA can't be tested against by week 21, this iteration builds against a mocked HOCA
+        and says so. Few new screens.</td>
+      <td>The Execution View launched by a (mock or real) HOCA plays a waveform and streams data through
+        interface C; the badge shows the source.</td>
+    </tr>
+    <tr>
+      <td>12</td>
+      <td>23&ndash;24</td>
+      <td><strong>Cognitive mode + 3D RDI scope + polish.</strong> <em>Old iteration 9's Cognitive half
+        and iteration 12.</em> Cognitive operating-mode UI: Learning / Speed, status,
+        detection-quality-by-waveform and target-SNR windows; a <strong>simulated jammer</strong> in the
+        simulator, so the closed-loop adaptation can be demonstrated without hardware
+        (<strong>proposed</strong>; confirm with the PM). 3D RDI scope (<code>spectrum3d</code> is
+        reference-only). <code>GraphsAndFieldsReview.md</code>-style hardening pass over all editors and
+        preview controls. Packaging, proxy autostart / installer. <code>1.0.0</code> readiness pass.
+        <em>Mockup: <code>m12_cognitive</code>.</em></td>
+      <td>Full demo exe: author a radar end to end with live previews and summary, browse waveforms,
+        connect from a test STS client, run an Execution View in operator or cognitive mode against a
+        simulated jammer or real HOCA, no known validation gaps.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="cross-note">
+  <strong>Why <code>1.0.0</code> is its own milestone:</strong> it is reserved for a deliberate
+  release-readiness pass <em>after</em> iteration 12, not automatically equal to that iteration's raw
+  output — "no known validation gaps" is a distinct bar from "the last iteration is merely done".
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="levers">6. Compression levers &amp; option for the PM</h2>
+
+<p>If ~24 weeks is not acceptable:</p>
+<ul>
+  <li>Merge iterations 8 + 9 (summary + preview) &rarr; 11 iterations.</li>
+  <li>Defer the waveform browser (10) to a post-iteration-12 addition — interface B then ships with only
+    the hand-rolled <code>ClaweRadarSummary</code> builder, replaced later.</li>
+</ul>
+<p>
+  Neither is recommended over just accepting the extra runway, per the same "don't crunch the visual /
+  high-scrutiny work" reasoning behind the Draft v2 rebalance.
+</p>
+
+<div class="note">
+  <strong>Option for the PM:</strong> the closed-loop story (cognitive mode adapting to a simulated
+  jammer) is the strongest thing to show buyers. It is in iteration 12 above; it can move to follow
+  iteration 7, ahead of the summary screen, if that is worth more to the demos.
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="overlay">7. Mid-course addition (2026-08-25): Radar search/filter overlay</h2>
+
+<p>
+  <strong>Trigger:</strong> the lead reviewed the iteration-1 (v0.1.0) demo, liked the visual
+  direction, and asked whether an "Edit Radar" search flow is planned — matching how STS's EmitterMaker
+  handles "Edit Emitter" (a button that opens a slide-out overlay,
+  <code>PRISM.UI/Controls/EmitterFilterPanel.xaml</code>, with a Search box, per-parameter filter
+  sections, and a results list) rather than showing the list inline the way CLAWE's Radars page did.
+  <strong>Lead's direction:</strong> build the same overlay pattern for Radars, filterable on multiple
+  fields (name, frequency range, PRI range, ...), not just a plain search box.
+</p>
+
+<h3>Scope split</h3>
+<table>
+  <thead><tr><th style="width:22%">Slice</th><th>Detail</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><span class="status s-complete">Shipped v0.1.1</span> Overlay shell + text search</td>
+      <td>Against iteration 1's existing <code>ClaweRadar</code> schema (Name, Description,
+        AlternateNames): replaced the always-visible list with an "Edit Radar" button opening a
+        slide-out overlay, reusing <code>EmitterFilterPanel.xaml</code>'s structure — a Search
+        <code>TextBox</code> filtering name / description / alt-name text and the rounded-row
+        <code>ListBox</code> styling.</td>
+    </tr>
+    <tr>
+      <td><span class="status s-planned">Iteration 10</span> Frequency / PRI filter sections</td>
+      <td>Blocked on cached rollup values on <code>ClaweRadar</code> (analogous to PRISM's
+        <code>Emitter.MinFrequencyHz</code> / <code>MaxFrequencyHz</code> / <code>MinPriNs</code>
+        columns), which don't exist yet — they need iteration 3's Waveform PRI/PW fields and the
+        <code>ClaweWaveformCalcRollup</code> layer. The overlay's filter-section layout was built
+        extensible (mirroring <code>EmitterFilterPanel</code>'s per-parameter <code>Expander</code>
+        pattern) so these drop in without a redesign.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="note">
+  <strong>Update (Draft v4, 2026-09-08):</strong> the Freq/PRI filter sections are folded into
+  <strong>iteration 10</strong> (rollup infrastructure + Waveform browser), where the
+  <code>ClaweWaveformCalcRollup</code> layer gives them backing data and where the same
+  <code>FilterSection&lt;T&gt;</code> machinery is built for the waveform browser anyway.
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="shift">8. What would still shift this plan</h2>
+
+<p>
+  The open questions themselves are in the canonical register
+  (<a href="CLAWE_Design.html#open">Design §10</a>, <code>OQ-*</code>); this section is about their
+  <em>schedule</em> impact.
+</p>
+
+<table>
+  <thead><tr><th style="width:24%">Factor</th><th>Detail</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>HOCA (<a href="CLAWE_Design.html#open">OQ-3</a>) <span class="status s-review">Partly resolved</span></td>
+      <td>Interface C's <strong>control</strong> messages are specified
+        (<code>LaunchExecutionUI(ActiveRadarMode)</code>, <code>ActivateRadar</code>,
+        <code>DeactivateRadar</code>, <code>LoadWaveforms</code>, <code>LoadSchedule</code>), and
+        <code>PRISM.Host/Services/HocaLiteService.cs</code> is a working reference for the STS&harr;HOCA
+        side. Still open: what HOCA is as a deployable, and the <strong>RDI / target-report
+        data-stream</strong> direction. Since Draft v5 this no longer blocks the demo: iterations 6&ndash;7
+        run on the simulated radar. It affects iteration 11 (a live HOCA to test against may not exist;
+        the <code>ActiveRadarMode</code> payload is known) and the RDI data source. Unresolved &rarr;
+        iteration 11 proceeds against a mocked HOCA, flagged in the demo changelog.</td>
+    </tr>
+    <tr>
+      <td>RabbitMQ broker (<a href="CLAWE_Design.html#open">OQ-1</a>; OQ-2 resolved)</td>
+      <td>RabbitMQ it is, per the deck (resolved in iteration 4). Development runs a Docker broker, so
+        the build isn't blocked. Who runs the broker in integration and deployment is still open, and
+        every interface-B demo needs one on the reviewer's machine. Iteration 12's packaging depends on
+        the answer.</td>
+    </tr>
+    <tr>
+      <td>RTSA-window pattern (<a href="CLAWE_Design.html#open">OQ-4</a>)</td>
+      <td>Iteration 7's graph-window container is built against it; if not located by week 13, a
+        placeholder custom dock container ships instead and gets swapped later without changing the
+        demo's outward behavior.</td>
+    </tr>
+    <tr>
+      <td>spectrum3d role <span class="status s-complete">Resolved</span></td>
+      <td>Reference only (per the <a href="Iteration_Review.html">iteration review</a>). Iteration 12's
+        3D RDI scope is a genuine placeholder; any library that fits may be used.</td>
+    </tr>
+    <tr>
+      <td>Chosen charting approach</td>
+      <td>The iteration-2 spike outcome. If STS's approach turns out to be a poor fit for high-rate
+        streaming data (RDI scopes), that surfaces at the spike in week 4, not mid-iteration-7. Worst
+        case, a second look-and-feel-matched rendering approach is adopted for the streaming graph
+        windows — cheap to absorb in week 4, expensive in week 13.</td>
+    </tr>
+    <tr>
+      <td>High-pulse-count preview strategy (<a href="CLAWE_Design.html#open">OQ-13</a>)</td>
+      <td>The iteration-2 spike proved ScottPlot is the right <em>library</em>, not the right
+        <em>approach</em> for a ~1,024-pulse train (can't paint every pulse). The lead flagged this on
+        the v0.2.0 demo and expects it to take a few iterations to converge (per-pulse vs.
+        envelope/density vs. decimated vs. PRI-stagger summary vs. spectrogram, likely several
+        coordinated views). Iteration 7's 2D RDI scope and iteration 9's live preview both build on
+        whatever's decided; budget review-and-redo cycles into those iterations rather than treating
+        the preview as a one-shot deliverable.</td>
+    </tr>
+    <tr>
+      <td>Blob storage granularity (<a href="CLAWE_Design.html#open">OQ-9</a>)</td>
+      <td>One protobuf blob per radar means every waveform save re-serializes + re-hashes the whole
+        radar. "Hundreds to thousands of waveforms per mode" may force per-waveform blob rows. Measure
+        in iteration 3; revisit storage in iteration 10 if it bites.</td>
+    </tr>
+    <tr>
+      <td>Iteration 4 size</td>
+      <td><em>Landed in one iteration</em> (it was the single largest structural change in the project,
+        and could have split into 4a/4b). The plan stays at 12 iterations.</td>
+    </tr>
+    <tr>
+      <td>Execution View waveform edits (<a href="CLAWE_Design.html#open">OQ-16</a>)</td>
+      <td>FR-50 lets the operator edit waveforms there, but FR-51 says the view never writes. Iteration 6
+        needs the answer before building the Control tab (the demo build keeps waveform edits out of the
+        Execution View, so it isn't blocked).</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="cadence">9. Cadence</h2>
+
+<p>
+  Send the lead the demo <code>.exe</code> at the end of each 2-week block with a short changelog:
+  what's new, what's still stubbed / mocked, what's blocked on an open question. Iterations
+  <strong>2, 7, 8, and 9</strong> in particular are worth flagging explicitly as "this is what the visual
+  language will look like" checkpoints (the spike, the first running radar with the 2D RDI scope, the
+  waveform summary screen + eclipsing chart, and the live signal preview), since that is the area the
+  lead cares most about getting right early.
+</p>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="changelog">10. Changelog</h2>
+
+<div class="changelog">
+  <div class="entry">
+    <div class="date">30 September 2026 — Draft v5</div>
+    <div class="detail">Reordered to reach a <em>running radar demo</em> sooner: simulated radar +
+      Control tab (6), graph container + 2D RDI scope (7, buyer-demo milestone, week 14 instead of 22),
+      summary screen (8), live preview (9), rollups + browser (10), interface C + real HOCA (11),
+      cognitive + 3D scope + polish (12). Still 12 iterations / ~24 weeks. Added the &ldquo;Option for
+      the PM&rdquo; note (&sect;6). Refreshed the HTML on 1 October 2026.</div>
+  </div>
+  <div class="entry">
+    <div class="date">10 September 2026 — Draft v4 (rev)</div>
+    <div class="detail">Added a factor (then &sect;7) for <a href="CLAWE_Design.html#open">OQ-13</a> — the
+      iteration-2 spike proved the charting <em>library</em>, not the <em>approach</em> for a
+      ~1,024-pulse train; budget review-and-redo cycles into iterations 7 and 11 rather than treating
+      the preview as a one-shot deliverable.</div>
+  </div>
+  <div class="entry">
+    <div class="date">8 September 2026 — Draft v4</div>
+    <div class="detail">Absorbed <code>STS SW Interface Descriptions.pptx</code> (interface B concrete)
+      and <code>CLAWE Waveform Calculations.pptx</code> (Waveform Summary Screen + calc engine), plus
+      the 2026-09-08 interface meeting's proxy / split-view process model. 9 &rarr; 12 iterations,
+      ~18 &rarr; ~24 weeks — the +6 weeks are the calc engine, summary screen, waveform browser, and
+      rollup foundation, plus the proxy restructure inside the interface-B iteration.</div>
+  </div>
+  <div class="entry">
+    <div class="date">25 August 2026 — Draft v3</div>
+    <div class="detail">Added the mid-course Radar search/filter overlay (&sect;7) after the lead's
+      v0.1.0 feedback. Shell + text search buildable now; Freq/PRI sections deferred to the rollup
+      layer.</div>
+  </div>
+  <div class="entry">
+    <div class="date">18 August 2026 — Draft v2</div>
+    <div class="detail">Pulled the plan out of the project's working notes into its own file. Compressed the
+      framework / DB / CRUD iterations into one and reallocated the freed time to visualization (an
+      early charting spike, a dedicated live-preview iteration, split graph-window work) rather than to
+      schedule compression — the lead developer is visual and wants CLAWE UI's data-visualization to
+      mirror STS's.</div>
+  </div>
+  <div class="entry">
+    <div class="date">18 August 2026 — Draft v1</div>
+    <div class="detail">Initial 8-iteration plan drafted after the standalone-app scope correction —
+      front-loading maintenance mode (radar / mode / waveform editors) and interface B before operate
+      mode, since operate mode depends on the still-open HOCA / interface-A/C questions.</div>
+  </div>
+</div>
+
+<script src="lib/mermaid.min.js"></script>
+<script src="lib/mermaid-init.js"></script>
+<script src="lib/lightbox.js"></script>
+
+</body>
+</html>

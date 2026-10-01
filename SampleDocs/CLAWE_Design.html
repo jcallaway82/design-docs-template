@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CLAWE UI — Design</title>
+<link rel="stylesheet" href="lib/doc.css">
+</head>
+<body class="wide">
+
+<div id="page-nav"></div>
+<script src="lib/nav.js"></script>
+
+<h1>CLAWE UI — Design</h1>
+<p class="subtitle">The <em>what</em> and the <em>why</em> for the CLAWE Interactive Emitters App — a standalone application that authors and runs closed-loop CLAWE radars, which STS drives over the network to play inside static scenarios</p>
+<div class="doc-meta">
+  <span><strong>Version:</strong> 1.6</span>
+  <span><strong>Status:</strong> Draft</span>
+  <span><strong>Date:</strong> September 2026</span>
+</div>
+
+<div class="note">
+  <strong>Rendered from <code>DESIGN.md</code></strong>, the editable working doc — regenerate this page
+  after a substantive change (the <code>html-suite-builder</code> agent does this). If the two disagree,
+  the Markdown wins. This is the design hub; depth lives in
+  <a href="CLAWE_Data_Schema.html">Data Schema</a>, <a href="CLAWE_Interface_B.html">Interface B</a>
+  (a normative extension), and <a href="CLAWE_Data_Model_Browser.html">Data Model</a>. It feeds
+  <a href="CLAWE_Requirements.html">Requirements</a> and the
+  <a href="CLAWE_UI_Iterative_Timeline.html">delivery timeline</a>; progress against that plan is in
+  <a href="Iteration_Review.html">Iteration Review</a>.
+</div>
+
+<div class="toc">
+  <h4>Contents</h4>
+  <ol>
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#goals">Goals &amp; non-goals</a></li>
+    <li><a href="#context">Context &amp; constraints</a></li>
+    <li><a href="#architecture">Architecture</a></li>
+    <li><a href="#components">Components</a></li>
+    <li><a href="#flows">Key flows</a></li>
+    <li><a href="#decisions">Design decisions</a></li>
+    <li><a href="#datamodel">Data model</a></li>
+    <li><a href="#failures">Failure modes &amp; recovery</a></li>
+    <li><a href="#open">Open questions</a></li>
+    <li><a href="#changelog">Changelog</a></li>
+  </ol>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="overview">1. Overview</h2>
+
+<p>
+  A <strong>CLAWE radar</strong> is a closed-loop radar generator: it adapts its transmitted waveform
+  in response to jamming. The <strong>CLAWE Interactive Emitters App</strong> (this project, "CLAWE
+  UI") is a standalone C#/WPF/.NET 10 application — its own process, own executable, own SQLite
+  database — that lets an operator author these radars (a radar, its modes, and each mode's waveforms
+  with a nine-category modifier stack) and run them. <strong>STS</strong> (the existing PRISM
+  application) connects to CLAWE UI over the network to fetch its radar catalogue and add a live CLAWE
+  radar to a static scenario; <strong>HOCA</strong>, the hardware-abstraction layer, connects to run
+  an assigned radar mode against STS hardware.
+</p>
+<p>
+  CLAWE UI is <strong>not</strong> a PRISM plugin. It is architecturally independent of STS — it
+  shares no runtime code — but is deliberately built to look, feel, and be organised like it: the same
+  WPF visual language (<code>PRISM.UI</code> conventions, copied not referenced), the same database
+  patterns (EF Core + SQLite + a protobuf blob, like <code>PRISM.Database</code>), and the same
+  tiered-editor UX (<code>PRISM.EmitterMaker</code>).
+</p>
+<p>
+  At runtime CLAWE UI is not one window but a small set of cooperating processes: an always-on
+  <strong>CLAWE Proxy</strong> that owns the network connections and launches views on request; a
+  singleton <strong>Maintenance View</strong> for authoring (the sole writer to the database); and
+  <code>0..n</code> <strong>Execution Views</strong>, each locked to one assigned radar mode. Between
+  them sits <strong>CLAWE DB</strong>, the SQLite store.
+</p>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="goals">2. Goals &amp; non-goals</h2>
+
+<div class="feature-box green">
+  <h3>Goals</h3>
+  <ul>
+    <li>Author a complete CLAWE radar offline: a <code>ClaweRadarInstance</code> with <code>1..N</code>
+      <code>ClaweRadarModeInstance</code> children, each with a full constraint envelope and
+      <code>0..N</code> <code>ClaweWaveformInstance</code> children carrying the nine-category modifier
+      stack.</li>
+    <li>Enforce every field range from the requirements deck (slides 27–32) at the point of entry —
+      the editor is the validation authority, not a downstream consumer.</li>
+    <li>Show computed waveform metrics live while authoring (CPI duration, processing gain, eclipsing,
+      range ambiguity, velocity ambiguity) and make them browsable across a mode's
+      hundreds-to-thousands of waveforms.</li>
+    <li>Present CLAWE's radar catalogue to STS over interface B as a flattened
+      <code>ClaweRadarSummary</code> rollup, and publish a <code>RadarModifiedEvent</code> on every
+      write so STS refreshes on change rather than polling.</li>
+    <li>Run an assigned radar mode in a locked Execution View launched by HOCA over interface C, with
+      live signal previews and RDI/target visualisation.</li>
+    <li>Match STS's visual language and database design patterns closely enough that an STS user
+      recognises the app.</li>
+  </ul>
+</div>
+
+<div class="feature-box red">
+  <h3>Non-goals</h3>
+  <ul>
+    <li>Being a PRISM plugin, or sharing any runtime assembly with PRISM. Look-and-feel parity is
+      achieved by <strong>copying</strong> <code>PRISM.UI</code> tokens and controls, not by project
+      reference.</li>
+    <li>Authoring CW (continuous-wave) waveforms in v1. The <code>BaseWaveform.CW</code> enum value
+      ships for interface-B vocabulary stability; no deck specifies CW parameters, so there is no CW
+      editor.</li>
+    <li>Supporting <code>RadarModeType</code> values other than <code>TTR</code> in v1.
+      <code>Search</code>, <code>TAR</code>, and <code>Missile</code> are visible-but-disabled in the
+      editor.</li>
+    <li>Implementing HOCA, STEEM, the SPARTA SW Simulator, or the STS static-scenario builder. CLAWE
+      UI is a peer to those, not a host for them.</li>
+    <li>Standing up or operating the RabbitMQ broker. CLAWE UI is a client of it.</li>
+    <li>Coordinating maintenance-mode editing across hosts. The single-writer rule is enforced per
+      host; multi-host CLAWE means independent proxies and independent databases.</li>
+    <li>Being a general emitter tool. CLAWE UI models closed-loop CLAWE radars specifically; STS's
+      <code>PRISM.EmitterBuilder</code> remains the tool for ordinary emitters.</li>
+  </ul>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="context">3. Context &amp; constraints</h2>
+
+<h3>Existing systems this design must fit</h3>
+<ul>
+  <li><strong>Legacy SPARTA</strong> (<code>sparta/</code>, its own git repo) — a working C# CLAWE
+    implementation. It is the field-naming and behaviour source of truth:
+    <code>sparta/Components/libSPARTASimulation/src/SPARTASimulation/Components/CLAWE/</code>
+    (controllers, views, processing-path components) and
+    <code>sparta/Components/libSPARTABase/src/SPARTABase/DataObjects/SMDLObjects/CLAWE/</code>
+    (<code>ClaweControlSettings.cs</code>, <code>CLAWEProcPathSettings.cs</code>,
+    <code>ClaweEASettings.cs</code>). CLAWE UI's data model is approved as-is; reconciling
+    <em>names and behaviour</em> against legacy is still open (<a href="#open">OQ-5</a>).</li>
+  <li><strong>STS / PRISM</strong> (<code>SPARTA Test System/PRISM/</code>, .NET 10,
+    <code>PRISM.slnx</code>) — the pattern and reference source, never a host. <code>PRISM.UI</code>
+    is the visual look-and-feel source (not <code>Design Template/</code>, which generates HTML docs).
+    <code>PRISM.Database</code> (EF Core + SQLite + protobuf-compiled schemas, <code>emitters.db</code>)
+    is the DB-pattern source. <code>PRISM.EmitterMaker</code> (assembly namespace
+    <code>PRISM.EmitterBuilder</code> — a historical quirk, left alone) is the closest editor-UX
+    analog; its <code>Design/GraphsAndFieldsReview.md</code> documents known gaps (missing validation,
+    NaN/divide-by-zero guards, no dirty-tracking) to avoid inheriting.
+    <code>PRISM.StaticScenarioBuilder</code> is the STS-side surface that talks to interface B.
+    <code>PRISM.Host/Services/HocaLiteService.cs</code> (TCP/JSON + NetMQ/ZMQ + Protobuf) is a working
+    STS ↔ HOCA reference.</li>
+</ul>
+
+<table>
+  <thead><tr><th style="width:20%">Aspect</th><th>Constraint</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Platform</strong></td><td>C#/WPF/.NET 10; SQLite via EF Core; Protocol Buffers (proto3, namespace <code>Clawe.V1</code>); RabbitMQ (AMQP 0-9-1) for interfaces B and C. Windows desktop. Fully offline — no CDN, no network dependency for authoring.</td></tr>
+    <tr><td><strong>Scale targets</strong></td><td>Hundreds to thousands of <code>ClaweWaveformInstance</code> rows per mode; on the order of a few hundred radars per <code>CLAWE DB</code> (take <strong>500 radars</strong> as the design figure for interface-B response sizing). The per-mode waveform count drives the storage and rollup design (DD-2, DD-9) — filtering thousands of waveforms must not deserialize a blob per row.</td></tr>
+    <tr><td><strong>Hard constraints</strong></td><td>The data model (<code>ClaweRadarInstance</code> / <code>ClaweRadarModeInstance</code> / <code>ClaweWaveformInstance</code>) was reviewed and <strong>approved as-is</strong> on 2026-08-18 — no schema <em>concept</em> changes pending; the two cardinality <em>narrowings</em> (DD-7, DD-8) are live in code, both lead-confirmed. Must look and feel like the STS UI and follow similar DB design patterns. Interface B/C transport is specified as TCP + RabbitMQ + Protobuf.</td></tr>
+    <tr><td><strong>Assumptions</strong> <span class="table-footnote">(each one, if wrong, changes the design)</span></td><td>STS UI, CLAWE UI, and HOCA may run on the same or different machines — nothing may assume same-host access to another component's database or filesystem. Each CLAWE host runs exactly one proxy and one <code>CLAWE DB</code>. A radar always has <code>1..N</code> modes, never zero. Waveform authoring happens only in the singleton Maintenance View; every other process opens <code>CLAWE DB</code> read-only.</td></tr>
+  </tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="architecture">4. Architecture</h2>
+
+<div class="diagram-container">
+  <pre class="mermaid">
+flowchart TB
+    subgraph host["CLAWE host"]
+        PROXY["CLAWE Proxy: always-on, owns interfaces B and C"]
+        MV["Maintenance View: 0..1, sole DB writer"]
+        EV["Execution View: 0..n, mode-locked, read-only"]
+        DB[("CLAWE DB, SQLite")]
+        BAT["batch file / double-click"]
+    end
+    subgraph ext["External: not built here"]
+        STS["STS UI, PRISM"]
+        HOCA["HOCA"]
+        MQ["RabbitMQ broker"]
+    end
+    STS -->|"interface B: RabbitMQ + Protobuf"| MQ
+    HOCA -->|"interface C: RabbitMQ + Protobuf"| MQ
+    MQ --> PROXY
+    PROXY -->|"spawn / focus"| MV
+    PROXY -->|"spawn 0..n"| EV
+    BAT -.->|"or spawn directly"| MV
+    PROXY -->|"read-only"| DB
+    MV -->|"read / write"| DB
+    EV -->|"read-only"| DB
+  </pre>
+</div>
+<p class="diagram-caption">Fig. 1 — CLAWE-side process model on one host, plus the external components it connects to.</p>
+
+<p>
+  CLAWE UI is a set of processes on one host. The <strong>CLAWE Proxy</strong> starts at user logon
+  and stays up. It is a headless process in the user's session, not a Windows Service, so it can open
+  views on the user's desktop (DD-21). It holds the RabbitMQ connections for <strong>interface B</strong>
+  (STS UI ↔ CLAWE UI) and <strong>interface C</strong> (CLAWE UI ↔ HOCA), and a read-only connection to
+  <strong>CLAWE DB</strong> so it can answer <code>RequestRadars()</code> without a view running. It
+  launches views on request and brings a running Maintenance View forward rather than starting a second
+  one.
+</p>
+<p>
+  The <strong>Maintenance View</strong> is a single-purpose WPF window for authoring radars, modes,
+  and waveforms. It is a <strong>singleton</strong> per host — enforced by a system-wide named mutex
+  (<code>Global\CLAWE_UI_Maintenance</code>) plus a write-owner row in the database — and it
+  is the <strong>only</strong> process that writes <code>CLAWE DB</code>. It is launched either by the
+  proxy (over interface B, via <code>LaunchMaintenanceUiCommand</code>) or directly by a batch file or
+  double-click. Either way it registers with the proxy over a local named pipe and reports each
+  committed radar change there, which the proxy publishes as <code>RadarModifiedEvent</code> (DD-20).
+</p>
+<p>
+  An <strong>Execution View</strong> is a single-purpose window locked to one assigned
+  <code>ClaweRadarModeInstance</code>. HOCA launches it over interface C
+  (<code>LaunchExecutionUI(ActiveRadarMode)</code>). The operator may add and edit waveform
+  <em>instances</em> within the lock but cannot change the radar/mode capabilities or constraints.
+  <code>0..n</code> may run at once; none write the database.
+</p>
+<p>
+  <strong>CLAWE DB</strong> is the SQLite store: one file per host, at
+  <code>%LocalAppData%\CLAWE\clawe.db</code>, in WAL mode. The canonical data is a single serialized
+  <code>ClaweRadarInstance</code> protobuf blob per radar; the relational tables are a thin queryable
+  index over it (§8).
+</p>
+<p>
+  <strong>STS UI</strong>, <strong>HOCA</strong>, and the <strong>RabbitMQ broker</strong> are
+  external. STS is the client on interface B. HOCA is the hardware-abstraction layer between the
+  software components and STS hardware; it drives execution over interface C. The broker carries all
+  interface-B and interface-C traffic. <code>STS SW Interface Descriptions.pptx</code> catalogues six
+  interfaces A–F; only B and C touch CLAWE.
+</p>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="components">5. Components</h2>
+
+<p>
+  CLAWE UI ships as <strong>eight production .NET projects</strong> — seven exist today (through
+  delivery iteration 4); <code>CLAWE.Calc</code> is planned — plus a test project per production
+  project, and a dev-only <code>tools/CLAWE.TestClient</code>. The runtime components above map onto
+  them as follows.
+</p>
+
+<div class="feature-box blue">
+  <h3>CLAWE Proxy</h3>
+  <ul>
+    <li><strong>Responsibility:</strong> own the interface-B and interface-C RabbitMQ connections,
+      answer <code>RequestRadars()</code> from a read-only DB connection, launch and track Maintenance
+      and Execution Views, and enforce the singleton-maintenance rule.</li>
+    <li><strong>Interfaces:</strong>
+      <ul>
+        <li>Consumes <code>clawe.ifaceB.rpc.&lt;source&gt;</code> (STS requests/commands; the source
+          name is the endpoint STS registered, <a href="#open">OQ-11</a>) and interface-C control
+          messages from HOCA.</li>
+        <li>Publishes <code>RadarModifiedEvent</code> to the <code>clawe.ifaceB.events</code> fanout
+          exchange.</li>
+        <li>Serves the local <code>clawe-proxy</code> named pipe: views register there, and the
+          Maintenance View reports committed changes (DD-20).</li>
+        <li>Asks the Maintenance View to come forward over the <code>clawe-maintenance</code> pipe, and
+          spawns <code>CLAWE.Host --mode maintenance</code> and <code>CLAWE.Host --mode execution</code>
+          processes.</li>
+      </ul>
+    </li>
+    <li><strong>Owns:</strong> the map of running views, its own single-instance mutex
+      (<code>Global\CLAWE_Proxy</code>), and a read-only <code>CLAWE DB</code> connection. No persisted
+      state of its own.</li>
+    <li><strong>Projects:</strong> <code>CLAWE.Proxy</code> (the process), <code>CLAWE.Messaging</code>
+      (the RabbitMQ transport — the only project with a broker client), <code>CLAWE.Contracts</code>
+      (<code>ClaweRadarSummary</code> builder, interface-B names and versions, the local pipe protocol).
+      The message types are compiled from <code>clawe_interface_b.proto</code> and
+      <code>clawe_local.proto</code> in <code>CLAWE.Proto</code>.</li>
+  </ul>
+</div>
+
+<div class="feature-box blue">
+  <h3>Maintenance View</h3>
+  <ul>
+    <li><strong>Responsibility:</strong> author and edit radars, modes, and waveforms with full field
+      validation; find an existing radar through a search / filter overlay; and show live
+      waveform-calculation metrics while authoring.</li>
+    <li><strong>Interfaces:</strong> exposes a WPF editor UI (<code>RadarListPage</code>,
+      <code>RadarEditorView</code>, a mode-pill strip, and a slide-out <code>RadarFilterPanel</code> —
+      a debounced text search over name / description / alternate name, mirroring STS's
+      <code>EmitterFilterPanel</code>, extensible with frequency / PRI range sections once rollup data
+      exists); writes through <code>ClaweDatabaseService</code> — per-call repositories and, for the
+      footer Save, one unit of work (DD-18); on every committed write, reports the change to the proxy,
+      which publishes <code>RadarModifiedEvent</code>.</li>
+    <li><strong>Owns:</strong> all writes to <code>CLAWE DB</code>. Holds
+      <code>Global\CLAWE_UI_Maintenance</code> and the write-owner row for its lifetime.</li>
+    <li><strong>Projects:</strong> <code>CLAWE.Host</code> (WPF executable, composition root, dialogs),
+      <code>CLAWE.UI</code> (theme tokens copied from <code>PRISM.UI</code>, reusable controls,
+      <code>ScottPlot</code> charting + a copied <code>GraphThemeHelper</code>).</li>
+  </ul>
+</div>
+
+<div class="feature-box blue">
+  <h3>Execution View</h3>
+  <ul>
+    <li><strong>Responsibility:</strong> run one assigned radar mode — operator-in-the-loop or
+      cognitive — with signal previews, RDI scopes, and a target table; add/edit waveform instances
+      within the mode lock.</li>
+    <li><strong>Interfaces:</strong> consumes interface-C messages relayed by the proxy
+      (<code>ActivateRadar</code>, <code>DeactivateRadar</code>); produces interface-C messages to
+      HOCA (<code>LoadWaveforms</code>, <code>LoadSchedule</code>); opens <code>CLAWE DB</code>
+      read-only.</li>
+    <li><strong>Owns:</strong> transient run state (active waveform, schedule position). No persisted
+      state.</li>
+    <li><strong>Projects:</strong> <code>CLAWE.Host --mode execution</code> and <code>CLAWE.UI</code>.
+      The dockable graph-window shell (planned, built against the STS "RTSA window" pattern once
+      located — <a href="#open">OQ-4</a>) is a set of WPF controls <strong>inside <code>CLAWE.UI</code></strong>, not a
+      separate project — the production project count stays eight.</li>
+  </ul>
+</div>
+
+<div class="feature-box blue">
+  <h3>CLAWE DB</h3>
+  <ul>
+    <li><strong>Responsibility:</strong> persist the canonical radar data and a thin queryable index
+      over it; evolve its schema through versioned patch steps.</li>
+    <li><strong>Interfaces:</strong> <code>ClaweDatabaseService</code> over an
+      <code>IClaweDbContextFactory</code> — a writer (the Maintenance View) or read-only
+      (<code>Mode=ReadOnly</code>: the proxy, Execution Views) — with a context per operation and
+      <code>IClaweUnitOfWork</code> for multi-step writes (DD-18); <code>ClaweDbContext</code>
+      (EF Core, <code>EnsureCreatedAsync</code> init, <code>ApplySchemaUpdatesAsync</code> — versioned
+      steps recorded in a <code>ClaweSchemaVersion</code> table, v1 through v8 today).</li>
+    <li><strong>Owns:</strong> <code>ClaweRadar</code>, <code>ClaweRadarAlternateName</code>,
+      <code>ClaweRadarMode</code>, <code>ClaweRadarModeWaveform</code>, <code>ClaweRadarProtoBlob</code>
+      (the canonical serialized <code>ClaweRadarInstance</code>), <code>ClaweWriteOwner</code> (FR-35),
+      and — planned — <code>ClaweWaveformCalcRollup</code>.</li>
+    <li><strong>Projects:</strong> <code>CLAWE.Database</code> (context, entities, repositories,
+      <code>Google.Protobuf</code> runtime-only), <code>CLAWE.Proto</code> (proto compilation via
+      <code>Grpc.Tools</code>, no EF — so non-database consumers use the <code>Clawe.V1</code> types
+      without an EF dependency).</li>
+  </ul>
+</div>
+
+<div class="feature-box blue">
+  <h3>Waveform Calculation Engine</h3>
+  <ul>
+    <li><strong>Responsibility:</strong> compute the five metric families behind the Waveform Summary
+      Screen (CPI duration, processing gain, eclipsing, range ambiguity, velocity ambiguity) plus a
+      plain-text waveform description, as pure functions of a waveform, its mode envelope, and fixed
+      scenario assumptions.</li>
+    <li><strong>Interfaces:</strong> exposes
+      <code>WaveformMetricsCalculator.Compute(WaveformCalcInput)</code>; consumes
+      <code>Clawe.V1</code> types from <code>CLAWE.Proto</code>. No WPF, no EF.</li>
+    <li><strong>Owns:</strong> the <code>ScenarioAssumptions</code> defaults (end range 150 km, target
+      range 50 km for processing gain, FPGA clock 4 ns, MaxV 2500 mph).</li>
+    <li><strong>Projects:</strong> <code>CLAWE.Calc</code> (planned).</li>
+  </ul>
+</div>
+
+<div class="cross-note">
+  <strong>Why the project count is eight, not fewer:</strong> <code>CLAWE.Proto</code> and
+  <code>CLAWE.Calc</code> are separate leaf projects precisely so the calc engine, the proxy, and the
+  contracts can reference the proto types without dragging in <code>CLAWE.Database</code>'s EF Core
+  dependency. Collapsing them would force every consumer to carry EF.
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="flows">6. Key flows</h2>
+
+<h3>6.1 Authoring a radar (Maintenance View)</h3>
+
+<div class="diagram-container">
+  <pre class="mermaid">
+sequenceDiagram
+    participant U as Operator
+    participant MV as Maintenance View
+    participant DB as CLAWE DB
+    participant P as CLAWE Proxy
+    participant X as clawe.ifaceB.events
+
+    U ->> MV: create radar, edit first mode + waveforms
+    Note over MV: validate every field against deck ranges
+    alt all fields valid
+        MV ->> DB: upsert ClaweRadarProtoBlob + index rows, in one transaction
+        DB -->> MV: committed
+        MV ->> P: radar modified (name, change_kind)
+        P ->> X: RadarModifiedEvent
+        MV -->> U: saved, unsaved indicator clears
+    else a field is out of range
+        MV -->> U: per-tab error dot + summary banner, Save disabled
+    end
+  </pre>
+</div>
+<p class="diagram-caption">Fig. 2 — Authoring flow: validate, write both storage layers in one transaction, fan out the change event.</p>
+
+<p>
+  The operator works in a combined radar-plus-mode editor. Every field carries
+  <code>INotifyDataErrorInfo</code> validation bound to the requirements-deck ranges; Save is disabled
+  while any error stands. On a valid save, the whole <code>ClaweRadarInstance</code> is re-serialized
+  to one blob and the thin index rows (<code>ClaweRadar</code>, <code>ClaweRadarMode</code>) are
+  updated in the same transaction, so the two layers never diverge. The write then fans out as a
+  <code>RadarModifiedEvent</code> so STS can refresh.
+</p>
+
+<h3>6.2 STS adds a CLAWE radar to a scenario (interface B)</h3>
+
+<div class="diagram-container">
+  <pre class="mermaid">
+sequenceDiagram
+    participant STS as STS UI
+    participant P as CLAWE Proxy
+    participant DB as CLAWE DB
+
+    STS ->> P: RequestRadars()
+    alt CLAWE DB readable
+        P ->> DB: read radars + modes (+ calc rollups when available)
+        DB -->> P: rows
+        Note over P: build ClaweRadarSummary rollup, no waveform detail
+        P -->> STS: RequestRadarsResponse(radars, source_name, schema_version)
+        Note over STS: user picks a mode, enters CF validated against mode min/max freq
+    else CLAWE DB unavailable
+        P -->> STS: error response with detail
+        Note over STS: show the source as errored, not merely offline
+    end
+  </pre>
+</div>
+<p class="diagram-caption">Fig. 3 — Catalogue fetch: the proxy answers from a read-only DB connection with no view running.</p>
+
+<p>
+  STS never sees <code>ClaweWaveformInstance</code> detail — it only needs enough to let the user pick
+  a mode and enter a valid centre frequency. PRI and PW are not settable from STS.
+</p>
+
+<p><strong>Interface-B messages</strong> (full field-level contract in
+  <a href="CLAWE_Interface_B.html">Interface B</a> §4):</p>
+
+<table>
+  <thead><tr><th style="width:22%">Message</th><th style="width:16%">Direction</th><th style="width:16%">Class</th><th>Payload summary</th></tr></thead>
+  <tbody>
+    <tr><td><code>RequestRadars</code></td><td>STS → Proxy</td><td>request/response</td><td>no request fields; response is <code>List&lt;ClaweRadarSummary&gt;</code> + <code>source_name</code> + <code>schema_version</code></td></tr>
+    <tr><td><code>LaunchMaintenanceUiCommand</code></td><td>STS → Proxy</td><td>command</td><td>optional <code>radar_name</code>; acks <code>LAUNCHED</code> / <code>FOCUSED</code> / <code>REJECTED</code></td></tr>
+    <tr><td><code>RadarModifiedEvent</code></td><td>Proxy → STS</td><td>pub-sub (fanout)</td><td><code>radar_name</code>, <code>change_kind</code> {<code>CREATED</code>,<code>UPDATED</code>,<code>RENAMED</code>,<code>DELETED</code>}, <code>previous_name</code> (on <code>RENAMED</code>), UTC <code>timestamp</code>, <code>source_name</code></td></tr>
+  </tbody>
+</table>
+
+<p>
+  Transport: TCP + RabbitMQ (AMQP 0-9-1) + Protobuf; a request/command queue
+  <code>clawe.ifaceB.rpc</code> and a fanout exchange <code>clawe.ifaceB.events</code>; every message
+  inside an <code>InterfaceBEnvelope</code> carrying a timestamp and protocol version.
+</p>
+
+<h3>6.3 HOCA runs a radar mode (interface C)</h3>
+
+<div class="diagram-container">
+  <pre class="mermaid">
+sequenceDiagram
+    participant H as HOCA
+    participant P as CLAWE Proxy
+    participant EV as Execution View
+    participant DB as CLAWE DB
+
+    H ->> P: LaunchExecutionUI(ActiveRadarMode = radar, mode, CF, amplitude)
+    P ->> EV: spawn CLAWE.Host --mode execution, locked to the mode
+    EV ->> DB: read the radar + mode + waveforms (read-only)
+    EV ->> H: LoadWaveforms(all instances for the active radar)
+    EV ->> H: LoadSchedule(Auto-mode schedule, if any)
+    H ->> P: ActivateRadar()
+    P ->> EV: activate
+    alt scenario runs to completion
+        H ->> P: DeactivateRadar()
+        P ->> EV: deactivate, view stays open
+    else HOCA connection lost mid-run
+        Note over EV: hold last state, show a disconnected banner, do not exit
+    end
+  </pre>
+</div>
+<p class="diagram-caption">Fig. 4 — Execution flow: HOCA launches and drives a mode-locked view; CLAWE pushes waveforms and schedule to hardware.</p>
+
+<p>
+  The Execution View is locked to the mode HOCA named. The operator can switch the active waveform
+  (operator-in-the-loop) or hand control to cognitive optimisation, and can add or edit waveform
+  instances within the lock, but cannot touch the mode's capabilities or constraints.
+</p>
+
+<p><strong>Interface-C messages</strong> (from <code>STS SW Interface Descriptions.pptx</code> slide 8):</p>
+
+<table>
+  <thead><tr><th style="width:30%">Message</th><th style="width:16%">Direction</th><th>Payload summary</th></tr></thead>
+  <tbody>
+    <tr><td><code>LaunchExecutionUI(ActiveRadarMode)</code></td><td>HOCA → CLAWE</td><td>radar name, mode name, CF, amplitude</td></tr>
+    <tr><td><code>ActivateRadar()</code></td><td>HOCA → CLAWE</td><td>start radar operation; show the view if hidden</td></tr>
+    <tr><td><code>DeactivateRadar()</code></td><td>HOCA → CLAWE</td><td>end radar operation; view stays open</td></tr>
+    <tr><td><code>LoadWaveforms(List&lt;waveform&gt;)</code></td><td>CLAWE → HOCA</td><td>every <code>ClaweWaveformInstance</code> for the active radar, into HW DDR RAM (radar vs. mode scope: <a href="#open">OQ-14</a>)</td></tr>
+    <tr><td><code>LoadSchedule(List&lt;WaveformID, Duration&gt;)</code></td><td>CLAWE → HOCA</td><td>the Auto-mode schedule, repeated in HW</td></tr>
+  </tbody>
+</table>
+
+<div class="warn">
+  <strong>Open:</strong> the RDI / target-report data-stream direction is not yet specified (<a href="#open">OQ-3b</a>) —
+  slide 8 defines no CLAWE-bound telemetry.
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="decisions">7. Design decisions</h2>
+
+<div class="feature-box teal" id="dd-1">
+  <h3>DD-1 — CLAWE UI is a standalone application, not a PRISM plugin</h3>
+  <p><strong>Decision:</strong> CLAWE UI is its own process, executable, and database, connected to STS only over a network interface.</p>
+  <p><strong>Rationale:</strong> STS, CLAWE, and HOCA may run on different machines; a plugin cannot. CLAWE's authoring and execution activities have different lifecycles and permissions than an STS plugin, and CLAWE must not be able to corrupt <code>emitters.db</code>.</p>
+  <table>
+    <thead><tr><th style="width:26%">Option</th><th>Pro</th><th>Con</th><th style="width:12%">Verdict</th></tr></thead>
+    <tbody>
+      <tr><td>Standalone app + network interface</td><td>multi-host; independent lifecycle; own DB</td><td>must build a proxy, a transport, a message contract</td><td>chosen</td></tr>
+      <tr><td><code>PRISM.Host</code> plugin</td><td>reuses PRISM shell, theme, DI</td><td>same-host only; shares <code>emitters.db</code> risk; ABI-coupled</td><td>rejected — breaks the multi-host assumption</td></tr>
+    </tbody>
+  </table>
+  <p><strong>Consequences:</strong> requires the proxy, interface B, and a RabbitMQ transport. Look-and-feel parity now costs a copy of <code>PRISM.UI</code> rather than a reference (DD-4). <em>(Reversed the initial 2026-08-15 assumption; the stale <code>PRISM.ClaweEmitters</code> plugin shell was deleted on 2026-08-24.)</em></p>
+</div>
+
+<div class="feature-box teal" id="dd-2">
+  <h3>DD-2 — Two-layer storage: one protobuf blob per radar + a thin relational index</h3>
+  <p><strong>Decision:</strong> the canonical data is a single serialized <code>ClaweRadarInstance</code> per radar in <code>ClaweRadarProtoBlob.ProtoBytes</code>. The <code>ClaweRadar</code> / <code>ClaweRadarMode</code> tables carry only id, name, and type — enough for pickers and dropdowns.</p>
+  <p><strong>Rationale:</strong> mirrors <code>PRISM.Database</code>'s <code>EmitterProtoBlob</code> pattern. The nested modifier stack is deep and mostly not queried; forcing it into relational tables would be a large mapping surface for little benefit. The blob is the round-trip source of truth; adding a queryable rollup table later is an additive schema step, not a migration.</p>
+  <table>
+    <thead><tr><th style="width:22%">Option</th><th>Pro</th><th>Con</th><th style="width:16%">Verdict</th></tr></thead>
+    <tbody>
+      <tr><td>Blob + thin index</td><td>matches PRISM; cheap writes; additive rollups</td><td>a whole-radar re-serialize per waveform save</td><td>chosen</td></tr>
+      <tr><td>Fully relational</td><td>every field queryable in SQL</td><td>huge EF mapping; schema churn on every modifier change</td><td>rejected — mapping cost</td></tr>
+      <tr><td>Blob only, no index</td><td>simplest</td><td>cannot list radars without deserializing all of them</td><td>rejected — picker performance</td></tr>
+    </tbody>
+  </table>
+  <p><strong>Consequences:</strong> every waveform save re-serializes and re-hashes the entire radar. Measured in iteration 3 (<a href="#open">OQ-9</a>):</p>
+  <ul>
+    <li><strong>The test:</strong> a radar holding 2,000 waveforms, each with every allowed modifier set (a 572 KiB blob).</li>
+    <li><strong>Result:</strong> a full editor Save rewrites that blob three times and takes a median of 63 ms, well under NFR-1's 500 ms.</li>
+    <li><strong>Scale:</strong> linear extrapolation reaches the bound around 15,000 waveforms per radar.</li>
+  </ul>
+  <p>Per-waveform blob rows aren't needed. The question is revisited in iteration 10.</p>
+</div>
+
+<div class="feature-box teal" id="dd-3">
+  <h3>DD-3 — EF Core + SQLite with <code>EnsureCreated</code> and hand-written versioned patches, no EF Migrations</h3>
+  <p><strong>Decision:</strong> the schema is built procedurally in <code>ClaweDbContext.OnModelCreating</code> and evolved by an ordered <code>ApplySchemaUpdatesAsync</code> patch list keyed on a <code>ClaweSchemaVersion</code> table.</p>
+  <p><strong>Rationale:</strong> exactly <code>PRISM.Database</code>'s approach. EF Migrations add a generated-code artefact and a migration history table that the team does not want; the patch list is explicit and reviewable, and the blob absorbs most "schema" change without a DB migration at all.</p>
+  <p><strong>Consequences:</strong> eight patch steps exist:</p>
+  <ul>
+    <li>v1 seed</li>
+    <li>v2 blob table</li>
+    <li>v3 alt-name one-per-kind index</li>
+    <li>v4 default-mode backfill</li>
+    <li>v5 waveform-name-per-mode index</li>
+    <li>v6 case-insensitive (<code>NOCASE</code>) name indexes (DD-17). The step checks for names that differ only by case, and if it finds any it reports them and changes nothing.</li>
+    <li>v7 the <code>ClaweWriteOwner</code> table behind the single-writer check (FR-35).</li>
+    <li>v8 the internal mode ID (DD-19). It numbers every mode in creation order, writes the ID into both the index row and the blob entry, and then adds a unique index.</li>
+  </ul>
+  <p>Only the Maintenance View applies steps. A read-only process can't, so it accepts any file at schema v6 or later (<code>ClaweSchemaCheck.MinReadableVersion</code>) and queries only what v6 has; the proxy keeps working after an upgrade is installed, before the editor has run.</p>
+  <p>Each step and its version row commit as one transaction (FR-10): a step that fails part-way rolls back whole and reruns on the next launch. Each new nested field is a proto3 additive change with no DB step. A wire-breaking blob change has no migration at all: while there's no production data, such a build requires a fresh database. The blob's version tag (<code>clawe-v2</code> since iteration 3) records schema changes but isn't checked on load.</p>
+</div>
+
+<div class="feature-box teal" id="dd-4">
+  <h3>DD-4 — Copy <code>PRISM.UI</code>, do not reference it</h3>
+  <p><strong>Decision:</strong> <code>CLAWE.UI</code> holds its own copy of <code>Tokens.Dark.xaml</code>, <code>ControlStyles.xaml</code>, <code>GraphThemeHelper.cs</code>, and selected controls from <code>PRISM.UI</code>, with attribution comments. No <code>ProjectReference</code> into the PRISM solution.</p>
+  <p><strong>Rationale:</strong> DD-1 makes CLAWE architecturally independent; a runtime reference would re-couple them and pull the whole PRISM assembly graph. The visual language is stable enough that a copy will not drift materially over a 24-week build.</p>
+  <p><strong>Consequences:</strong> a genuine <code>PRISM.UI</code> change (rare) must be re-copied by hand. Known one-time gotcha, now handled: WPF-UI's dark Mica chrome needs an explicit <code>ApplicationThemeManager.Apply()</code> at startup, not just a merged theme dictionary.</p>
+</div>
+
+<div class="feature-box teal" id="dd-5">
+  <h3>DD-5 — Proxy plus split single-purpose views, not one multi-tab window</h3>
+  <p><strong>Decision:</strong> an always-on proxy process launches a singleton Maintenance View and <code>0..n</code> Execution Views. Each view does one job. The earlier single-window <code>NavigationView</code> shell (Maintenance + Operate tabs) is restructured into <code>CLAWE.Host --mode maintenance</code> / <code>--mode execution</code> in delivery iteration 4.</p>
+  <p><strong>Rationale:</strong> STS and HOCA need a stable network endpoint regardless of which views are open. Views are short-lived (a maintenance view is up only while someone edits). A persistent proxy is the natural place to enforce single-writer and to answer <code>RequestRadars()</code> with no view running. (<code>CLAWE UI Requirements.pptx</code> slide 2 and the 2026-09-08 interface meeting.)</p>
+  <p><strong>Consequences:</strong> a process-model restructure mid-project (iteration 4), and an inter-process story for launch/focus/registration: local named pipes (DD-20). Single-writer is enforced by a named mutex plus a write-owner row (DD-1 forbids relying on the OS alone across a shared DB): the Maintenance View claims the row at startup, and every commit it makes checks it first, so a second writer fails before anything is written. <em>(Built in iteration 4: <code>CLAWE.Host --mode maintenance|execution</code>, <code>CLAWE.Proxy</code>.)</em></p>
+</div>
+
+<div class="feature-box teal" id="dd-6">
+  <h3>DD-6 — RabbitMQ transport, following the written spec over the existing implementation</h3>
+  <p><strong>Decision:</strong> interfaces B and C use TCP + RabbitMQ (AMQP 0-9-1) + Protobuf, per <code>STS SW Interface Descriptions.pptx</code>.</p>
+  <p><strong>Rationale:</strong> the interface deck specifies RabbitMQ for all of A/B/C, so STS carries one messaging stack. CLAWE follows the written contract.</p>
+  <table>
+    <thead><tr><th style="width:20%">Option</th><th>Pro</th><th>Con</th><th style="width:20%">Verdict</th></tr></thead>
+    <tbody>
+      <tr><td>RabbitMQ</td><td>matches the deck; one broker for A/B/C; mature .NET client</td><td>a broker to stand up and operate</td><td>chosen — per spec</td></tr>
+      <tr><td>NetMQ / ZeroMQ</td><td>brokerless; already used by <code>HocaLiteService.cs</code></td><td>diverges from the deck; different from A</td><td>rejected — but flagged (<a href="#open">OQ-2</a>)</td></tr>
+    </tbody>
+  </table>
+  <p><strong>Consequences:</strong> the message types and <code>CLAWE.Contracts</code> are transport-neutral; <code>CLAWE.Messaging</code> is the only project with a broker client. OQ-2 was resolved in September 2026 (iteration 4): RabbitMQ, as the deck says. STS itself carries only NetMQ today, so the STS side needs a RabbitMQ client too. Broker ownership in integration and deployment is still open (<a href="#open">OQ-1</a>); development uses a Docker broker (<code>dev/rabbitmq/docker-compose.yml</code>).</p>
+</div>
+
+<div class="feature-box teal" id="dd-7">
+  <h3>DD-7 — Alternate names: at most one NATO and one ELNOT</h3>
+  <p><strong>Decision:</strong> a radar carries <code>0..1</code> NATO name and <code>0..1</code> ELNOT, enforced at UI, repository, and DB (<code>IX_ClaweRadarAlternateName_OnePerKind</code>).</p>
+  <p><strong>Rationale:</strong> STS's <code>PRISM.EmitterMaker</code> exposes exactly one textbox per identifier kind and the PRISM DB enforces ELNOT uniqueness. "Mirror STS" implies the same shape. Narrows the 2026-08-18-approved <code>0..N</code>.</p>
+  <p><strong>Consequences:</strong> the proto keeps <code>repeated ClaweAlternateName</code> (mirrors STS's <code>repeated Identifier</code>); the invariant lives in the DB and UI, not the wire format. Lead-confirmed.</p>
+</div>
+
+<div class="feature-box teal" id="dd-8">
+  <h3>DD-8 — A radar requires at least one mode</h3>
+  <p><strong>Decision:</strong> <code>ClaweRadarInstance.modes</code> is <code>1..N</code>. Enforced by seeding a default <code>TTR</code>/<code>Manual</code> mode on radar create, a delete guard on the last mode, and a v4 migration for any pre-existing modeless radar.</p>
+  <p><strong>Rationale:</strong> STS effectively requires <code>&gt;=1</code> mode per emitter (its proto says "Required (&gt;=1)"; EmitterMaker seeds a first mode and blocks deleting the last). The lead confirmed directly there is no use case for a modeless CLAWE radar. Narrows the 2026-08-18-approved <code>0..N</code>.</p>
+  <p><strong>Consequences:</strong> the combined editor's blank first mode <em>is</em> the first mode; <code>DefaultRadarMode.Create()</code> is now migration-only.</p>
+</div>
+
+<div class="feature-box teal" id="dd-9">
+  <h3>DD-9 — <code>ClaweRadarSummary</code> is a derived rollup, computed and never stored</h3>
+  <p><strong>Decision:</strong> the interface-B <code>RequestRadars()</code> response is a flattened projection — per radar <code>{name, description, alternate_names}</code>, per mode <code>{name, type, operating mode, waveform types, min/max freq, min/max PRI, min/max PW, modulation types}</code> — with no <code>ClaweWaveformInstance</code> detail.</p>
+  <p><strong>Rationale:</strong> STS only needs to pick a mode and validate a centre frequency. Sending thousands of waveform instances per mode would be wasteful and expose fields STS cannot use. The Min/Max and modulation-type values are rollups over the mode envelope and its waveforms.</p>
+  <p><strong>Consequences:</strong> until the calc-rollup layer exists (iteration 10), the proxy builds the summary by walking blobs; afterwards it reads cached <code>ClaweWaveformCalcRollup</code> rows. The deck's <code>ModulationType</code> is a 6-of-9 subset (no Pulse Compression / Amplitude / Discrimination) — intended or an omission is open (<a href="#open">OQ-8</a>).</p>
+</div>
+
+<div class="feature-box teal" id="dd-10">
+  <h3>DD-10 — ScottPlot 5 for all charting, chosen by an early spike</h3>
+  <p><strong>Decision:</strong> <code>CLAWE.UI</code> uses ScottPlot 5.1.58 (<code>ScottPlot</code> + <code>ScottPlot.WPF</code> + <code>SkiaSharp.Views.WPF</code>) with a <code>GraphThemeHelper</code> copied from <code>PRISM.UI</code>.</p>
+  <p><strong>Rationale:</strong> it is exactly PRISM's charting stack. Introducing a second charting library into a codebase meant to look like STS would be a mistake. Delivery iteration 2 shipped a throwaway pulse-train spike against real mode-constraint data; the lead confirmed it matches STS visually.</p>
+  <p><strong>Consequences:</strong> safe to build the waveform summary chart, live signal preview, and RDI scopes on ScottPlot (iterations 7–9 and 12). If ScottPlot turns out to be a poor fit for high-rate streaming RDI data, that surfaced at the spike (week 4), not mid-iteration-7.</p>
+</div>
+
+<div class="feature-box teal" id="dd-11">
+  <h3>DD-11 — <code>Name</code> is the sole external handle</h3>
+  <p><strong>Decision:</strong> a radar's already-unique <code>Name</code> is its only external identifier. No separate public ID (STSSE emitters carry a 26-char ULID decoupled from the surrogate PK).</p>
+  <p><strong>Rationale:</strong> CLAWE UI is its own authoring tool with its own database; a second identity field is complexity with no consumer. Interface B's <code>RadarModifiedEvent</code> carries a <code>previous_name</code> for the rename case.</p>
+  <p><strong>Consequences:</strong> rename is a first-class operation that must propagate (blob identity fields, index row, and the pub/sub event all update together).</p>
+</div>
+
+<div class="feature-box teal" id="dd-12">
+  <h3>DD-12 — TTR only for v1</h3>
+  <p><strong>Decision:</strong> <code>RadarModeType</code> values <code>Search</code>, <code>TAR</code>, and <code>Missile</code> are modelled in the schema and visible in the editor but disabled. Only <code>TTR</code> can be authored.</p>
+  <p><strong>Rationale:</strong> the lead scoped v1 to TTR (confirmed 2026-09-01). Modelling the enum now keeps the wire format stable; disabling in the UI keeps the scope bounded.</p>
+  <p><strong>Consequences:</strong> the constraint-envelope and modifier logic is validated against one mode type in v1; enabling the others later is a UI change, not a schema change.</p>
+</div>
+
+<div class="feature-box teal" id="dd-13">
+  <h3>DD-13 — <code>CLAWE_UI/</code> is its own git repository; the Markdown design docs are the editable source</h3>
+  <p><strong>Decision:</strong> the code lives in an independent <code>CLAWE_UI/</code> git repo (matching the <code>sparta/</code> sibling precedent — <code>SPARTA Test System/</code> and <code>PRISM/</code> are not repos). The design docs live one level up in <code>Design/</code> and are not under that repo. The Markdown working docs (<code>DESIGN.md</code>, the timeline, the iteration review) are the editable source; the HTML suite pages are rendered from them.</p>
+  <p><strong>Rationale:</strong> each major workspace component is its own repo. The design docs describe multiple repos and predate the code, so they sit above it. Markdown diffs cleanly in review and is what code comments reference; the HTML suite is the shareable rendering.</p>
+  <p><strong>Consequences:</strong> two representations of the timeline and iteration review to keep in sync — regenerate the HTML after a substantive Markdown edit (the <code>html-suite-builder</code> agent). Shipped docs cite this <code>DESIGN.md</code> and the other tracked design docs, never private planning notes.</p>
+</div>
+
+<div class="feature-box teal" id="dd-14">
+  <h3>DD-14 — A mode can't be narrowed under the waveforms that use it</h3>
+  <p><strong>Decision:</strong> a mode's allowed-modifier checkbox, or its "Pulsed / Single-pulse waveforms allowed" checkbox, is disabled while any of the mode's waveforms uses that sub-type or base waveform. The tooltip names the waveforms to change first. "Uses" includes the open waveform's unsaved state.</p>
+  <p><strong>Rationale:</strong> narrowing a mode would leave existing waveforms invalid. FR-14 forbids writing a known-invalid radar, so the alternatives were:</p>
+  <ul>
+    <li><strong>Block the mode save:</strong> this deadlocks when more than one waveform is affected. Only one waveform is open at a time, and each waveform save is still checked against the saved mode.</li>
+    <li><strong>Let the mode save and flag the waveforms afterwards:</strong> this persists exactly the invalid state FR-14 exists to prevent.</li>
+  </ul>
+  <p>Preventing the narrowing keeps every save valid.</p>
+  <table>
+    <thead><tr><th style="width:24%">Option</th><th>Pro</th><th>Con</th><th style="width:16%">Verdict</th></tr></thead>
+    <tbody>
+      <tr><td>Lock the control while in use</td><td>a mode save can never invalidate a waveform; the tooltip says what to fix</td><td>the operator edits the waveforms first, then the mode</td><td>chosen</td></tr>
+      <tr><td>Block the mode save</td><td>simple rule</td><td>deadlocks with two or more affected waveforms</td><td>rejected</td></tr>
+      <tr><td>Save the mode, flag the waveforms</td><td>the fewest clicks</td><td>persists invalid waveforms (FR-14)</td><td>rejected</td></tr>
+    </tbody>
+  </table>
+  <p><strong>Consequences:</strong> FR-18 carries the lock and FR-15 notes it. The same check backs the Pulsed ↔ Single Pulse switch on a waveform: switching asks before clearing settings the other base waveform doesn't have.</p>
+</div>
+
+<div class="feature-box teal" id="dd-15">
+  <h3>DD-15 — An Auto mode may be saved with an empty schedule</h3>
+  <p><strong>Decision:</strong> an Auto mode's schedule may be empty when it's saved; the editor shows a notice under the table, not a validation error. Schedule entries pick a waveform from the mode's own waveforms (a picker, not a typed ID), and "add entry" is unavailable until the mode has one. The Execution View refuses to activate an Auto mode with an empty schedule.</p>
+  <p><strong>Rationale:</strong> waveforms attach to a saved mode, so a brand-new mode has none. Requiring at least one entry would make it impossible to save a new mode as Auto at all. The rule that matters, never <em>play</em> an empty schedule, belongs at activation.</p>
+  <p><strong>Consequences:</strong> FR-16 allows the empty schedule, FR-17 describes the picker, and FR-52 carries the activation refusal. FR-17's existing delete guard (a scheduled waveform can't be deleted) is unchanged.</p>
+</div>
+
+<div class="feature-box teal" id="dd-16">
+  <h3>DD-16 — The editor's Save is one transaction, and rollback belongs to whoever opened it</h3>
+  <p><strong>Decision:</strong> the Maintenance View's single Save writes the radar identity, the mode, the alternate names and the open waveform inside one database transaction that the Save owns. Each repository call is atomic on its own too: it opens a transaction when none is open, and joins one when it is. Only the owner of a transaction rolls it back and clears the EF change tracker. The Save changes no editor state until after the commit.</p>
+  <p><strong>Rationale:</strong> FR-7 requires an index row and its blob to commit together, and a visible Save is one user action. Before this change each part committed separately, so a failure part-way left a half-saved radar (or, for a new radar, a radar with no mode) behind a "Save failed" message. Clearing the tracker on rollback matters because the context is shared: failed changes left in it would be written again by the next, unrelated save. A repository that joined a caller's transaction must not clear it, because that would discard the caller's pending work mid-unit. Changing editor state only after the commit means a rolled-back Save leaves the user's draft exactly as they left it.</p>
+  <table>
+    <thead><tr><th style="width:30%">Option</th><th>Pro</th><th>Con</th><th style="width:16%">Verdict</th></tr></thead>
+    <tbody>
+      <tr><td>One owned transaction over the existing repository calls</td><td>small change; the blob is still written up to three times, measured at about 60 ms for 2,000 waveforms</td><td>several blob writes per Save</td><td>chosen for iteration 3</td></tr>
+      <tr><td>A single aggregate write of the whole radar graph</td><td>one blob write</td><td>a new repository surface, and it changes the round-trip of the loaded waveforms</td><td>superseded in iteration 4: the unit of work gets the one blob write without a new surface (DD-18)</td></tr>
+      <tr><td>Separate commits (the previous behaviour)</td><td>none</td><td>partial saves, a stranded new-radar draft</td><td>rejected</td></tr>
+    </tbody>
+  </table>
+  <p><strong>Consequences:</strong> the context-per-operation factory of iteration 4 (DD-18) keeps this ownership rule: the Save is now an <code>IClaweUnitOfWork</code> that owns its transaction, and disposing it uncommitted is the rollback.</p>
+</div>
+
+<div class="feature-box teal" id="dd-17">
+  <h3>DD-17 — One definition of "same name": ASCII-only case folding</h3>
+  <p><strong>Decision:</strong> radar names (globally), mode names (within a radar) and waveform names (within a mode) are unique after trimming, compared with ASCII-only case folding: A–Z and a–z are equal, and every other character must match exactly. <code>ClaweNameComparer</code> is the single definition used by the editor and the repositories. The unique indexes use SQLite's <code>NOCASE</code> collation, which applies exactly that rule.</p>
+  <p><strong>Rationale:</strong> the editor, the mode repository and the indexes each compared names differently: the editor ignored case, the mode repository and the indexes didn't. A name could therefore pass one layer and fail another. .NET's <code>OrdinalIgnoreCase</code> is not an option, because it folds non-ASCII letters (<code>é</code>/<code>É</code>) and SQLite <code>NOCASE</code> doesn't, so the database would disagree with the application. Matching the database's own rule is the only way every layer can agree.</p>
+  <p><strong>Consequences:</strong> <code>Track</code> and <code>track</code> clash, <code>Café</code> and <code>CAFÉ</code> don't. Names stay the external handle for interface B (DD-11). Blob-to-index matching no longer uses names at all since iteration 4's internal mode ID (DD-19), which does not appear on interface B.</p>
+</div>
+
+<div class="feature-box teal" id="dd-18">
+  <h3>DD-18 — A context per operation, from a writer or read-only factory; writes go through a unit of work</h3>
+  <p><strong>Decision:</strong> no process holds one long-lived <code>DbContext</code>. <code>ClaweDatabaseService</code> rents a context per operation from an <code>IClaweDbContextFactory</code>, which is either:</p>
+  <ul>
+    <li>a <strong>writer</strong> — the Maintenance View only, whose contexts check the write-owner row before every commit; or</li>
+    <li><strong>read-only</strong> — the proxy and Execution Views, opened with SQLite's <code>Mode=ReadOnly</code>.</li>
+  </ul>
+  <p>A multi-step write is an <code>IClaweUnitOfWork</code>: one context and one transaction it owns, with repositories bound to both. Within a unit:</p>
+  <ul>
+    <li>Repositories edit the radar's graph in a <strong>working copy</strong>, and the unit serializes each changed radar's blob <strong>once, at commit</strong>.</li>
+    <li>They record each radar they change in a <strong>change journal</strong>: one entry per radar, keyed by PK. The strongest kind wins (Deleted &gt; Created &gt; Renamed &gt; Updated), and a radar created and deleted in the same unit produces nothing.</li>
+    <li>The journal goes to an <code>IRadarChangeSink</code> <strong>after</strong> the commit. A rollback discards the working copies and the journal together with the change tracker.</li>
+  </ul>
+  <p><strong>Rationale:</strong></p>
+  <ul>
+    <li>Several processes now open the same file, and only one may write, so read-only access has to be a property of the connection itself.</li>
+    <li>A context per operation means nothing a failed or concurrent operation left in a tracker can leak into the next one. That replaces DD-16's "clear the shared tracker" discipline with there being no shared tracker.</li>
+    <li>The working copy gives the Save one blob write without a new aggregate repository surface.</li>
+    <li>Announcing only after the commit is the only correct place: repository calls inside the Save join its transaction, so a per-call hook would announce uncommitted work, several times per Save.</li>
+  </ul>
+  <table>
+    <thead><tr><th style="width:26%">Option</th><th>Pro</th><th>Con</th><th style="width:16%">Verdict</th></tr></thead>
+    <tbody>
+      <tr><td>Factory + unit of work + post-commit journal</td><td>read-only enforced by SQLite; one blob write per Save; events only for committed work</td><td>a bigger change to the data layer</td><td>chosen</td></tr>
+      <tr><td>Keep one context per process, add a read-only one for the proxy</td><td>smaller change</td><td>the editor's context still accumulates state; blob still written 2–5 times</td><td>rejected</td></tr>
+      <tr><td>Publish from a repository decorator</td><td>no journal needed</td><td>publishes before the commit, and several times per Save</td><td>rejected</td></tr>
+    </tbody>
+  </table>
+  <p><strong>Consequences:</strong></p>
+  <ul>
+    <li>The editor's full Save of a 2,000-waveform radar went from a median of about 56 ms to <strong>16 ms</strong> (Release).</li>
+    <li><code>new ClaweDatabaseService(context)</code> keeps the one-context behaviour for tests and in-memory databases.</li>
+    <li>Reads inside an open unit see its pending edits.</li>
+  </ul>
+</div>
+
+<div class="feature-box teal" id="dd-19">
+  <h3>DD-19 — Modes get an internal ID that links index row and blob entry</h3>
+  <p><strong>Decision:</strong> <code>ClaweRadarModeInstance.mode_id</code> (proto field 9) and <code>ClaweRadarMode.ModeId</code> carry the same value:</p>
+  <ul>
+    <li>It's unique within the radar, assigned by the repository as the highest in use + 1.</li>
+    <li>It stays the same through renames and edits.</li>
+    <li>The blob entry and the index row are matched by it, not by name.</li>
+  </ul>
+  <p><strong>Rationale:</strong> matching by name was fragile. A rename had to find the entry under its <em>old</em> name, and the lookup compared names exactly while the clash check used NOCASE (DD-17), so the two could disagree. An ID can't be renamed.</p>
+  <p><strong>Consequences:</strong></p>
+  <ul>
+    <li>Schema step v8 numbers existing modes, in creation order (index-row PK — a save moves an entry to the end of the blob, so blob order isn't creation order). Drifted entries get IDs of their own.</li>
+    <li>The name-based drift guard stays.</li>
+    <li>It's internal: interface B still names modes by name (DD-11), so it's not an external handle.</li>
+  </ul>
+</div>
+
+<div class="feature-box teal" id="dd-20">
+  <h3>DD-20 — Views and the proxy talk over local named pipes; the proxy is the only broker client</h3>
+  <p><strong>Decision:</strong> two named pipes connect the processes on a host, carrying length-prefixed <code>clawe_local.proto</code> frames:</p>
+  <ul>
+    <li><strong><code>clawe-proxy</code></strong> — each view connects, registers (<code>ViewHello</code>), and keeps the pipe open for its lifetime, so disconnecting means it has exited. The Maintenance View sends each committed radar change (<code>RadarChanged</code>) down it; the proxy debounces the changes and publishes <code>RadarModifiedEvent</code>.</li>
+    <li><strong><code>clawe-maintenance</code></strong> — the running Maintenance View answers <code>FocusView</code> there: come forward, optionally opening a radar. Both the proxy (for <code>LaunchMaintenanceUiCommand</code>) and a second double-clicked editor (before it exits) use it.</li>
+  </ul>
+  <p><strong>Rationale:</strong></p>
+  <ul>
+    <li>Interface B's own diagrams disagreed on whether the editor or the proxy publishes. Relaying through the proxy keeps one broker client per host and lets the editor work with no broker or proxy at all (a development double-click); events are an optimisation (FM-12).</li>
+    <li>A pipe also gives registration and focus a channel the broker would be a strange fit for.</li>
+    <li>The focus request carries the right to take the foreground from a caller that has it (<code>AllowSetForegroundWindow</code>).</li>
+  </ul>
+  <table>
+    <thead><tr><th style="width:30%">Option</th><th>Pro</th><th>Con</th><th style="width:16%">Verdict</th></tr></thead>
+    <tbody>
+      <tr><td>Views ↔ proxy over named pipes; the proxy publishes</td><td>one broker client; the editor never needs the broker</td><td>a small local protocol to maintain</td><td>chosen</td></tr>
+      <tr><td>The Maintenance View publishes to the broker itself</td><td>fewer hops for events</td><td>the editor depends on the broker; registration and focus still need another channel</td><td>rejected</td></tr>
+    </tbody>
+  </table>
+  <p><strong>Consequences:</strong></p>
+  <ul>
+    <li>A focus STS requests may only flash the editor's taskbar button: Windows doesn't let a background process hand out the foreground it doesn't have.</li>
+    <li>The pipes are host-wide, like the mutex (FR-38).</li>
+  </ul>
+</div>
+
+<div class="feature-box teal" id="dd-21">
+  <h3>DD-21 — The proxy is a headless process in the user's session, not a Windows Service</h3>
+  <p><strong>Decision:</strong> <code>CLAWE.Proxy.exe</code> is a windowless process (<code>WinExe</code>, Generic Host) started at user logon. It logs to <code>%LocalAppData%\CLAWE\logs\proxy.log</code>, and a <code>Global\CLAWE_Proxy</code> mutex keeps it to one per host.</p>
+  <p><strong>Rationale:</strong> the proxy launches WPF views. A Windows Service runs in session 0 and can't show windows on the user's desktop; working around that means a third, per-session agent process and a service-to-session channel.</p>
+  <table>
+    <thead><tr><th style="width:34%">Option</th><th>Pro</th><th>Con</th><th style="width:16%">Verdict</th></tr></thead>
+    <tbody>
+      <tr><td>Headless user-session process at logon</td><td>can spawn and focus views directly; simple</td><td>runs only while someone is logged on</td><td>chosen</td></tr>
+      <tr><td>Windows Service + per-session launcher</td><td>true "system start"</td><td>a third process and another IPC hop</td><td>rejected</td></tr>
+    </tbody>
+  </table>
+  <p><strong>Consequences:</strong></p>
+  <ul>
+    <li>"Starts at system start" (FR-33) becomes "starts at user logon".</li>
+    <li>Autostart registration is iteration 12's installer work; until then it's started by hand.</li>
+  </ul>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="datamodel">8. Data model</h2>
+
+<p>
+  Full detail is in <a href="CLAWE_Data_Schema.html">Data Schema</a> (approved, v3.3) and browsable in
+  <a href="CLAWE_Data_Model_Browser.html">Data Model</a>. Summary:
+</p>
+
+<p><strong>Three nested levels</strong>, all in one proto message tree
+  (<code>proto/clawe/v1/clawe_radar.proto</code>, namespace <code>Clawe.V1</code>):</p>
+
+<table>
+  <thead><tr><th style="width:22%">Message</th><th>Fields</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>ClaweRadarInstance</code></td>
+      <td><code>name</code> (unique), <code>description</code>, <code>0..1</code> NATO + <code>0..1</code>
+        ELNOT <code>alternate_names</code> (DD-7), <code>1..N</code> <code>modes</code> (DD-8).</td>
+    </tr>
+    <tr>
+      <td><code>ClaweRadarModeInstance</code></td>
+      <td><code>name</code> (unique within radar), <code>description</code>, <code>radar_mode_type</code>
+        (<code>TTR</code> only for v1, DD-12), an <code>operating_mode</code> oneof (<code>Manual</code> /
+        <code>Auto</code> with a <code>WaveformScheduleEntry</code> list / <code>Cognitive</code> with an
+        <code>OptimizationType</code>), a <code>ConstraintEnvelope</code> (carrier-frequency constraint,
+        max duty cycle, CPI-duration rule, and independently-present <code>PDConstraints</code> /
+        <code>SPConstraints</code> — each carrying a PRI/PW constraint (range or discretes / duty cycle) and an <code>AllowedModifiers</code> set that, per deck slide 9, lists the permitted <em>sub-types</em> per category (e.g. PRI → Base Agile and/or Random Agile), not just the category names), and <code>0..N</code>
+        <code>waveforms</code>.</td>
+    </tr>
+    <tr>
+      <td><code>ClaweWaveformInstance</code></td>
+      <td><code>waveform_id</code> (uint32, unique within mode), <code>name</code>,
+        <code>description</code>, <code>base_waveform</code> (<code>PD</code> / <code>SP</code> /
+        <code>CW</code>), and — from delivery iteration 3 — the PD/SP fields plus the nine-category
+        modifier stack (Phase, Frequency, Pulse Compression, PRI, PW, Amplitude, Leading Edge, Trailing
+        Edge, Discrimination), each independently toggleable with its own parameters and hard min/max
+        ranges (deck slides 27–32).</td>
+    </tr>
+  </tbody>
+</table>
+
+<p>
+  <strong>Two derived projections</strong>, computed and never stored (DD-9):
+  <code>ClaweRadarSummary</code> (interface-B response) and the per-waveform calc rollup
+  (<code>ClaweWaveformCalcRollup</code>, planned — feeds the Waveform Summary Screen and the waveform
+  browser's filters).
+</p>
+<p>
+  <strong>Storage</strong> (DD-2): <code>ClaweRadarProtoBlob</code> holds the serialized
+  <code>ClaweRadarInstance</code>, 1:1 with <code>ClaweRadar</code>. <code>ClaweRadar</code> /
+  <code>ClaweRadarMode</code> are thin index rows. A cascade delete of <code>ClaweRadar</code> removes
+  the index rows and the blob together — nothing can be orphaned at the blob layer.
+</p>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="failures">9. Failure modes &amp; recovery</h2>
+
+<div class="legend">
+  <div class="legend-section">
+    <h5>Severity</h5>
+    <div class="legend-items">
+      <span class="severity sev-critical">Critical</span>
+      <span class="severity sev-high">High</span>
+      <span class="severity sev-medium">Medium</span>
+      <span class="severity sev-low">Low</span>
+    </div>
+  </div>
+  <div class="legend-section">
+    <h5>Recovery</h5>
+    <div class="legend-items">
+      <span class="recovery rec-abort">Abort</span>
+      <span class="recovery rec-retry">Retry</span>
+      <span class="recovery rec-degrade">Degrade</span>
+    </div>
+  </div>
+</div>
+
+<table>
+  <thead>
+    <tr><th style="width:7%">Code</th><th style="width:23%">Failure</th><th style="width:10%">Severity</th><th style="width:9%">Recovery</th><th>Handling</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="err-code">FM-1</span></td>
+      <td><span class="row-name">Second maintenance view attempts to start</span><div class="detail">A batch-file launch while a maintenance view already holds <code>Global\CLAWE_UI_Maintenance</code></div></td>
+      <td><span class="severity sev-high">High</span></td>
+      <td><span class="recovery rec-abort">Abort</span></td>
+      <td>The new process detects the mutex on startup and exits with a message. A proxy-driven launch returns <code>FOCUSED</code> instead (see interface B).</td>
+    </tr>
+    <tr>
+      <td><span class="err-code">FM-2</span></td>
+      <td><span class="row-name">Concurrent writers reach <code>CLAWE DB</code></span><div class="detail">Mutex bypassed (bug, crash without release)</div></td>
+      <td><span class="severity sev-critical">Critical</span></td>
+      <td><span class="recovery rec-abort">Abort</span></td>
+      <td>The write-owner row (a per-writer token, the process ID and its start time) is checked just before every commit of the writer's contexts; a non-owner's commit throws and nothing is written. An owner whose process has died is taken over at the next editor's startup. The proxy and Execution Views open the file read-only, so SQLite itself refuses their writes. SQLite WAL + <code>busy_timeout</code> is the backstop.</td>
+    </tr>
+    <tr>
+      <td><span class="err-code">FM-3</span></td>
+      <td><span class="row-name">Blob fails to deserialize</span><div class="detail">Corrupt <code>ProtoBytes</code> (detected by the stored size and SHA-256), or a blob written by a newer proto the reader does not know</div></td>
+      <td><span class="severity sev-high">High</span></td>
+      <td><span class="recovery rec-degrade">Degrade</span></td>
+      <td>The radar is listed from its index row, but its editor refuses to open with an error naming the radar. The error suggests restoring from a backup, then deleting just that radar, and only as a last resort resetting the database. Additive proto3 fields do not trigger this; a breaking change would.</td>
+    </tr>
+    <tr>
+      <td><span class="err-code">FM-4</span></td>
+      <td><span class="row-name">Schema-update step fails mid-run</span><div class="detail">Disk full, file locked, a bad patch</div></td>
+      <td><span class="severity sev-critical">Critical</span></td>
+      <td><span class="recovery rec-abort">Abort</span></td>
+      <td><code>ApplySchemaUpdatesAsync</code> runs each step in a transaction and records the version only on success; a failed step leaves the DB at the prior version and the app refuses to start with a diagnostic.</td>
+    </tr>
+    <tr>
+      <td><span class="err-code">FM-5</span></td>
+      <td><span class="row-name">Proxy cannot open <code>CLAWE DB</code></span><div class="detail">File missing, permissions, corrupt</div></td>
+      <td><span class="severity sev-high">High</span></td>
+      <td><span class="recovery rec-abort">Abort</span></td>
+      <td><code>RequestRadars()</code> returns an error response (not a timeout) with detail so STS shows the source as errored, not merely offline.</td>
+    </tr>
+    <tr>
+      <td><span class="err-code">FM-6</span></td>
+      <td><span class="row-name">Waveform field out of the deck range</span><div class="detail">Operator enters a value outside slides 27–32 bounds</div></td>
+      <td><span class="severity sev-low">Low</span></td>
+      <td><span class="recovery rec-degrade">Degrade</span></td>
+      <td><code>INotifyDataErrorInfo</code> marks the field, the tab shows an error dot, the summary banner lists it, and Save is disabled. No write happens.</td>
+    </tr>
+    <tr>
+      <td><span class="err-code">FM-7</span></td>
+      <td><span class="row-name">Mode allows no base waveform</span><div class="detail">Neither <code>pd_constraints</code> nor <code>sp_constraints</code> is set</div></td>
+      <td><span class="severity sev-medium">Medium</span></td>
+      <td><span class="recovery rec-degrade">Degrade</span></td>
+      <td>The mode is invalid; the editor blocks Save and explains that a mode must allow PD, SP, or both.</td>
+    </tr>
+    <tr>
+      <td><span class="err-code">FM-8</span></td>
+      <td><span class="row-name">Calc engine divide-by-zero or NaN</span><div class="detail">A metric input is zero or unset while the operator is mid-edit</div></td>
+      <td><span class="severity sev-low">Low</span></td>
+      <td><span class="recovery rec-degrade">Degrade</span></td>
+      <td>Each calculator is NaN/divide-by-zero guarded (the gap <code>GraphsAndFieldsReview.md</code> documents in <code>PRISM.EmitterMaker</code>); the summary shows "—" for an uncomputable metric rather than crashing.</td>
+    </tr>
+    <tr>
+      <td><span class="err-code">FM-9</span></td>
+      <td><span class="row-name">RabbitMQ broker unreachable</span><div class="detail">Broker down, or the connection drops</div></td>
+      <td><span class="severity sev-critical">Critical</span></td>
+      <td><span class="recovery rec-retry">Retry</span></td>
+      <td>STS shows the CLAWE source as offline and reconnects with backoff. The proxy keeps serving nothing until the broker returns. Full interface-B matrix (B101–B401) in <a href="CLAWE_Interface_B.html">Interface B</a>.</td>
+    </tr>
+    <tr>
+      <td><span class="err-code">FM-10</span></td>
+      <td><span class="row-name">Execution View loses the HOCA connection mid-run</span><div class="detail">Interface-C transport drops during a scenario</div></td>
+      <td><span class="severity sev-high">High</span></td>
+      <td><span class="recovery rec-degrade">Degrade</span></td>
+      <td>The view holds its last state, shows a disconnected banner, and does not exit. On reconnect HOCA re-sends <code>ActivateRadar()</code>.</td>
+    </tr>
+    <tr>
+      <td><span class="err-code">FM-11</span></td>
+      <td><span class="row-name"><code>RequestRadars()</code> response is very large</span><div class="detail">Thousands of radars/modes on slow disk</div></td>
+      <td><span class="severity sev-medium">Medium</span></td>
+      <td><span class="recovery rec-retry">Retry</span></td>
+      <td>STS retries once with a longer deadline. Whether the proxy pages or streams a large response is open (<a href="#open">OQ-12</a>).</td>
+    </tr>
+    <tr>
+      <td><span class="err-code">FM-12</span></td>
+      <td><span class="row-name">
+        <code>RadarModifiedEvent</code> missed</span><div class="detail">STS disconnected from the fanout exchange during an edit</div></td>
+      <td><span class="severity sev-low">Low</span></td>
+      <td><span class="recovery rec-degrade">Degrade</span></td>
+      <td>On reconnect STS re-runs <code>RequestRadars()</code> unconditionally. Events are an optimisation, not the source of truth.</td>
+    </tr>
+    <tr>
+      <td><span class="err-code">FM-13</span></td>
+      <td><span class="row-name">Execution View cannot open <code>CLAWE DB</code></span><div class="detail">File missing or unreadable on the execution host at launch</div></td>
+      <td><span class="severity sev-high">High</span></td>
+      <td><span class="recovery rec-abort">Abort</span></td>
+      <td>The view reports the failure to HOCA (interface C) and does not enter execution mode; the proxy surfaces it. No partial run starts.</td>
+    </tr>
+    <tr>
+      <td><span class="err-code">FM-14</span></td>
+      <td><span class="row-name"><code>LoadWaveforms</code> / <code>LoadSchedule</code> rejected by HOCA</span><div class="detail">HW DDR RAM full, a waveform HOCA cannot realise, or a malformed schedule</div></td>
+      <td><span class="severity sev-high">High</span></td>
+      <td><span class="recovery rec-abort">Abort</span></td>
+      <td>The Execution View shows the rejection with detail and stays in a not-activated state; <code>ActivateRadar()</code> is refused until a valid load succeeds.</td>
+    </tr>
+  </tbody>
+</table>
+<p class="table-footnote">Total: <strong>14 failure modes.</strong> FM-9 through FM-12 are the CLAWE-side view of the interface-B failure matrix; FM-13 and FM-14 cover interface-C load failures. <a href="CLAWE_Interface_B.html">Interface B</a> enumerates the transport-level cases in full.</p>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="open">10. Open questions</h2>
+
+<div class="note">
+  This is the <strong>canonical open-questions register</strong> for the project. Each question has a
+  stable <code>OQ-&lt;n&gt;</code> ID (never renumbered). Other documents —
+  <a href="CLAWE_Requirements.html">Requirements</a>, <a href="CLAWE_Interface_B.html">Interface B</a>,
+  the <a href="CLAWE_UI_Iterative_Timeline.html">timeline</a>, the
+  <a href="Iteration_Review.html">iteration review</a> — reference these IDs rather than restating the
+  question, so a resolution is a one-place edit.
+</div>
+
+<table class="fixed">
+  <thead><tr><th style="width:9%">ID</th><th style="width:26%">Question</th><th>Detail / who resolves it</th></tr></thead>
+  <tbody>
+    <tr><td><strong>OQ-1</strong></td><td>RabbitMQ broker ownership</td><td>Who provides and runs the broker in integration and deployment? Resolved by the lead. <strong>Partly answered in iteration 4:</strong> development uses a Docker broker (<code>dev/rabbitmq/docker-compose.yml</code>), so this no longer gates the build. It does still affect the reviews: a click-through of interface B needs a broker on the reviewer's machine.</td></tr>
+    <tr><td><strong>OQ-2</strong></td><td>RabbitMQ vs ZeroMQ</td><td><strong>Resolved September 2026 (iteration 4): RabbitMQ</strong>, as <code>STS SW Interface Descriptions.pptx</code> specifies for A/B/C (DD-6). <code>HocaLiteService.cs</code> still uses ZeroMQ, so STS needs a RabbitMQ client on its side of interface B.</td></tr>
+    <tr><td><strong>OQ-3</strong></td><td>HOCA integration testing and the interface-C telemetry path</td><td>Slide 4 of <code>STS SW Interface Descriptions.pptx</code> defines HOCA's role and slide 8 the interface-C control / waveform-load messages — that base information is settled. Still open: <strong>OQ-3a</strong> — whether a runnable HOCA exists for dev/integration, or iteration 11 runs entirely against a mocked HOCA (iterations 6 and 7 run on a simulated radar and need no HOCA) (HOCA owner); <strong>OQ-3b</strong> — the RDI / target-report stream into the Execution View: slide 8 carries no CLAWE-bound telemetry, and the Radar Control Tab's RDI scopes / target table need it from somewhere (interface-deck update).</td></tr>
+    <tr><td><strong>OQ-4</strong></td><td>The STS "RTSA window" pattern</td><td>For the dockable graph-window container — not yet located in the repo. Resolved by finding it (an existing STS plugin, not yet shared) or shipping a placeholder dock container by iteration 7.</td></tr>
+    <tr><td><strong>OQ-5</strong></td><td>Legacy field reconciliation</td><td><strong>Resolved September 2026 (iteration 3); no schema change.</strong> The field-by-field pass against <code>sparta/</code>'s <code>ClaweControlSettings.cs</code> and <code>ClaweWaveformController.cs</code> is in <code>CLAWE_Legacy_Reconciliation.md</code>. Every <code>clawe.v1</code> modifier maps to a legacy one. The main differences: legacy offers fixed pick-lists where the deck gives ranges; legacy's single "Phase Encoded" option already behaves as Full on PD and Partial on SP; legacy "Bandwidth Modifier" is Pulse Compression, not Frequency; processing gain was selectable in legacy, fixed at 30 dB here; <code>num_pulses</code> and CW are net-new. The questions it raised for the deck author are <strong>OQ-15</strong>.</td></tr>
+    <tr><td><strong>OQ-6</strong></td><td>Calc-engine formula ambiguities</td><td>Ceiling notation, the <code>3·FS·FCP</code> term in the CPD formula, and LFM's matched-filter bit count for <code>PCG = 3·log2(MFB)</code>. Resolved by the <code>CLAWE Waveform Calculations.pptx</code> author. Gates iteration 5.</td></tr>
+    <tr><td><strong>OQ-7</strong></td><td>CW waveform authoring</td><td>The enum value ships (a non-goal) but no deck specifies CW parameters or its modifier set. Resolved by a future deck; the CW editor is deferred until then.</td></tr>
+    <tr><td><strong>OQ-8</strong></td><td><code>ClaweRadarSummary.modulation_types</code> subset</td><td>The deck's enum is 6 of the 9 modifier categories (no Pulse Compression, Amplitude, Discrimination). Intended, or an omission? Resolved by the interface-deck author.</td></tr>
+    <tr><td><strong>OQ-9</strong></td><td>Blob storage granularity (DD-2)</td><td>One blob per radar means every waveform save re-serializes the whole radar. "Thousands of waveforms per mode" may force per-waveform blob rows. <strong>Measured in iteration 3:</strong> a full Save of a 2,000-waveform radar takes a median of 63 ms against NFR-1's 500 ms, so one blob per radar stays. Still open for two reasons: the figure comes from a 20-core dev machine, not NFR-1's reference host, and iteration 10's rollup work revisits it. <strong>Iteration 4:</strong> with the blob written once per Save (DD-18), the same Save takes a median of 16 ms.</td></tr>
+    <tr><td><strong>OQ-10</strong></td><td>Second <code>LaunchMaintenanceUiCommand</code> behaviour</td><td>Focus the existing window or reject, and what to do when the running view is on a different host than the requester. <strong>Proposed in iteration 4, pending the lead:</strong> focus — the proxy brings the running editor forward (and opens the requested radar) and returns <code>FOCUSED</code>, as FR-44 already says. The cross-host case can't arise: each host has its own proxy and database (FR-38). <code>REJECTED</code> means the editor couldn't be started or didn't respond (B302).</td></tr>
+    <tr><td><strong>OQ-11</strong></td><td>Proxy multi-PC identity / discovery</td><td>How STS distinguishes CLAWE endpoints across hosts, and whether the proxy does boot-time network discovery. Designed later. <strong>Iteration 4:</strong> the request queue is namespaced by the configured source name (<code>clawe.ifaceB.rpc.&lt;source&gt;</code>), so several CLAWE hosts can share one broker; the STS side must agree that naming.</td></tr>
+    <tr><td><strong>OQ-12</strong></td><td>Large-response handling (FM-11)</td><td>Whether the proxy pages or streams a <code>RequestRadars()</code> response that would exceed the RPC deadline. Affects the FM-11 recovery and <a href="CLAWE_Requirements.html#nfr-4">Requirements NFR-4</a>. Designed when a real catalogue exceeds the deadline in a benchmark. <strong>Measured in iteration 4:</strong> 1,000 radars (2 modes × 20 waveforms each) build in a median of 37 ms into a 128 KiB reply — double the 500-radar design figure, well inside any deadline — so one reply stays.</td></tr>
+    <tr><td><strong>OQ-13</strong></td><td>Waveform preview rendering strategy for high pulse counts</td><td>A CLAWE pulsed waveform is typically ~1,024 pulses — too many to draw pulse-by-pulse. The approach (per-pulse vs. envelope/density vs. decimated vs. a PRI-stagger summary vs. a spectrogram view, likely several coordinated views) is unresolved; the iteration-2 spike proved only that ScottPlot is the right <em>library</em>, not the <em>approach</em>. Affects iterations 7 (2D RDI scope) and 9 (live preview). Resolved with the lead over one or more iterations of trying approaches.</td></tr>
+    <tr><td><strong>OQ-14</strong></td><td><code>LoadWaveforms</code> scope: active radar or active radar mode?</td><td><code>STS SW Interface Descriptions.pptx</code> slide 8 says <code>LoadWaveforms(List&lt;waveform&gt;)</code> loads "all of the WaveformInstances defined for active radar", and that HOCA keys its DDR-RAM lookup table on waveform ID. But <code>CLAWE UI Requirements.pptx</code> scopes waveforms to a mode — slide 8: a mode "includes 0 to many radar waveform instances"; slide 12: <code>WaveformID</code> and <code>Name</code> are "unique within a Radar Mode" — so a whole-radar load could send HOCA duplicate IDs from different modes. The Execution View is also locked to one mode (<code>LaunchExecutionUI(ActiveRadarMode)</code>), which suggests "active radar mode" was meant. If whole-radar is intended, HOCA needs a composite (mode, waveform ID) key or CLAWE needs radar-wide-unique IDs (a schema change). Affects §6.3, FR-52, and FM-14's DDR-capacity case. Resolved by the interface-deck author before iteration 11.</td></tr>
+    <tr><td><strong>OQ-15</strong></td><td>Waveform-parameter gaps and legacy conflicts</td><td>Iteration 3 enforces <code>&ge; 0</code> only on fields the requirements deck leaves unbounded: <code>PartialPhaseEncoded.phase_pattern_duration_s</code>, <code>LfmCompression.lfm_bandwidth_hz</code>, <code>ChopAmplitude.max_on_time_s</code>, Prepulse/Postpulse <code>freq_offset_hz</code>, <code>range_resolution_s</code> (the deck gives "100–400 ns" but no default), and <code>num_pulses</code>' upper bound. The OQ-5 legacy pass (<code>CLAWE_Legacy_Reconciliation.md</code> §3) adds evidence and three questions: legacy SP Rampup (4 &micro;s) and SP Prepulse widths (10–100 &micro;s) fall outside the deck's ranges — do those ranges apply to SP? Legacy has a PD "Scintillation Detect" discrimination option the deck omits — was it dropped on purpose? Processing gain: legacy made it selectable (27/30/33 dB) — is the fixed 30 dB still the intent? Until answered, the editor enforces the deck's ranges as written. Resolved by the requirements-deck author. Adding a bound is a validation change, not a wire break. (Sidelobe detection was on this list until the iteration-3 docs pass found the deck already specifies it, slides 12 and 29; the editor now offers those nine choices.)</td></tr>
+    <tr><td><strong>OQ-16</strong></td><td>Does an Execution View write waveforms?</td><td>FR-50 lets the operator add and edit waveform instances in an Execution View, but FR-51 (and DD-5's single-writer rule) says an Execution View never writes <code>CLAWE DB</code>. Either those edits are transient — live only for the run, sent to HOCA, never saved — or the single-writer rule needs an exception (for example, the Execution View asks the Maintenance View or the proxy to save them). Affects FR-50/FR-51, DD-5, and iteration 6. Resolved by the lead before iteration 6; the demo build avoids it by keeping waveform edits out of the Execution View.</td></tr>
+  </tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="changelog">11. Changelog</h2>
+
+<div class="changelog">
+  <div class="entry">
+    <div class="date">September 2026 — v1.6</div>
+    <div class="detail">Iteration 4:
+      <ul>
+        <li><strong>Iteration numbers follow timeline Draft v5</strong> (running-radar demo first):
+          Execution View and simulated radar 6, graph container and 2D RDI scope 7, summary screen 8,
+          live preview 9, rollups and browser 10, interface C and real HOCA 11. OQ gating notes updated
+          to match.</li>
+        <li><strong>Waveform schema gap closed:</strong> <code>cf_hz</code>, <code>base_pri_s</code> and
+          <code>base_pw_s</code> (deck slide 12) were missing from the schema, which recorded only the
+          Fixed/Random choice. Added as proto fields 22–24 (additive), required and checked against the
+          mode's envelope (FR-64). Spread BW 1 and 2 can be None, and the PW type drops its unsupported
+          <code>Random</code> value.</li>
+        <li><strong>OQ-2 resolved</strong> (RabbitMQ, per the deck). OQ-1, OQ-9, OQ-11 and OQ-12 updated
+          with what iteration 4 built and measured; OQ-10 has a proposed answer pending the lead; new
+          <strong>OQ-16</strong> (Execution View waveform edits vs. the single-writer rule).</li>
+        <li>New <strong>DD-18</strong> (a context per operation from a writer or read-only factory;
+          writes through a unit of work with one blob write and a post-commit change journal),
+          <strong>DD-19</strong> (internal mode ID), <strong>DD-20</strong> (local named pipes between
+          views and the proxy; the proxy publishes events), <strong>DD-21</strong> (the proxy is a
+          user-session process started at logon, not a Windows Service).</li>
+        <li>DD-3 adds steps v7 and v8 and the read-only minimum schema; DD-5, DD-6, DD-16 and DD-17 note
+          what iteration 4 built; §4 and §5 describe the proxy, pipes and projects as built; FM-2
+          describes the write-owner check.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="entry">
+    <div class="date">September 2026 — v1.5</div>
+    <div class="detail">Iteration 3:
+      <ul>
+        <li><strong>OQ-5 resolved</strong> by the legacy pass (new <code>CLAWE_Legacy_Reconciliation.md</code>; no schema change).</li>
+        <li>Added <strong>OQ-15</strong>: waveform-parameter gaps and the legacy/deck range conflicts that pass surfaced.</li>
+        <li>Added <strong>DD-14</strong> (a mode can't be narrowed under the waveforms that use it) and <strong>DD-15</strong> (an Auto mode may be saved with an empty schedule).</li>
+        <li>DD-2 and OQ-9 record the save benchmark (63 ms for 2,000 waveforms).</li>
+        <li>DD-3 adds the v5 and v6 patch steps, the rule for wire-breaking blob changes, and one transaction per step (FR-10).</li>
+        <li>From the third-party implementation review: added <strong>DD-16</strong> (the editor's Save is one transaction, and rollback belongs to its owner, FR-7) and <strong>DD-17</strong> (one name rule: ASCII-only case folding, SQLite <code>NOCASE</code>). FM-3 now includes the blob checksum check and per-radar recovery.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="entry">
+    <div class="date">September 2026 — v1.4</div>
+    <div class="detail">Added <strong>OQ-14</strong> (<code>LoadWaveforms</code> whole-radar vs.
+      active-mode scope, and the resulting waveform-ID collision risk in HOCA's lookup table).</div>
+  </div>
+  <div class="entry">
+    <div class="date">September 2026 — v1.3</div>
+    <div class="detail">Added <strong>OQ-13</strong> (high-pulse-count preview rendering strategy),
+      raised by the lead's v0.2.0 feedback. Noted in §7.2 that <code>AllowedModifiers</code> is a
+      per-category set of permitted sub-types (deck slide 9), not a flat category list.</div>
+  </div>
+  <div class="entry">
+    <div class="date">September 2026 — v1.2</div>
+    <div class="detail">§10 is now the <strong>canonical open-questions register</strong>: each question
+      has a stable <code>OQ-&lt;n&gt;</code> ID, and the other suite docs reference the ID instead of
+      restating the question. Added <strong>OQ-12</strong> (large-response paging/streaming — was
+      implied under FM-11 only). All internal <code>§10</code> cross-references updated to
+      <code>OQ-&lt;n&gt;</code>.</div>
+  </div>
+  <div class="entry">
+    <div class="date">September 2026 — v1.1</div>
+    <div class="detail">Applied <code>SPEC_REVIEW.md</code> findings. Added the radar search / filter
+      overlay to §5 (Maintenance View) — F-1. Added interface-B and interface-C message-contract
+      tables to §6.2 / §6.3 so requirements have a design anchor for message detail, and named
+      <a href="CLAWE_Interface_B.html">Interface B</a> a normative extension in §1 — F-8. Added FM-13
+      (Execution View cannot open <code>CLAWE DB</code>) and FM-14 (<code>LoadWaveforms</code> /
+      <code>LoadSchedule</code> rejected) — total 12 → 14 failure modes — F-9. Added a radar-count
+      scale figure (500) to §3 — F-5. Clarified the graph-window shell lives inside
+      <code>CLAWE.UI</code> (project count stays eight) — F-13. Harmonised the metric-family wording
+      in §2 — F-14. Corrected the stale "<code>REQUIREMENTS.md</code> does not exist" note in §1 —
+      F-12.</div>
+  </div>
+  <div class="entry">
+    <div class="date">September 2026 — v1.0</div>
+    <div class="detail">Initial draft. Consolidates the architecture, component model,
+      design-decision rationale (DD-1 through DD-13), failure modes, and open questions that
+      previously lived only in working notes and the individual topic docs.</div>
+  </div>
+</div>
+
+<script src="lib/mermaid.min.js"></script>
+<script src="lib/mermaid-init.js"></script>
+<script src="lib/lightbox.js"></script>
+
+</body>
+</html>

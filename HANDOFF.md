@@ -19,7 +19,7 @@ language, zero network dependencies) for the polished, shareable version.
 | `template.html` | Narrative-page skeleton + live component gallery. |
 | `template-interactive.html` | Self-contained interactive reference-browser skeleton. |
 | `lib/` | Shared stylesheet (`doc.css`), offline Mermaid bundle + init, lightbox, nav. |
-| `agents/` | The five pipeline subagents — nothing else (see below). |
+| `agents/` | The six pipeline subagents — nothing else (see below). |
 | `templates/` | Markdown skeletons for the three working documents. Moved out of `agents/templates/` on 2026-09-10 — see below. |
 | `.claude-plugin/plugin.json` | Plugin manifest — install via `claude --plugin-dir`. |
 | `skills/design-pipeline/` | Orchestrator skill — `/design-docs:design-pipeline`. |
@@ -122,3 +122,63 @@ needed updating — nothing else hardcoded it.
 - Why-first prose: rationale sits next to the decision it explains.
 - Stable IDs, never renumbered: `FR-*` / `NFR-*` (requirements), `DD-*` (design
   decisions), `T-*` (tasks). Dropped items are marked withdrawn, not deleted.
+
+## Overview view (added after 2026-09-10)
+
+Added `overview-author` (agent), `templates/OVERVIEW.template.md`, and
+`DESIGN_DOC_INSTRUCTIONS.md` §12: a derived, tables-and-diagrams-only
+`OVERVIEW.md` for PMs/management, rendered to `overview.html` by
+`html-suite-builder`. `TASKS.md` milestones gain an optional `Status` column.
+Plugin version bumped to 1.2.0.
+
+Dry run (rebuilt `mdtoc` sources, deliberately verbose milestone rows): the
+overview compressed a ~90-word milestone row to one sentence + status, counts
+audited correct, and it flagged a source gap (component in diagram, no
+Components entry). It exposed 9 rule ambiguities — risk source, open vs
+resolved counts, Gantt without durations, date, link form, etc. — settled in
+`overview-author.md` rule 9 and the template. Re-run after further prompt
+changes; HTML rendering of `overview.html` is still untested.
+
+**HTML render test (mdtoc):** all 6 pages open from `file://` with 0 external
+requests, 0 console errors, Mermaid renders, no page-level horizontal scroll.
+Fixes it drove: `html-suite-builder` lacked Bash (could not copy
+`mermaid.min.js`); no stat-tile component (added `.stat-strip`/`.stat` to
+`doc.css`, §6.4); no status-word→pill mapping (§6.4); no ID-anchor convention
+(§12.3: lowercase ids, every Ref linked); `overview.html` exempted from the
+open-High gate since it displays that state. Known remaining: sources with
+gaps in section numbering (e.g. §3, §4, §6) make the builder hack `.toc`
+numbering with inline `counter-set` — not yet given a sanctioned class.
+
+**Real-project run (`SampleDocs/`, CLAWE UI):** `overview-author` produced
+`SampleDocs/OVERVIEW.md` (12 milestones, 13 open decisions, 9 risks, 4
+cross-document contradictions found) and `html-suite-builder` rendered
+`SampleDocs/overview-html/overview.html` (0 external requests, diagram
+renders). No `TASKS.md` exists there — the iteration timeline stood in. Found:
+`dateFormat X` Gantt charts do not work in the vendored Mermaid (all bars
+stack), so Gantt is now calendar-dates-only; Gantt label colours fixed in
+`lib/mermaid-init.js`. Open: the page runs ~6 screens (13 decisions, 12
+milestones) — longer than the §12 "two printed pages" target; no stand-in
+rule yet for a missing `TASKS.md`; stale-SPEC_REVIEW handling is by agent
+judgement only.
+
+**Caps run (CLAWE):** §12.4 caps + key-row + Visuals applied. OVERVIEW.md
+1,759 -> 1,392 words; iterations 1-4 collapsed to one row, M7 marked key;
+risks 9->6, decisions 14->5, with "+N more" lines. Rendered page height
+barely moved (6,192 -> 6,361 px) because the architecture diagram renders tall;
+hand-built roadmap is 5,672 px with 5 mockups. Rule added: stale SPEC_REVIEW
+-> "Not re-validated", never "Yes". Open: cap diagram height; decide whether
+open decisions should be filtered to management-level ones (needs an owner
+field in the source).
+
+**Round 3 (CLAWE):** architecture diagram forced to `graph LR` <= 8 nodes in a
+`.diagram-container.compact` (max 260 px svg; container ~365 px, was ~700);
+milestone chart removed (table only); Visuals now a `.thumb-row`; open
+questions gain **Owner** + **Level (Management|Technical)** in DESIGN/
+REQUIREMENTS templates, `design-doc-author`, `spec-validator` (missing =
+Low finding), and `overview-author` rule 10 (Management first; falls back to
+earliest-milestone-blocked when the source lacks the fields — CLAWE's
+DESIGN.md §10 does, so its Owner column is inferred from "Resolved by"
+prose). Risk order: risks touching not-yet-Done milestones rank first. Page
+height 6,361 -> 5,436 px (hand-built roadmap: 5,672 with 5 mockups).
+Not done: the CLAWE DESIGN.md itself has no Owner/Level fields (user's
+document; left unedited).

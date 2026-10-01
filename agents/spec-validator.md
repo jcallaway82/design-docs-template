@@ -49,7 +49,8 @@ independence.
 - **Staleness** — `REQUIREMENTS.md` cites a `DESIGN.md` version older than the
   current file; changelog entries missing for a bumped version.
 - **Open questions** — still-open items that block a requirement or task marked
-  ready.
+  ready; any open question missing **Owner** or **Level** (Low finding — the
+  overview cannot route it to the right reader).
 
 ## Output: `SPEC_REVIEW.md`
 

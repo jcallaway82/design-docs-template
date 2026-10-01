@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CLAWE UI — Design Documentation</title>
+<link rel="stylesheet" href="lib/doc.css">
+</head>
+<body class="wide">
+
+<div id="page-nav"></div>
+<script src="lib/nav.js"></script>
+
+<h1>CLAWE UI — Design Documentation</h1>
+<p class="subtitle">Design-doc hub for the CLAWE Interactive Emitters App — a standalone application STS drives over the network to author and run closed-loop adaptive radar waveforms</p>
+<div class="doc-meta">
+  <span><strong>Version:</strong> 1.8</span>
+  <span><strong>Status:</strong> Living index</span>
+  <span><strong>Date:</strong> October 2026</span>
+</div>
+
+<h2 id="overview">1. Overview</h2>
+
+<p>
+  <strong>CLAWE UI</strong> (the "CLAWE Interactive Emitters App") is a standalone C#/WPF/.NET
+  application — its own process, own executable, own SQLite database — that lets a user author
+  <strong>closed-loop CLAWE radars</strong> (radars that adapt their waveform in response to jamming)
+  and that <strong>STS</strong> connects to over the network to play those radars inside static
+  scenarios. It is <strong>not</strong> a PRISM plugin; it is architecturally independent of STS but
+  built to look, feel, and be organized like it.
+</p>
+<p>
+  Runtime shape (per <code>CLAWE UI Requirements.pptx</code> slide 2 and the 2026-09-08 interface
+  meeting): an always-on <strong>proxy</strong> process listens on the network and launches
+  single-purpose views on request — a singleton <strong>Maintenance view</strong> (the only writer to
+  <code>CLAWE DB</code>, one instance at a time) for authoring, and <code>0..n</code>
+  <strong>Execution views</strong> launched by HOCA to run an assigned radar mode. STS and HOCA connect
+  to the proxy, not to a view directly.
+</p>
+<p>
+  <strong>Where the build is:</strong> iteration 4 (<code>v0.4.0</code>) is built on
+  <code>feature/interface-b</code>, <strong>not yet committed</strong> — the proxy plus
+  split maintenance/execution process model, a context-per-operation database layer with a
+  unit-of-work Save, and interface B over RabbitMQ (<code>RequestRadars</code>,
+  <code>LaunchMaintenanceUiCommand</code>, <code>RadarModifiedEvent</code>). Iteration 3
+  (<code>v0.3.0</code>) is merged to <code>master</code>. The delivery plan (timeline Draft v5) now
+  puts a <strong>simulated running radar</strong> first: the buyer-demo milestone is iteration 7. See
+  <a href="#planning">Planning &amp; status</a> below for the delivery plan and the rolling
+  iteration review.
+</p>
+
+<h2 id="architecture">2. System context</h2>
+
+<div class="diagram-container">
+  <pre class="mermaid">
+graph LR
+    STSDB[("STS DB")] --- STSUI["STS UI"]
+    STSUI ---|"B"| CLAWEUI["CLAWE UI<br/>(proxy + views)"]
+    CLAWEUI --- CLAWEDB[("CLAWE DB")]
+    STSUI ---|"A"| HOCA["HOCA"]
+    CLAWEUI ---|"C"| HOCA
+    HOCA ---|"D"| HW["STS HW"]
+    STEEM["STEEM"] ---|"E"| HOCA
+    SIM["SPARTA SW Sim<br/>(CLAWE)"] ---|"F"| HOCA
+  </pre>
+</div>
+<p class="diagram-caption">
+  Fig. 1 — STS software interfaces (from <code>STS SW Interface Descriptions.pptx</code> slide 3).
+  Interfaces A–C are all TCP + RabbitMQ + Protobuf. This suite currently documents <strong>interface
+  B</strong> (STS UI ↔ CLAWE UI); interface C (CLAWE UI ↔ HOCA) control messages are summarized in the
+  Interface B doc; A/D/E/F are out of scope here.
+</p>
+
+<h2 id="documents">3. Documents</h2>
+
+<div class="card-grid">
+  <div class="card">
+    <h4><span class="badge badge-blue">Draft</span> Design</h4>
+    <p>The <em>what</em> and the <em>why</em>: goals / non-goals, the proxy + split-view architecture,
+      the eight-project component model, 21 design decisions with rejected alternatives, key flows,
+      14 failure modes, and the canonical open-questions register (<code>OQ-1</code> &hellip;
+      <code>OQ-16</code>). The hub the other specs hang off. v1.6.</p>
+    <a href="CLAWE_Design.html">Open →</a>
+  </div>
+  <div class="card">
+    <h4><span class="badge badge-blue">Draft</span> Requirements</h4>
+    <p>The testable contract — 64 functional and 16 non-functional requirements, each with acceptance
+      criteria, traced to a Design section and a timeline iteration. Cross-checked against the Design
+      in <code>SPEC_REVIEW.md</code> (0 open findings). v1.6.</p>
+    <a href="CLAWE_Requirements.html">Open →</a>
+  </div>
+  <div class="card">
+    <h4><span class="badge badge-green">Approved</span> Data Schema</h4>
+    <p>CLAWE UI's own persisted data model — <code>ClaweRadarInstance</code> /
+      <code>ClaweRadarModeInstance</code> / <code>ClaweWaveformInstance</code>, the protobuf + thin
+      SQLite two-layer storage design, field reference vs. legacy CLAWE. Currently v3.3.</p>
+    <a href="CLAWE_Data_Schema.html">Open →</a>
+  </div>
+  <div class="card">
+    <h4><span class="badge badge-amber">Draft</span> Interface B</h4>
+    <p>The STS UI ↔ CLAWE UI network contract: transport, the proxy / singleton-maintenance /
+      multi-execution process model, <code>RequestRadars()</code> → <code>ClaweRadarSummary</code>,
+      <code>LaunchMaintenanceUI()</code>, the radar-modified pub/sub event, sequence diagrams, and a
+      failure matrix. Now reflects iteration 4: relayed through the proxy over local named pipes, the
+      namespaced request queue, and the response <code>error</code> field. v0.3.</p>
+    <a href="CLAWE_Interface_B.html">Open →</a>
+  </div>
+  <div class="card">
+    <h4><span class="badge badge-green">Interactive</span> Data Model</h4>
+    <p>Click-through reference for every <code>clawe.v1</code> proto message — sidebar tree,
+      fields with type / cardinality / units, cross-links and used-by backlinks. Radar, mode,
+      and constraint envelope are exact to the shipped proto; the waveform modifier stack is
+      from the Data Schema doc + requirements deck, pending iteration 3.</p>
+    <a href="CLAWE_Data_Model_Browser.html">Open →</a>
+  </div>
+  <div class="card">
+    <h4><span class="badge badge-neutral">Planned</span> Waveform Calculations</h4>
+    <p>An implementable spec for the five calculation families behind the Waveform Summary Screen
+      (CPI duration, processing gain, eclipsing, range &amp; velocity ambiguity) — variable
+      definitions, which schema fields feed each input, worked examples as test fixtures. Source
+      today: <code>CLAWE Waveform Calculations.pptx</code>.</p>
+    <span class="status s-planned">Not yet written</span>
+  </div>
+</div>
+
+<h2 id="planning">4. Planning &amp; status</h2>
+
+<p>
+  These two track <em>where the build is</em>, alongside the design docs above that track <em>what is
+  being built</em>. Each is rendered from a Markdown working doc of the same name (the editable source);
+  regenerate the HTML after a substantive change.
+</p>
+
+<div class="card-grid">
+  <div class="card">
+    <h4><span class="badge badge-blue">Living plan</span> Iterative Timeline</h4>
+    <p>Draft v5 — 12 two-week iterations / ~24 weeks, reordered so a simulated running radar comes
+      first (buyer-demo milestone: iteration 7, week 14). The dated delivery plan: what each iteration
+      ships, its demo bar, the dependency spine, and what would still shift it. Iterations 1&ndash;4
+      are marked done.</p>
+    <a href="CLAWE_UI_Iterative_Timeline.html">Open →</a>
+  </div>
+  <div class="card">
+    <h4><span class="badge badge-green">Rolling</span> Iteration Review</h4>
+    <p>Review of the most recently completed iteration (currently iteration 4, <code>v0.4.0</code>,
+      built on <code>feature/interface-b</code>, not yet committed) plus a cumulative snapshot of
+      the app, open questions, and one-paragraph summaries of earlier iterations.</p>
+    <a href="Iteration_Review.html">Open →</a>
+  </div>
+</div>
+
+<h2 id="sources">5. Source decks</h2>
+
+<table class="fixed">
+  <thead><tr><th style="width:34%">Deck</th><th>Covers</th></tr></thead>
+  <tbody>
+    <tr><td><code>CLAWE UI Requirements.pptx</code></td><td>Use cases, the three-level data model, the nine-modifier reference and parameter tables, Radar Control Tab notes. (In <code>SPARTA Test System/</code>.)</td></tr>
+    <tr><td><code>STS SW Interface Descriptions.pptx</code></td><td>The A–F interface catalog; interface A (STS↔HOCA), B (STS↔CLAWE), C (CLAWE↔HOCA) message specs. Interface B = slides 6–7. (In <code>SPARTA Test System/</code>.)</td></tr>
+    <tr><td><code>CLAWE Waveform Calculations.pptx</code></td><td>The Waveform Summary Screen contents and the five calculation families with worked examples. (In <code>SPARTA Test System/</code>.)</td></tr>
+    <tr><td><code>CLAWE_Data_Schema.pptx</code></td><td><span class="status s-deprecated">Superseded</span> — the pre-HTML version of the data schema; the <code>.html</code> is the live reference (~2 major versions ahead).</td></tr>
+  </tbody>
+</table>
+
+<h2 id="changelog">6. Changelog</h2>
+
+<div class="changelog">
+  <div class="entry">
+    <div class="date">October 2026 — v1.8</div>
+    <div class="detail">Refreshed <a href="CLAWE_Design.html">Design</a> (v1.6),
+      <a href="CLAWE_Requirements.html">Requirements</a> (v1.6, now 64 functional requirements with the
+      new <strong>FR-64</strong>), <a href="CLAWE_UI_Iterative_Timeline.html">Iterative Timeline</a>
+      (<strong>Draft v5</strong>: running-radar demo first, buyer-demo milestone at iteration 7) and
+      <a href="Iteration_Review.html">Iteration Review</a> (updated 2026-10-01) from their Markdown
+      sources. Iteration numbers in the Design and Requirements pages (and the traceability matrix) now
+      follow Draft v5. Updated this page's version, the Requirements card (64 FR + 16 NFR), the Data
+      Schema card (v3.3), the Timeline card, and the &sect;1 overview.</div>
+  </div>
+  <div class="entry">
+    <div class="date">September 2026 — v1.7</div>
+    <div class="detail">Regenerated <a href="CLAWE_Design.html">Design</a> (v1.6),
+      <a href="CLAWE_Requirements.html">Requirements</a> (v1.6),
+      <a href="CLAWE_UI_Iterative_Timeline.html">Iterative Timeline</a>, and
+      <a href="Iteration_Review.html">Iteration Review</a> for iteration 4 / <code>v0.4.0</code> docs
+      (built on <code>feature/interface-b</code>, not yet committed): the proxy + process-model
+      restructure, <strong>DD-18</strong> (context-per-operation + unit of work),
+      <strong>DD-19</strong> (internal mode ID), <strong>DD-20</strong> (local named pipes),
+      <strong>DD-21</strong> (proxy as a user-session process); <strong>OQ-2 resolved</strong>
+      (RabbitMQ), OQ-1/OQ-9/OQ-10/OQ-11/OQ-12 updated with iteration-4 measurements, new
+      <strong>OQ-16</strong> (Execution View waveform edits vs. the single writer). 319 tests pass (up
+      from 251). Updated the &sect;1 overview, card blurbs (Design now 21 decisions; Interface B notes
+      the proxy relay), and this page's own version — it had drifted one version behind its own
+      changelog.</div>
+  </div>
+  <div class="entry">
+    <div class="date">September 2026 — v1.6</div>
+    <div class="detail">Regenerated <a href="CLAWE_Design.html">Design</a>,
+      <a href="CLAWE_UI_Iterative_Timeline.html">Iterative Timeline</a>, and
+      <a href="Iteration_Review.html">Iteration Review</a> for the hardening pass folded into
+      <code>v0.3.0</code> from a third-party implementation review: <strong>DD-16</strong> (the
+      editor's Save is one transaction, rollback belongs to its owner) and <strong>DD-17</strong> (one
+      name rule — ASCII-only case folding, SQLite <code>NOCASE</code>, schema update v6); DD-3's patch
+      list and FM-3's blob-checksum check updated to match. 251 tests pass (up from 229). Updated the
+      Design card blurb (17 design decisions, up from 15).</div>
+  </div>
+  <div class="entry">
+    <div class="date">September 2026 — v1.5</div>
+    <div class="detail">Regenerated <a href="CLAWE_Design.html">Design</a> (v1.5),
+      <a href="CLAWE_Requirements.html">Requirements</a> (v1.5),
+      <a href="CLAWE_UI_Iterative_Timeline.html">Iterative Timeline</a>, and
+      <a href="Iteration_Review.html">Iteration Review</a> for iteration 3
+      (<code>v0.3.0</code>, complete on <code>feature/waveform-editor</code>, not yet merged): the full
+      nine-category waveform modifier stack and editor, <strong>DD-14</strong> /
+      <strong>DD-15</strong>, <strong>OQ-14</strong> / <strong>OQ-15</strong>, OQ-5 resolved (see the new
+      <code>CLAWE_Legacy_Reconciliation.md</code>, linked from the Design page's OQ-5 entry — not given
+      its own hub card, matching how other working <code>.md</code> docs aren't individually listed
+      here), and the OQ-9 save-latency benchmark. Updated the &sect;1 overview, card blurbs, and Data
+      Schema version (v3.2, hand-edited separately) to match.</div>
+  </div>
+  <div class="entry">
+    <div class="date">September 2026 — v1.4</div>
+    <div class="detail">Regenerated <a href="Iteration_Review.html">Iteration Review</a> and
+      <a href="CLAWE_UI_Iterative_Timeline.html">Iterative Timeline</a> to reflect iteration 2's true
+      final state: <code>v0.2.0</code> shipped, then three rounds of lead feedback fixes
+      (<code>v0.2.1</code>/<code>v0.2.2</code>/<code>v0.2.3</code>) landed and the branch merged to
+      <code>master</code> (104 tests, <code>f0d3f61</code>). Updated the &sect;1 overview and the
+      Iteration Review card blurb here to match — both had gone stale mid-iteration.
+      <a href="CLAWE_Design.html">Design</a> / <a href="CLAWE_Requirements.html">Requirements</a>
+      untouched (these three rounds were bug fixes to already-approved <code>v0.2.0</code> behavior, not
+      new requirements or design decisions).</div>
+  </div>
+  <div class="entry">
+    <div class="date">September 2026 — v1.3</div>
+    <div class="detail">Regenerated <a href="CLAWE_Design.html">Design</a> (v1.3),
+      <a href="CLAWE_Requirements.html">Requirements</a> (v1.3),
+      <a href="CLAWE_UI_Iterative_Timeline.html">Iterative Timeline</a>, and
+      <a href="Iteration_Review.html">Iteration Review</a> for the <code>v0.2.1</code> iteration-2
+      feedback pass. Added <strong>OQ-13</strong> (high-pulse-count preview rendering strategy) to the
+      canonical register; noted that <code>AllowedModifiers</code> is a per-category set of permitted
+      sub-types (deck slide 9). Data Schema hand-edited to v3.1 separately.</div>
+  </div>
+  <div class="entry">
+    <div class="date">September 2026 — v1.2</div>
+    <div class="detail">Ran the design-docs pipeline: authored <code>DESIGN.md</code> →
+      <code>REQUIREMENTS.md</code> → <code>SPEC_REVIEW.md</code>, applied the review findings, and
+      rendered <a href="CLAWE_Design.html">Design</a> and <a href="CLAWE_Requirements.html">Requirements</a>
+      into the suite (new §3 cards + nav entries). The "Requirements" card is no longer "planned".
+      Also consolidated the open questions into a canonical register (<a href="CLAWE_Design.html#open">Design
+      §10</a>, <code>OQ-1</code> … <code>OQ-12</code>) — every other doc now references the ID instead of
+      restating the question.</div>
+  </div>
+  <div class="entry">
+    <div class="date">September 2026 — v1.1</div>
+    <div class="detail">Added the interactive <a href="CLAWE_Data_Model_Browser.html">Data Model</a>
+      browser (Archetype B); rendered the <a href="CLAWE_UI_Iterative_Timeline.html">Iterative
+      Timeline</a> and <a href="Iteration_Review.html">Iteration Review</a> working docs into the HTML
+      suite and added the Planning &amp; status section; wired Data Model, Timeline, and Iteration
+      Review into the shared nav bar. Fixed two Mermaid sequence-diagram syntax errors in the
+      Interface&nbsp;B doc.</div>
+  </div>
+  <div class="entry">
+    <div class="date">September 2026 — v1.0</div>
+    <div class="detail">Created the hub. Added the Interface B design doc and wired the shared nav bar
+      across the suite (previously the Data Schema page stood alone with no index).</div>
+  </div>
+</div>
+
+<script src="lib/mermaid.min.js"></script>
+<script src="lib/mermaid-init.js"></script>
+<script src="lib/lightbox.js"></script>
+
+</body>
+</html>

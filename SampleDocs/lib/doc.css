@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════════
-   Design Docs Template — Shared Stylesheet (doc.css)
+   PRISM Design Docs — Shared Stylesheet (doc.css)
    One stylesheet for every narrative design / API document page.
    Link it from every page:  <link rel="stylesheet" href="lib/doc.css">
    (adjust the relative path for pages in subfolders: ../lib/doc.css)
@@ -270,18 +270,6 @@ tbody tr:hover { background: var(--bg-raised); }
 .section-count { font-size: 0.75rem; color: var(--text-muted); font-weight: 400; margin-left: 0.5rem; }
 
 /* ── Legend strip ──────────────────────────────────────────────── */
-.row-key td { background: var(--tint-blue); }
-.row-key td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
-
-.stat-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)); gap: 0.75rem; margin: 1rem 0 1.5rem; align-items: start; }
-.stat { background: var(--bg-raised); border: 1px solid var(--border); border-radius: 6px; padding: 0.75rem 1rem; }
-.stat-value { display: block; font-size: 1.6rem; font-weight: 600; color: var(--text-bright); line-height: 1.2; }
-.stat-label { display: block; font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase; color: var(--text-muted); margin-top: 0.15rem; }
-.stat-note { display: block; font-size: 0.75rem; color: var(--text-muted); }
-.stat-warn .stat-value { color: var(--amber); }
-.stat-bad  .stat-value { color: var(--red); }
-.status-cell .status { margin-left: 0; }
-
 .legend {
   display: flex; flex-wrap: wrap; gap: 1.5rem; margin-bottom: 1.5rem;
   padding: 0.9rem 1.1rem; background: var(--bg-raised);
@@ -303,15 +291,6 @@ tbody tr:hover { background: var(--bg-raised); }
   overflow-x: auto;
   position: relative;
 }
-/* thumbnails side by side (overview Visuals) */
-.thumb-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 1rem; margin: 1rem 0; }
-.thumb-row figure { margin: 0; }
-.thumb-row img { width: 100%; height: auto; display: block; border: 1px solid var(--border); border-radius: 6px; }
-.thumb-row figcaption { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.4rem; }
-
-/* compact: keeps one-glance diagrams (overview) from dominating the page */
-.diagram-container.compact { padding: 1rem 1.5rem; }
-.diagram-container.compact svg { max-height: 260px; width: auto; max-width: 100%; display: block; margin: 0 auto; }
 /* zoom affordance appears once lightbox.js binds (adds .zoomable) */
 .diagram-container.zoomable { cursor: zoom-in; }
 .diagram-container.zoomable::after {
