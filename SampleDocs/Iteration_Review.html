@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CLAWE UI — Iteration Review</title>
+<link rel="stylesheet" href="lib/doc.css">
+</head>
+<body class="wide">
+
+<div id="page-nav"></div>
+<script src="lib/nav.js"></script>
+
+<h1>CLAWE UI — Iteration Review</h1>
+<p class="subtitle">Rolling review of the most recently completed iteration, with a cumulative snapshot of the app and its open questions</p>
+<div class="doc-meta">
+  <span><strong>Current iteration:</strong> 4 (<code>v0.4.0</code>)</span>
+  <span><strong>Status:</strong> Built on <code>feature/interface-b</code>, not yet committed</span>
+  <span><strong>Updated:</strong> 1 October 2026</span>
+</div>
+
+<div class="note">
+  <strong>This is a rolling document.</strong> It is rewritten at the end of each iteration:
+  &sect;1 reviews the latest completed iteration in full, &sect;2&ndash;&sect;4 are a cumulative
+  app-state and open-questions snapshot, and &sect;5 keeps a one-paragraph summary of each earlier
+  iteration. Forward plan: <a href="CLAWE_UI_Iterative_Timeline.html">Iterative Timeline</a>.
+  Release-by-release detail: <code>CLAWE_UI/CHANGELOG.md</code>.
+  Rendered from <code>Iteration_Review.md</code> (the editable working doc) — the Markdown wins if they
+  disagree.
+</div>
+
+<div class="feature-box blue">
+  <h3>Iteration 4 status</h3>
+  <p>
+    Iteration 4 — <code>v0.4.0</code> — is built on <code>feature/interface-b</code> (branched from
+    <code>feature/waveform-editor</code>; <code>v0.3.0</code> is merged to <code>master</code> at
+    <code>50c05c1</code>). <strong>Not yet committed.</strong> The full solution builds clean, and
+    <strong>366 tests pass</strong> across 7 test projects, plus 2 benchmarks, including the 4 broker
+    tests against a live RabbitMQ 4 broker. The end-to-end demo bar was also checked against that
+    broker (&sect;1).
+  </p>
+</div>
+
+<div class="toc">
+  <h4>Contents</h4>
+  <ol>
+    <li><a href="#latest">Latest iteration — Iteration 4 (v0.4.0)</a></li>
+    <li><a href="#exists">What exists now (cumulative app state)</a></li>
+    <li><a href="#process">Process / infrastructure</a></li>
+    <li><a href="#open">Open questions / feedback</a></li>
+    <li><a href="#earlier">Earlier iterations</a></li>
+    <li><a href="#next">Next iteration</a></li>
+  </ol>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="latest">1. Latest iteration — Iteration 4 (weeks 7&ndash;8, <code>v0.4.0</code>)</h2>
+
+<h3>1.1 Scope</h3>
+<p>From the timeline's demo bar:</p>
+<div class="cross-note">
+  "Over RabbitMQ from a test client: fetch radar summaries, remote-launch maintenance (2nd launch
+  focuses/refused), receive modified-events on edits. Double-click still launches maintenance via the
+  proxy."
+</div>
+<p>
+  <strong>Built.</strong> Each piece is covered by tests. Locally, without a broker, it was checked that
+  views register with a real proxy process; a second double-click focuses the first editor and exits;
+  the proxy retries while the broker is down; and a second proxy exits.
+</p>
+<p><strong>Against a live RabbitMQ 4 broker</strong> (the Docker dev broker, a real proxy and the test
+  client), it was also checked that:</p>
+<ul>
+  <li><code>radars</code> answers;</li>
+  <li><code>launch</code> returns <code>LAUNCHED</code>, and a second one returns <code>FOCUSED</code>
+    (naming a missing radar);</li>
+  <li>a create, five quick edits, a rename and a delete arrive as <code>CREATED</code>,
+    <strong>one</strong> <code>UPDATED</code>, <code>RENAMED</code> (with the old name) and
+    <code>DELETED</code>;</li>
+  <li>after a broker restart the proxy reconnects by itself and answers again;</li>
+  <li>a missing database gives an error reply, not a timeout, and no file is created.</li>
+</ul>
+<p>The editor's writes came from a scratch harness using the editor's real unit of work and proxy
+  connection; nobody clicked through the UI. The check found one real bug: RabbitMQ 4 refuses
+  non-durable, non-exclusive queues, so the request queue is now durable. The iteration stayed a single
+  iteration; it didn't split into 4a/4b.</p>
+
+<h3>1.2 Open questions going in</h3>
+<table>
+  <thead><tr><th style="width:14%">OQ</th><th>Outcome</th></tr></thead>
+  <tbody>
+    <tr><td><strong>OQ-2</strong> RabbitMQ vs ZeroMQ</td><td><strong>Resolved: RabbitMQ</strong>, per the deck (user decision). STS carries only NetMQ today, so its side of interface B needs a RabbitMQ client too.</td></tr>
+    <tr><td><strong>OQ-1</strong> broker ownership</td><td>Didn't block the work: development uses a Docker broker. It does block the lead's click-through, which needs a broker on their machine.</td></tr>
+    <tr><td><strong>OQ-10</strong> second launch</td><td>Built as <em>focus</em>, which FR-44 already says. The cross-host case can't arise (FR-38). Proposed to the lead for closure.</td></tr>
+    <tr><td><strong>OQ-11</strong> multi-host identity</td><td>Queue namespaced by source name (<code>clawe.ifaceB.rpc.&lt;source&gt;</code>). The STS side must agree the naming.</td></tr>
+    <tr><td><strong>OQ-12</strong> large response</td><td>Measured: 1,000 radars in 37 ms (128 KiB). One reply stays.</td></tr>
+    <tr><td><strong>New OQ-16</strong></td><td>FR-50 (an Execution View edits waveforms) vs FR-51 (it never writes). Needs the lead before iteration 6; the demo build keeps waveform edits out of the Execution View.</td></tr>
+  </tbody>
+</table>
+
+<div class="warn">
+  A review agent checked the plan against the code before implementation began. It found 15 issues, and
+  all were folded in. The four serious ones would have lost data or broken the build: a blob cache that
+  bypassed <code>RadarRepository</code>; <code>mode_id</code> being wiped on every save; a <code>Page</code>
+  hosted directly in a <code>Grid</code>; and a summary builder that assumed per-waveform frequency values
+  that don't exist.
+</div>
+
+<h3>1.3 What was delivered</h3>
+
+<div class="feature-box teal">
+  <h3>Database access for several processes (DD-18, the timeline's "first task")</h3>
+  <ul>
+    <li><strong>Context per operation.</strong> No process holds one long-lived context any more.
+      Contexts come from a writer factory (the Maintenance View) or a read-only one
+      (<code>Mode=ReadOnly</code>: the proxy and Execution Views).</li>
+    <li><strong>Unit of work for multi-step writes.</strong> <code>IClaweUnitOfWork</code> owns its
+      transaction (DD-16's rule kept). Repositories edit a working copy of the radar graph, and the unit
+      writes each radar's blob <strong>once, at commit</strong>. The editor's full Save of a
+      2,000-waveform radar went from about 56 ms to <strong>16 ms</strong> (median, Release).</li>
+    <li><strong>Post-commit change journal.</strong> It records one change per radar (Created / Updated /
+      Renamed / Deleted, strongest wins), and goes to a sink only after the commit.</li>
+    <li><strong>Write-owner row</strong> (schema v7, FR-35, NFR-7). The editor claims it at startup and
+      checks it before every commit, so a second writer fails with nothing written. A dead owner is
+      taken over.</li>
+    <li><strong>Minimum readable schema.</strong> Read-only processes accept any schema from v6 on.</li>
+  </ul>
+</div>
+
+<div class="feature-box teal">
+  <h3>Internal mode ID (DD-19, schema v8)</h3>
+  <ul>
+    <li><strong>What it is:</strong> <code>mode_id</code> links a mode's index row to its blob entry,
+      instead of the name.</li>
+    <li><strong>Across saves:</strong> it survives renames and edits, since the editor never sets it and
+      the repository keeps it.</li>
+    <li><strong>Upgrade:</strong> v8 numbers existing modes in creation order, including drifted entries,
+      and adds a unique index.</li>
+  </ul>
+</div>
+
+<div class="feature-box teal">
+  <h3>Process split (FR-34, FR-36, FR-37)</h3>
+  <ul>
+    <li><strong>Command line:</strong> <code>CLAWE.Host</code> takes <code>--mode maintenance</code>
+      (the default), <code>--mode execution</code>, or the dev-only <code>--mode vizspike</code>.</li>
+    <li><strong>Window:</strong> the Maintenance/Operate <code>NavigationView</code> is gone. The editor
+      page sits in a <code>Frame</code>, and the close guard is wired directly.</li>
+    <li><strong>Startup order:</strong> mutex &rarr; register with the proxy &rarr; database init and
+      owner claim &rarr; window &rarr; focus server. The mutex is taken before anything else. An
+      abandoned mutex is taken over; one held by another user counts as held.</li>
+    <li><strong>Execution View stub:</strong> read-only; it shows the locked mode's constraints through
+      the interface-B summary builder.</li>
+  </ul>
+</div>
+
+<div class="feature-box teal">
+  <h3>Local IPC (DD-20)</h3>
+  <p>There are two named pipes:</p>
+  <ul>
+    <li><strong><code>clawe-proxy</code></strong> — views register there, and the editor forwards
+      committed changes.</li>
+    <li><strong><code>clawe-maintenance</code></strong> — the running editor answers "come forward (and
+      open radar X)".</li>
+  </ul>
+  <p>The editor works with no proxy running.</p>
+</div>
+
+<div class="feature-box teal">
+  <h3><code>CLAWE.Proxy</code> (DD-21, FR-33)</h3>
+  <ul>
+    <li><strong>The process:</strong> a headless user-session process, one per host, logging to
+      <code>%LocalAppData%\CLAWE\logs\proxy.log</code>.</li>
+    <li><strong><code>RequestRadars</code>:</strong> read-only, with an error response instead of a
+      timeout. A damaged radar is skipped.</li>
+    <li><strong><code>LaunchMaintenanceUiCommand</code>:</strong> returns <code>FOCUSED</code>,
+      <code>LAUNCHED</code> or <code>REJECTED</code> with a reason.</li>
+    <li><strong>Events:</strong> the editor's changes are debounced into <code>RadarModifiedEvent</code>s.
+      <code>UPDATED</code> waits for 250 ms of quiet; <code>CREATED</code>, <code>RENAMED</code> and
+      <code>DELETED</code> go out at once.</li>
+  </ul>
+</div>
+
+<div class="feature-box teal">
+  <h3><code>CLAWE.Messaging</code> (RabbitMQ.Client 7.2.2, replacing the unused NetMQ pin)</h3>
+  <ul>
+    <li><strong>Connection:</strong> automatic and topology recovery, plus a first-connect retry with
+      backoff.</li>
+    <li><strong>Server:</strong> request/reply on the namespaced queue; requests expire after 30 s;
+      unreadable requests are dropped.</li>
+    <li><strong>Events:</strong> a fanout exchange.</li>
+    <li><strong>Client:</strong> used by the test client and the tests.</li>
+  </ul>
+</div>
+
+<div class="feature-box teal">
+  <h3><code>CLAWE.Contracts</code> is no longer empty</h3>
+  <ul>
+    <li>the <code>RadarSummaryBuilder</code>, envelope-only (see below);</li>
+    <li>the interface-B names and versions;</li>
+    <li>the local pipe protocol and the mutex.</li>
+  </ul>
+</div>
+
+<p><strong>Supporting pieces:</strong> <code>clawe_interface_b.proto</code> is compiled, with a new
+  <code>error</code> field; <code>clawe_local.proto</code> is new.
+  <code>tools/CLAWE.TestClient</code> (<code>radars</code>, <code>launch</code>, <code>watch</code>) and
+  <code>dev/rabbitmq/docker-compose.yml</code>.</p>
+
+<div class="cross-note">
+  <strong>The summary is envelope-only for now.</strong> The frequency, PRI and PW bounds come from the
+  mode's envelope, and widening them by per-waveform values waits for iteration 10's rollups. FR-40's
+  acceptance was split accordingly. (Until the lead's v0.3.0 review this note said waveforms didn't
+  store the values at all. That was a schema gap, closed below; the summary stays envelope-only because
+  the rollup layer is iteration 10's.)
+</div>
+
+<p><strong>Waveform fields added after the lead's v0.3.0 review.</strong> The lead felt some waveform
+  options were missing, so the editor was checked against the requirements deck (slides 9, 12, 13,
+  29&ndash;33) and the calc deck. Deck slide 12 nests a value under each Fixed choice that the schema had
+  dropped:</p>
+<ul>
+  <li>center frequency (<code>CF_hz</code>), PRI (<code>BasePRI_s</code>) and PW (<code>BasePW_s</code>)
+    are now stored, required, and checked against the mode's envelope (FR-64). The calc engine
+    (iteration 5) needs all three.</li>
+  <li>Spread BW 1 and 2 can be None, as the deck lists.</li>
+  <li>The PW type loses its "Random" value, which the deck doesn't have.</li>
+</ul>
+<p>The modifier stack and its ranges matched the deck.</p>
+
+<p><strong>Also fixed:</strong> maximizing on a larger external monitor stopped at the laptop screen's
+  size, because the window's maximum size was capped to the primary screen.</p>
+
+<p><strong>Tests:</strong> 250 &rarr; <strong>366</strong> (plus 2 benchmarks), across 7 test projects.
+  They cover:</p>
+<ul>
+  <li>the unit of work: one blob write per Save, rollback, and the journal's rules;</li>
+  <li>read-only access, the owner row, and NFR-7's two writers in one process;</li>
+  <li>reading a WAL file after the writer closed;</li>
+  <li>mode IDs and the v8 upgrade from a v0.3.0-shaped file;</li>
+  <li>launch options, radar-by-name, and the execution stub;</li>
+  <li>summary derivation, pipe framing and the mutex;</li>
+  <li>the coalescer, launcher outcomes, and <code>RequestRadars</code>;</li>
+  <li>the broker round trips (skipped without a broker; passing against RabbitMQ 4).</li>
+</ul>
+
+<h3>1.4 Not in this iteration</h3>
+<ul>
+  <li><strong>A human click-through</strong> of the editor against the proxy: the event path was
+    exercised by a harness, not by editing in the UI.</li>
+  <li><strong>Proxy autostart / installer:</strong> iteration 12. Start <code>CLAWE.Proxy.exe</code> by
+    hand.</li>
+  <li><strong>A working Execution View with a simulated radar:</strong> iteration 6.
+    <strong>Interface C and real HOCA:</strong> iteration 11.</li>
+  <li><strong>Per-waveform widening of the summary:</strong> iteration 10.</li>
+</ul>
+
+<h3>1.5 Process</h3>
+<ul>
+  <li><strong>Version:</strong> <code>&lt;Version&gt;</code> 0.3.0 &rarr; <strong>0.4.0</strong>, with a
+    <code>CHANGELOG.md</code> <code>[0.4.0]</code> entry.</li>
+  <li><strong><code>RELEASING.md</code>:</strong> now publishes both executables into one folder, plus
+    the optional test client. It adds the 0.4.0 database-compatibility row (v7/v8 are additive) and the
+    broker setup for <code>SETUP.txt</code>.</li>
+  <li><strong>READMEs:</strong> new ones for <code>CLAWE.Proxy</code> and <code>CLAWE.Messaging</code>;
+    rewrites for <code>CLAWE.Host</code>, <code>CLAWE.Contracts</code>, <code>CLAWE.Database</code> and
+    the solution.</li>
+  <li><strong>Design docs:</strong> <a href="CLAWE_Design.html">Design</a> v1.6 (DD-18&ndash;21, OQ
+    updates, OQ-16), <a href="CLAWE_Requirements.html">Requirements</a> v1.6,
+    <a href="CLAWE_Interface_B.html">Interface B</a> v0.3 (&sect;6.3 now relays through the proxy;
+    namespaced queue; <code>error</code> field).</li>
+</ul>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="exists">2. What exists now (cumulative app state)</h2>
+
+<h3>2.1 Solution structure</h3>
+<p>
+  Standalone C#/WPF/.NET 10 solution (<code>CLAWE_UI.slnx</code>) — <strong>not</strong> a PRISM
+  plugin. Matches STS's look/feel and DB design patterns, but is its own processes, executables, and
+  database.
+</p>
+<table>
+  <thead><tr><th style="width:22%">Project</th><th>Role</th></tr></thead>
+  <tbody>
+    <tr><td><code>CLAWE.Host</code></td><td>WPF executable for the views: <code>--mode maintenance</code> (editor) / <code>execution</code> (stub) / <code>vizspike</code></td></tr>
+    <tr><td><code>CLAWE.Proxy</code></td><td>Always-on proxy: interface B, view registry, launch/focus, event relay</td></tr>
+    <tr><td><code>CLAWE.UI</code></td><td>Theme resources (copied from <code>PRISM.UI</code>), reusable controls and converters; <code>ScottPlot</code> + <code>GraphThemeHelper</code></td></tr>
+    <tr><td><code>CLAWE.Database</code></td><td>EF Core + SQLite — context factory, unit of work, repositories, schema steps v1&ndash;v8</td></tr>
+    <tr><td><code>CLAWE.Proto</code></td><td>Compiles <code>clawe_radar.proto</code>, <code>clawe_interface_b.proto</code>, <code>clawe_local.proto</code></td></tr>
+    <tr><td><code>CLAWE.Contracts</code></td><td><code>ClaweRadarSummary</code> builder, interface-B names/versions, local pipe protocol, mutex</td></tr>
+    <tr><td><code>CLAWE.Messaging</code></td><td>RabbitMQ transport for interface B</td></tr>
+  </tbody>
+</table>
+<p>
+  Each has a matching <code>*.Tests</code> project, and there's a dev-only
+  <code>tools/CLAWE.TestClient</code>. <code>CLAWE.Calc</code> (iteration 5) will be the eighth
+  production project.
+</p>
+
+<h3>2.2 Look and feel</h3>
+<ul>
+  <li><strong>Theme:</strong> tokens (<code>Tokens.Dark.xaml</code>, <code>ControlStyles.xaml</code>)
+    are <strong>copied</strong> from <code>PRISM.UI</code>, not referenced. CLAWE UI shares no runtime
+    code with PRISM.</li>
+  <li><strong>Window:</strong> WPF-UI dark Mica chrome, with the Spartan-helmet title-bar icon and app
+    icon (the same asset as <code>PRISM.Host</code>). The window title is "CLAWE Controller". The editor
+    fills the window; there's no navigation pane.</li>
+  <li><strong>Radar pages:</strong> <code>RadarListPage</code> / <code>RadarEditorView</code> are styled
+    to match <code>PRISM.EmitterMaker</code>:
+    <ul>
+      <li>the left "RADAR BUILDER" rail;</li>
+      <li>the combined radar + mode editor with its mode-pill strip;</li>
+      <li>segmented radios and black-background parameter tables;</li>
+      <li>STS's blue Save button;</li>
+      <li>a status footer with a location breadcrumb and an "&#9679; Unsaved" mark.</li>
+    </ul>
+  </li>
+  <li><strong>Waveforms tab:</strong> follows STS EmitterMaker's waveform tab (square <code>+</code> /
+    <code>x</code> list buttons, resizable list | editor | preview columns).</li>
+</ul>
+
+<h3>2.3 Database (CLAWE DB)</h3>
+<ul>
+  <li><strong>Setup:</strong> one file per host, <code>%LocalAppData%\CLAWE\clawe.db</code>, in WAL mode.
+    It uses <code>EnsureCreated</code> (no EF migrations) and versioned
+    <code>ApplySchemaUpdatesAsync</code> steps <strong>v1&ndash;v8</strong>, each one transaction.</li>
+  <li><strong>Access:</strong>
+    <ul>
+      <li>a context per operation, from a writer factory (Maintenance View only) or a read-only one;</li>
+      <li>multi-step writes through a unit of work that writes each blob once and announces changes
+        after the commit;</li>
+      <li>a write-owner row checked before every commit.</li>
+    </ul>
+  </li>
+  <li><strong>Entities:</strong>
+    <ul>
+      <li><code>ClaweRadar</code>;</li>
+      <li><code>ClaweRadarAlternateName</code> (one NATO + one ELNOT);</li>
+      <li>thin index rows <code>ClaweRadarMode</code> (with <code>ModeId</code>) and
+        <code>ClaweRadarModeWaveform</code>;</li>
+      <li><code>ClaweRadarProtoBlob</code>, the canonical serialized <code>ClaweRadarInstance</code>;</li>
+      <li><code>ClaweWriteOwner</code>.</li>
+    </ul>
+  </li>
+  <li><strong>Repositories:</strong> radar, mode and waveform. They:
+    <ul>
+      <li>give friendly errors, and keep blob and index in step;</li>
+      <li>require at least one mode per radar;</li>
+      <li>assign waveform IDs from 1 and mode IDs as the highest + 1;</li>
+      <li>compare names with one rule (<code>ClaweNameComparer</code>, SQLite <code>NOCASE</code>);</li>
+      <li>refuse non-finite numbers.</li>
+    </ul>
+  </li>
+</ul>
+
+<h3>2.4 Application features</h3>
+<ul>
+  <li><strong>Processes:</strong>
+    <ul>
+      <li>the proxy;</li>
+      <li>one Maintenance View per host (a second double-click brings it forward);</li>
+      <li>read-only Execution View stubs.</li>
+    </ul>
+  </li>
+  <li><strong>Interface B:</strong>
+    <ul>
+      <li><code>RequestRadars</code> returns <code>ClaweRadarSummary</code> rollups, envelope-only for
+        now;</li>
+      <li><code>LaunchMaintenanceUiCommand</code> focuses or launches the editor;</li>
+      <li><code>RadarModifiedEvent</code> is debounced per radar.</li>
+    </ul>
+  </li>
+  <li><strong>Radar management:</strong>
+    <ul>
+      <li>list, and draft-then-save create;</li>
+      <li>rename and edit description;</li>
+      <li>one NATO and one ELNOT alternate name;</li>
+      <li>delete with confirmation;</li>
+      <li>an unsaved-changes prompt before leaving a radar or closing the window;</li>
+      <li><code>--radar NAME</code> (or STS's <code>radar_name</code>) opens a radar.</li>
+    </ul>
+  </li>
+  <li><strong>Radar mode editor:</strong> identity, <code>RadarModeType</code> (TTR only for v1),
+    <code>OperatingMode</code> (Manual / Auto with a waveform-picker schedule / Cognitive), and the full
+    constraint envelope. It's validated, and allowed modifiers are locked while waveforms use them.</li>
+  <li><strong>Waveform editor:</strong> the full nine-modifier stack, PD / SP fields and deck-range
+    validation. It has a searchable list, resizable columns and a preview placeholder.</li>
+  <li><strong>Radar search/filter slide-out overlay</strong> (<code>RadarFilterPanel</code>). Text
+    search only for now: Frequency / PRI filters need the iteration-8 rollup.</li>
+  <li><strong>Viz Spike</strong> (<code>--mode vizspike</code>, throwaway, dev-only): remove it when
+    iteration 9's live preview lands.</li>
+</ul>
+
+<h3>2.5 Persistence proven</h3>
+<ul>
+  <li><strong>Relaunch:</strong> <code>PersistenceAcrossRelaunchTests</code> writes through one context,
+    reopens a fresh one on the same file, and checks that data and deletions survived.</li>
+  <li><strong>Upgrades:</strong>
+    <ul>
+      <li>the v4 default-mode backfill;</li>
+      <li>v6 on a real file;</li>
+      <li>v8 on a v0.3.0-shaped file with drift.</li>
+    </ul>
+  </li>
+  <li><strong>Save speed:</strong> <code>WaveformSaveLatencyBenchmarkTests</code> runs the footer Save's
+    unit of work against 2,000 waveforms, taking 16 ms.</li>
+  <li><strong>Atomicity:</strong> fault-injection tests fail one exact SQL command in a repository write,
+    a footer Save, a unit commit or a schema step, and check that nothing partial survives.</li>
+  <li><strong>Multi-process:</strong> a read-only reader sees the writer's commits, including after the
+    writer has closed. The reader can't write, and a second writer can't commit.</li>
+</ul>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="process">3. Process / infrastructure</h2>
+
+<ul>
+  <li><strong>Versioning:</strong> a single <code>&lt;Version&gt;</code> in
+    <code>Directory.Build.props</code>, with one minor bump per 2-week iteration (<code>0.4.0</code>
+    for iteration 4). <strong><code>1.0.0</code> is reserved for a deliberate release-readiness pass
+    after iteration 12.</strong></li>
+  <li><strong>Changelog:</strong> <code>CHANGELOG.md</code> in Keep a Changelog format, with one entry
+    per version.</li>
+  <li><strong>Docs:</strong>
+    <ul>
+      <li>per-project <code>README.md</code>s;</li>
+      <li><code>RELEASING.md</code>, with repeatable self-contained publish steps for both executables
+        and database-compatibility notes;</li>
+      <li>the design-doc suite hub at <a href="index.html">Design/index.html</a>.</li>
+    </ul>
+  </li>
+  <li><strong>Git:</strong> <code>CLAWE_UI/</code> is its own repo, with no remote yet. There's no
+    auto-committing: the user reviews and confirms each drafted commit message first.</li>
+  <li><strong>Release builds:</strong> review zips for v0.1.0 through v0.2.3 were sent to the lead.
+    <strong>v0.3.0</strong> (awaiting the lead's click-through) and then <strong>v0.4.0</strong> are
+    next.</li>
+  <li><strong>Dev broker:</strong> <code>docker compose -f dev/rabbitmq/docker-compose.yml up -d</code>.</li>
+</ul>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="open">4. Open questions / feedback</h2>
+
+<h3>4.1 Feedback received</h3>
+<ul>
+  <li><strong>v0.1.x:</strong> positive on the look; the "Edit Radar" search flow became the filter
+    overlay.</li>
+  <li><strong>v0.2.0 &rarr; v0.2.3:</strong> three rounds of mode-editor fixes, confirmed by the lead
+    before the merge.</li>
+  <li><strong>Iteration 3 click-through:</strong> selection, scrolling, saving and layout fixes, plus
+    layout requests. All were addressed in <code>v0.3.0</code>.</li>
+  <li><strong>Iteration 4:</strong> none yet — <code>v0.3.0</code>'s review comes first.</li>
+</ul>
+
+<h3>4.2 Still open</h3>
+<p>
+  The open questions live in the canonical register — <a href="CLAWE_Design.html#open">Design §10</a>
+  (<code>OQ-*</code>). The ones that bear on the current / next iterations:
+</p>
+<table>
+  <thead><tr><th style="width:14%">Register ID</th><th style="width:32%">Question</th><th>Why it matters here</th></tr></thead>
+  <tbody>
+    <tr><td><a href="CLAWE_Design.html#open">OQ-1</a></td><td>RabbitMQ broker ownership</td><td>Every interface-B review needs a broker on the reviewer's machine; iteration 12's packaging depends on it.</td></tr>
+    <tr><td><a href="CLAWE_Design.html#open">OQ-3</a></td><td>HOCA — a runnable instance (OQ-3a); the interface-C RDI / target stream (OQ-3b)</td><td>Gates iteration 11 running against a real HOCA vs mocks (iterations 6-7 use a simulated radar).</td></tr>
+    <tr><td><a href="CLAWE_Design.html#open">OQ-4</a></td><td>The STS "RTSA window" pattern</td><td>Iteration 7's dockable graph-window container is built against it.</td></tr>
+    <tr><td><a href="CLAWE_Design.html#open">OQ-6</a></td><td>Calc-engine formula ambiguities</td><td>Gates iteration 5 (<code>CLAWE.Calc</code>).</td></tr>
+    <tr><td><a href="CLAWE_Design.html#open">OQ-7</a></td><td>CW waveform authoring</td><td>Enum + interface-B support ship; the CW editor is deferred.</td></tr>
+    <tr><td><a href="CLAWE_Design.html#open">OQ-9</a></td><td>Blob storage granularity</td><td>16 ms per Save now; re-run on the reference host, revisit in iteration 10.</td></tr>
+    <tr><td><a href="CLAWE_Design.html#open">OQ-10</a></td><td>Second-launch behaviour</td><td>Built as focus; needs the lead's nod to close.</td></tr>
+    <tr><td><a href="CLAWE_Design.html#open">OQ-11</a></td><td>Multi-host identity</td><td>Queue naming by source name needs STS's agreement.</td></tr>
+    <tr><td><a href="CLAWE_Design.html#open">OQ-13</a></td><td>High-pulse-count preview rendering strategy</td><td>Iterations 7 and 9 iterate on it with the lead.</td></tr>
+    <tr><td><a href="CLAWE_Design.html#open">OQ-14</a></td><td><code>LoadWaveforms</code> scope: radar or mode</td><td>Decide before iteration 11's interface C.</td></tr>
+    <tr><td><a href="CLAWE_Design.html#open">OQ-15</a></td><td>Waveform-parameter gaps and legacy conflicts</td><td>Six fields checked <code>&ge; 0</code> only; SP ranges conflict with legacy. Ask the deck author.</td></tr>
+    <tr><td><a href="CLAWE_Design.html#open">OQ-16</a></td><td>Execution View waveform edits vs. the single writer</td><td>Decide before iteration 6 (the demo build avoids it).</td></tr>
+  </tbody>
+</table>
+
+<h3>4.3 Resolved since iteration 3</h3>
+<ul>
+  <li><strong>OQ-2,</strong> RabbitMQ vs ZeroMQ: RabbitMQ, per the deck.</li>
+  <li><strong>OQ-12,</strong> large responses: measured at 37 ms for 1,000 radars; one reply stays.</li>
+</ul>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="earlier">5. Earlier iterations</h2>
+
+<div class="phase-group">
+  <div class="phase-header">
+    <span class="phase-badge badge-green">Iteration 3</span>
+    <span class="phase-title">Waveform editor</span>
+    <span class="section-count">weeks 5&ndash;6 · v0.3.0 · merged to <code>master</code> at <code>50c05c1</code></span>
+  </div>
+  <p>
+    <strong>Waveforms:</strong> the full <code>ClaweWaveformInstance</code> with the nine-category
+    modifier stack (Phase split into Partial/Full, <code>num_pulses</code>, <code>CW</code> value only),
+    <code>WaveformRepository</code>, and a searchable Waveforms tab. Deck-range validation throughout.
+    <strong>Rules settled with the lead:</strong> a mode can't be narrowed under its waveforms (DD-14);
+    an Auto mode may be saved with an empty schedule (DD-15). <strong>Hardening pass</strong> from a
+    third-party review: an all-or-nothing Save (DD-16); one NOCASE name rule (DD-17, schema v6); blob
+    checksum checks; NaN refusal. <strong>Measured:</strong> OQ-9 at 63 ms for 2,000 waveforms.
+    <strong>Resolved:</strong> OQ-5, with no schema change (OQ-15 raised). <strong>Result:</strong>
+    251 tests.
+  </p>
+</div>
+
+<div class="phase-group">
+  <div class="phase-header">
+    <span class="phase-badge badge-green">Iteration 2</span>
+    <span class="phase-title">Radar Mode editor + visualization spike</span>
+    <span class="section-count">weeks 3&ndash;4 · v0.2.0 &rarr; v0.2.3 · merged to <code>master</code> at <code>f0d3f61</code></span>
+  </div>
+  <p>
+    <strong>Proto and storage:</strong> the canonical proto layer (<code>clawe_radar.proto</code>) with
+    the full mode constraint envelope, and <code>ClaweRadarProtoBlob</code> storage. <strong>Editor:</strong>
+    <code>RadarModeRepository</code>, and the combined radar + mode editor in STS EmitterMaker style.
+    <strong><code>CLAWE.Proto</code>:</strong> extracted so non-EF consumers can use the types.
+    <strong>Visualization spike:</strong> ScottPlot 5, confirmed as the charting foundation.
+    <strong>Feedback:</strong> three rounds of lead-feedback fixes. <strong>Result:</strong> 104 tests.
+  </p>
+</div>
+
+<div class="phase-group">
+  <div class="phase-header">
+    <span class="phase-badge badge-green">Iteration 1</span>
+    <span class="phase-title">Scaffolding + DB + Radar CRUD</span>
+    <span class="section-count">weeks 1&ndash;2 · v0.1.0 + v0.1.1 · merged to <code>master</code> at <code>5d5aa7b</code></span>
+  </div>
+  <p>
+    <strong>Solution and database:</strong> scaffolded the standalone solution, themed to match STS,
+    with <code>ClaweDbContext</code> (SQLite, WAL). <strong>UI:</strong> radar CRUD, the filter overlay,
+    the delete dialog, and one NATO + one ELNOT name per radar. <strong>Process:</strong> versioning,
+    changelog, READMEs and git set up. <strong>Result:</strong> 35 tests.
+  </p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="next">6. Next iteration</h2>
+
+<p>
+  <strong>Iteration 5 — Domain validation out of the ViewModels, then the Waveform Calculation
+  Engine</strong> (see <a href="CLAWE_UI_Iterative_Timeline.html#table">Iterative Timeline</a> row 5):
+</p>
+<ul>
+  <li><strong>First task:</strong> move the mode and waveform authoring rules and the proto&harr;field
+    conversion out of <code>RadarModeEditorViewModel</code> / <code>WaveformEditorViewModel</code>,
+    into a WPF-free module that every write path calls.</li>
+  <li><strong><code>CLAWE.Calc</code>:</strong> five stateless calculators behind
+    <code>WaveformMetricsCalculator.Compute</code>, with one unit test per deck worked example.</li>
+  <li><strong>Gated by OQ-6</strong> (calc-deck formula ambiguities).</li>
+</ul>
+
+<p>
+  <strong>Order after iteration 5</strong> (timeline Draft v5, running-radar demo first): 6 simulated
+  radar + Execution View Control tab; 7 graph windows + 2D RDI scope (the buyer-demo milestone);
+  8 summary screen; 9 live preview; 10 rollups + browser; 11 interface C + real HOCA; 12 cognitive mode
+  + polish.
+</p>
+
+<script src="lib/mermaid.min.js"></script>
+<script src="lib/mermaid-init.js"></script>
+<script src="lib/lightbox.js"></script>
+
+</body>
+</html>

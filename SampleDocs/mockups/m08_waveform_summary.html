@@ -1,0 +1,48 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="common.css"><script src="common.js"></script></head><body>
+<div class="win">
+  <div class="ribbon">MOCKUP · ITERATION 8 · NOT BUILT YET</div>
+  <div class="title"><div class="logo"></div><b>CLAWE Controller</b><span style="color:var(--t3)">— Radar editor</span><span class="ctl">— ▢ ✕</span></div>
+  <div class="band" style="padding:10px 20px"><b style="font-size:15px">AN/APQ-Demo</b><span style="color:var(--t3)">›</span><span class="pill">TTR Track</span><span class="pill">Mode 2</span>
+    <span style="color:var(--t3)">›</span><span class="pill sel">Waveforms</span><span class="pill">Constraints</span>
+    <span class="hint" style="margin-left:12px">Waveforms get their own workspace, so the mode's tabs aren't crowded.</span></div>
+  <div class="body" style="padding:12px;gap:12px">
+    <!-- list -->
+    <div class="card" style="width:230px;display:flex;flex-direction:column"><div class="hdr" style="display:flex">Waveforms <span class="u">(6)</span><span style="margin-left:auto;display:flex;gap:6px"><span class="btn" style="padding:2px 9px">+</span><span class="btn yel" style="padding:2px 9px">x</span></span></div>
+      <div class="field" style="color:var(--t3);margin-bottom:8px">Search by name</div>
+      <table><tr class="sel"><td>Track-1 fixed</td></tr><tr><td>Track-2 PRI agile</td></tr><tr><td>Track-3 spread</td></tr><tr><td>Track-4 barker</td></tr><tr><td>Burst-1</td></tr><tr><td>Burst-2 chopped</td></tr></table></div>
+    <!-- form (condensed) -->
+    <div class="card" style="width:470px;display:flex;flex-direction:column;gap:10px"><div class="hdr">Track-1 fixed</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+        <div><div class="lbl">Base</div><div class="field">Pulsed</div></div><div><div class="lbl">Center freq</div><div class="field">9.25 GHz</div></div><div><div class="lbl">Pulses</div><div class="field">1024</div></div>
+        <div><div class="lbl">Base PRI</div><div class="field">100 µs</div></div><div><div class="lbl">Base PW</div><div class="field">1.0 µs</div></div><div><div class="lbl">RDI integration</div><div class="field">×16</div></div></div>
+      <div class="hdr" style="margin-top:6px">Modifiers</div>
+      <div style="display:grid;grid-template-columns:110px 1fr;row-gap:9px;align-items:center;color:var(--t2)">
+        <span>PHASE</span><div class="seg"><span class="on">None</span><span>Partial</span><span>Full</span></div>
+        <span>PRI</span><div class="seg"><span class="on">None</span><span>Base agile</span><span>Random agile</span></div>
+        <span>PW</span><div class="seg"><span class="on">None</span><span>Random agile</span></div>
+        <span>LEADING EDGE</span><div class="seg"><span class="on">None</span><span>Rampup</span><span>Prepulse</span></div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px"><div><div class="lbl">PRI modifier</div><div class="field">None</div><div class="hint">Try Random agile to remove eclipsing</div></div></div></div>
+    <!-- summary -->
+    <div style="flex:1;display:flex;flex-direction:column;gap:12px;min-width:0">
+      <div class="card" style="border-color:#2e5f8f;background:#222a33"><div class="hdr" style="color:var(--info)">Waveform summary</div>
+        <div style="font-size:14px;line-height:1.55">A <b>pulsed</b> waveform at a fixed <b>9.25 GHz</b>: 1,024 pulses at a steady <b>100 µs</b> PRI with a <b>1.0 µs</b> pulse width. It fills a <b>10.2 ms</b> coherent processing interval and delivers <b>30 dB</b> of processing gain. Targets near multiples of <b>15 km</b> are partly eclipsed, and range is unambiguous only out to <b>15 km</b>.</div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+        <div class="card"><div class="lbl">CPI duration</div><div style="font-size:22px">10.24 ms</div><div class="hint">Tx 10.24 · processing 3.1 · limited by transmit</div></div>
+        <div class="card"><div class="lbl">Processing gain</div><div style="font-size:22px">30.0 dB</div><div class="hint">30.0 compression − 0 nonideal effects</div></div>
+        <div class="card"><div class="lbl">Eclipsing</div><div style="font-size:22px">1.0 %</div><div class="hint">of range eclipsed · worst case −3.2 dB</div></div></div>
+      <div style="display:grid;grid-template-columns:1.2fr 1fr;gap:12px;flex:1;min-height:0">
+        <div class="card" style="display:flex;flex-direction:column"><div class="hdr">PG loss <span class="u">(dB)</span> vs target range <span class="u">(km)</span></div><div style="flex:1;min-height:0"><canvas id="c1"></canvas></div></div>
+        <div style="display:flex;flex-direction:column;gap:12px">
+          <div class="card"><div class="hdr">Ambiguity</div><table><tr><th></th><th class="num">Zone</th><th class="num">Zones</th></tr>
+            <tr><td>Range</td><td class="num">15.0 km</td><td class="num">10</td></tr><tr><td>Velocity</td><td class="num">1,260 m/s</td><td class="num">2</td></tr></table></div>
+          <div class="card" style="flex:1"><div class="hdr" style="color:var(--warn)">What if…</div>
+            <div style="line-height:1.9;color:var(--t2)">PRI modifier → <b style="color:var(--t)">Random agile</b>: eclipsing 1.0 % → 0 %, PG −2.1 dB<br>Pulses 1024 → <b style="color:var(--t)">512</b>: CPI −50 %, PG −3.0 dB<br>PRI 100 → <b style="color:var(--t)">150 µs</b>: range zone 22.5 km, velocity zone −33 %</div></div>
+        </div></div>
+    </div>
+  </div>
+  <div class="caption"><b>Iteration 8 — Waveform summary screen.</b> Plain-language description, the five calculations, and the trade-offs of changing a value, updating live as you edit.<span class="sim">Values illustrative</span></div>
+</div>
+<script>
+const pts=[];for(let r=0;r<=150;r+=0.25){const d=Math.min(r%15,15-(r%15));pts.push([r,Math.max(0,3.2*(1-d/0.45))])}
+line(document.getElementById('c1'),pts,{x0:0,x1:150,y0:0,y1:4,xd:0,yd:0,c:'#d29922',fill:'rgba(210,153,34,.15)'});
+</script></body></html>

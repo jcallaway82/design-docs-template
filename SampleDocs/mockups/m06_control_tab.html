@@ -1,0 +1,51 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="common.css"></head><body>
+<div class="win">
+  <div class="ribbon">MOCKUP · ITERATION 6 · NOT BUILT YET</div>
+  <div class="title"><div class="logo"></div><b>CLAWE Controller</b><span style="color:var(--t3)">— Execution</span><span class="ctl">— ▢ ✕</span></div>
+  <div class="band">
+    <div><div style="font-size:15px;font-weight:600">AN/APQ-Demo <span style="color:var(--t3)">›</span> TTR Track</div>
+      <div class="hint">Locked to this radar mode. Capabilities and constraints can't be changed here.</div></div>
+    <span class="pill">🔒 Locked</span>
+    <span class="pill warn">● Simulated radar</span>
+    <div style="margin-left:auto;display:flex;gap:10px;align-items:center"><span class="pill ok">● RUNNING</span><span class="mono" style="font-size:16px">00:02:41</span>
+      <span class="btn stop">■ Stop</span></div>
+  </div>
+  <div class="body" style="padding:14px;gap:14px">
+    <!-- left: control -->
+    <div style="width:430px;display:flex;flex-direction:column;gap:14px">
+      <div class="card"><div class="hdr">Operating mode</div>
+        <div class="seg"><span class="on">Operator-in-the-loop</span><span class="off">Cognitive</span></div>
+        <div class="hint">Cognitive arrives in a later iteration.</div></div>
+      <div class="card" style="flex:1;min-height:0;display:flex;flex-direction:column"><div class="hdr">Waveform — select to play</div>
+        <div class="field" style="margin-bottom:8px;color:var(--t3)">Search by name</div>
+        <table><tr><th>Name</th><th>Base</th><th class="num">PRI</th><th class="num">PW</th></tr>
+          <tr><td>Track-1 fixed</td><td>PD</td><td class="num">100 µs</td><td class="num">1.0 µs</td></tr>
+          <tr class="sel"><td>▶ Track-2 PRI agile</td><td>PD</td><td class="num">100 µs</td><td class="num">1.0 µs</td></tr>
+          <tr><td>Track-3 spread spectrum</td><td>PD</td><td class="num">80 µs</td><td class="num">2.0 µs</td></tr>
+          <tr><td>Track-4 barker</td><td>PD</td><td class="num">120 µs</td><td class="num">8.0 µs</td></tr>
+          <tr><td>Burst-1</td><td>SP</td><td class="num">—</td><td class="num">5.0 µs</td></tr>
+          <tr><td>Burst-2 chopped</td><td>SP</td><td class="num">—</td><td class="num">20 µs</td></tr></table>
+        <div style="margin-top:auto;display:flex;gap:8px;padding-top:10px"><span class="btn go">▶ Play selected</span><span class="btn">Change while running</span></div>
+      </div>
+      <div class="card"><div class="hdr">Now playing</div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
+          <div><div class="lbl">Center freq</div>9.25 GHz</div><div><div class="lbl">PRI</div>100 µs <span class="hint">±25%</span></div>
+          <div><div class="lbl">PW</div>1.0 µs</div><div><div class="lbl">CPI</div>10.2 ms</div></div></div>
+    </div>
+    <!-- right: targets + status -->
+    <div style="flex:1;display:flex;flex-direction:column;gap:14px;min-width:0">
+      <div class="card" style="flex:1"><div class="hdr" style="display:flex">Target table <span style="margin-left:auto;text-transform:none;letter-spacing:0;font-weight:400">5 active</span></div>
+        <table><tr><th>ID</th><th class="num">Range</th><th class="num">Velocity</th><th class="num">SNR</th><th>Track</th><th>Jamming</th></tr>
+          <tr><td>T-01</td><td class="num">42.8 km</td><td class="num">+212 m/s</td><td class="num">22.1 dB</td><td><span class="pill ok">Tracked</span></td><td>—</td></tr>
+          <tr><td>T-02</td><td class="num">51.3 km</td><td class="num">−88 m/s</td><td class="num">17.4 dB</td><td><span class="pill ok">Tracked</span></td><td>—</td></tr>
+          <tr><td>T-03</td><td class="num">67.0 km</td><td class="num">+305 m/s</td><td class="num">9.8 dB</td><td><span class="pill warn">Weak</span></td><td><span class="pill bad">Noise jam</span></td></tr>
+          <tr><td>T-04</td><td class="num">88.2 km</td><td class="num">+14 m/s</td><td class="num">12.6 dB</td><td><span class="pill ok">Tracked</span></td><td>—</td></tr>
+          <tr><td>T-05</td><td class="num">121.9 km</td><td class="num">−402 m/s</td><td class="num">6.1 dB</td><td><span class="pill">Detected</span></td><td>—</td></tr></table></div>
+      <div class="card" style="height:210px"><div class="hdr">Event log</div>
+        <div class="mono" style="color:var(--t2);line-height:1.7;font-size:12px">
+          00:02:41  Playing “Track-2 PRI agile” (operator)<br>00:02:12  T-03 SNR dropped below 10 dB — noise jamming suspected<br>
+          00:01:30  Playing “Track-1 fixed” (operator)<br>00:00:05  Radar activated — AN/APQ-Demo / TTR Track</div></div>
+    </div>
+  </div>
+  <div class="caption"><b>Iteration 6 — Execution view: Control tab + simulated radar.</b> Pick a waveform, start the radar, watch targets. The scope windows arrive in iteration 7.<span class="sim">All data shown is simulated</span></div>
+</div></body></html>

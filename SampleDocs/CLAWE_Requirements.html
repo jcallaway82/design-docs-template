@@ -1,0 +1,840 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CLAWE UI — Requirements</title>
+<link rel="stylesheet" href="lib/doc.css">
+<style>
+  /* Requirement tables: tight, ID column anchors */
+  table.req td:first-child { white-space: nowrap; font-family: var(--font-mono); color: var(--teal); font-weight: 600; }
+  table.req .req-detail { color: var(--text-muted); font-size: 0.82rem; margin-top: 0.2rem; }
+  table.req .req-trace { font-family: var(--font-mono); font-size: 0.78rem; color: var(--text-muted); }
+</style>
+</head>
+<body class="wide">
+
+<div id="page-nav"></div>
+<script src="lib/nav.js"></script>
+
+<h1>CLAWE UI — Requirements</h1>
+<p class="subtitle">The testable contract for the CLAWE Interactive Emitters App — what it must do (functional) and how well (non-functional), each requirement traced to a section of the Design</p>
+<div class="doc-meta">
+  <span><strong>Version:</strong> 1.6</span>
+  <span><strong>Status:</strong> Draft</span>
+  <span><strong>Date:</strong> September 2026</span>
+</div>
+
+<div class="note">
+  <strong>How to read this document:</strong> §3 is the functional requirements an implementer works
+  from; §4 the non-functional targets; §7 traces each requirement to a <a href="CLAWE_Design.html">Design</a>
+  section and a timeline iteration; §8 lists what is blocked. Rendered from <code>REQUIREMENTS.md</code>,
+  the editable working doc — the Markdown wins if the two disagree. Cross-checked against the Design
+  in <code>SPEC_REVIEW.md</code> — 0 open findings (2nd pass).
+</div>
+
+<div class="toc">
+  <h4>Contents</h4>
+  <ol>
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#definitions">Definitions</a></li>
+    <li><a href="#functional">Functional requirements</a></li>
+    <li><a href="#nonfunctional">Non-functional requirements</a></li>
+    <li><a href="#constraints">Constraints &amp; assumptions</a></li>
+    <li><a href="#scope">Out of scope</a></li>
+    <li><a href="#trace">Traceability matrix</a></li>
+    <li><a href="#open">Open questions</a></li>
+    <li><a href="#changelog">Changelog</a></li>
+  </ol>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="overview">1. Overview</h2>
+
+<p>
+  This document specifies the CLAWE Interactive Emitters App ("CLAWE UI") as a checkable set of
+  requirements derived from <a href="CLAWE_Design.html">the Design</a> (v1.6). Every functional
+  requirement (<code>FR-&lt;n&gt;</code>) is one testable statement with acceptance criteria; every
+  non-functional requirement (<code>NFR-&lt;n&gt;</code>) names a measurable target and a verification
+  method. Section 7 traces each requirement to the design element that motivates it.
+</p>
+<p>
+  A reader should already know the design: the standalone-app architecture (Design §1, DD-1), the
+  proxy plus split single-purpose views (§4, DD-5), the two-layer protobuf-blob storage (§8, DD-2),
+  and the two network interfaces — B (STS UI ↔ CLAWE UI) and C (CLAWE UI ↔ HOCA). Field-level detail
+  for the data model is in <a href="CLAWE_Data_Schema.html">Data Schema</a>; the interface-B/C message
+  contract is in Design §6.2 / §6.3 and, in full, <a href="CLAWE_Interface_B.html">Interface B</a> — a
+  normative extension of the design that requirements may trace to.
+</p>
+<p>
+  Requirements are stated for the whole v1 system. Many are satisfied incrementally across the
+  <a href="CLAWE_UI_Iterative_Timeline.html">12-iteration timeline</a>; an acceptance clause is
+  verifiable once the iteration that builds it lands, and the timeline column in §7 records which one.
+</p>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="definitions">2. Definitions</h2>
+
+<table>
+  <thead><tr><th style="width:22%">Term</th><th>Meaning</th></tr></thead>
+  <tbody>
+    <tr><td><strong>Operator</strong></td><td>The human authoring radars in the Maintenance View, or driving a running radar in an Execution View.</td></tr>
+    <tr><td><strong>STS</strong></td><td>The existing PRISM application. The client on interface B; registers CLAWE as an "interactive emitter source".</td></tr>
+    <tr><td><strong>HOCA</strong></td><td>Heterogeneous Open Computing Architecture — the hardware-abstraction layer. Drives execution over interface C.</td></tr>
+    <tr><td><strong>CLAWE Proxy</strong></td><td>The always-on CLAWE-side process that owns the interface-B/C connections and launches views.</td></tr>
+    <tr><td><strong>Maintenance View</strong></td><td>The singleton authoring window. The only writer to <code>CLAWE DB</code>.</td></tr>
+    <tr><td><strong>Execution View</strong></td><td>A window locked to one assigned radar mode, launched by HOCA. <code>0..n</code> may run. Never writes <code>CLAWE DB</code>.</td></tr>
+    <tr><td><strong>CLAWE DB</strong></td><td>CLAWE UI's SQLite database. One per host, at <code>%LocalAppData%\CLAWE\clawe.db</code>.</td></tr>
+    <tr><td><strong>Radar / Mode / Waveform</strong></td><td><code>ClaweRadarInstance</code> / <code>ClaweRadarModeInstance</code> / <code>ClaweWaveformInstance</code> — the three nested data levels.</td></tr>
+    <tr><td><strong>Constraint envelope</strong></td><td>A mode's <code>ConstraintEnvelope</code>: CF constraint, max duty cycle, CPI-duration rule, and <code>PDConstraints</code> / <code>SPConstraints</code>.</td></tr>
+    <tr><td><strong>Modifier stack</strong></td><td>The nine independently-toggleable modifier categories on a waveform (Phase, Frequency, Pulse Compression, PRI, PW, Amplitude, Leading Edge, Trailing Edge, Discrimination).</td></tr>
+    <tr><td><strong>The deck / deck ranges</strong></td><td><code>CLAWE UI Requirements.pptx</code>, slides 27–32 — the authoritative min/max for every modifier parameter.</td></tr>
+    <tr><td><strong>Blob</strong></td><td><code>ClaweRadarProtoBlob.ProtoBytes</code> — the serialized <code>ClaweRadarInstance</code>, the canonical form of a radar.</td></tr>
+    <tr><td><strong>Index rows</strong></td><td>The thin relational rows (<code>ClaweRadar</code>, <code>ClaweRadarMode</code>) that make radars listable without deserializing a blob.</td></tr>
+    <tr><td><strong>Rollup</strong></td><td>A computed, non-canonical projection: <code>ClaweRadarSummary</code> (interface B) or <code>ClaweWaveformCalcRollup</code> (calc metrics).</td></tr>
+    <tr><td><strong>Calc metrics</strong></td><td>The five families computed by <code>CLAWE.Calc</code>: CPI duration, processing gain, eclipsing, range ambiguity, velocity ambiguity.</td></tr>
+  </tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="functional">3. Functional requirements</h2>
+
+<p>Each row: the <code>SHALL</code> statement, its rationale, the objectively checkable acceptance
+condition(s), and the design element it traces to. <strong>64 functional requirements.</strong></p>
+
+<h3 id="fr-data">3.1 Data model &amp; persistence</h3>
+
+<table class="req">
+  <thead><tr><th style="width:7%">ID</th><th style="width:40%">Requirement</th><th style="width:33%">Acceptance</th><th>Traces to</th></tr></thead>
+  <tbody>
+    <tr>
+      <td id="fr-1">FR-1</td>
+      <td><strong>Author the three-level radar structure.</strong> The system SHALL let an operator create and edit a <code>ClaweRadarInstance</code> containing <code>1..N</code> <code>ClaweRadarModeInstance</code> children, each containing a <code>ConstraintEnvelope</code> and <code>0..N</code> <code>ClaweWaveformInstance</code> children.<div class="req-detail">Rationale: the core purpose (Design §2 goal 1, §8).</div></td>
+      <td>An operator creates a radar, adds a second mode, adds three waveforms to a mode, reopens the radar — all structure is present and unchanged.</td>
+      <td class="req-trace">Design §5 (CLAWE DB), §8</td>
+    </tr>
+    <tr>
+      <td id="fr-2">FR-2</td>
+      <td><strong>Radar name uniqueness.</strong> The system SHALL reject saving a radar whose <code>name</code> duplicates an existing radar's <code>name</code> (case-insensitive), with a message naming the conflict rather than a raw database error.<div class="req-detail">Rationale: <code>name</code> is the sole external handle (DD-11).</div></td>
+      <td>Creating a second radar named "AN/APQ-Demo" is blocked with a friendly message; the first radar is untouched.</td>
+      <td class="req-trace">Design §8, DD-11</td>
+    </tr>
+    <tr>
+      <td id="fr-3">FR-3</td>
+      <td><strong>Mode name uniqueness within a radar.</strong> The system SHALL require each <code>ClaweRadarModeInstance.name</code> to be unique within its parent radar, and SHALL allow two different radars to each have a mode of the same name.<div class="req-detail">Rationale: uniqueness is scoped to the parent (Design §8; schema doc §3.1).</div></td>
+      <td>Adding a second mode named "Track" to one radar is blocked; a mode named "Track" under a different radar saves.</td>
+      <td class="req-trace">Design §8</td>
+    </tr>
+    <tr>
+      <td id="fr-4">FR-4</td>
+      <td><strong>Waveform ID uniqueness within a mode.</strong> The system SHALL require each <code>ClaweWaveformInstance.waveform_id</code> (uint32) to be unique within its parent mode, and SHALL assign the lowest unused <code>waveform_id</code> when a waveform is added.<div class="req-detail">Rationale: the Auto schedule and interface C reference waveforms by ID (Design §8, §6.3).</div></td>
+      <td>Adding a waveform to a mode with IDs {1, 2, 4} assigns 3; two waveforms in one mode cannot be saved with the same <code>waveform_id</code>.</td>
+      <td class="req-trace">Design §8, §6.3</td>
+    </tr>
+    <tr>
+      <td id="fr-5">FR-5</td>
+      <td><strong>A radar always has at least one mode.</strong> The system SHALL ensure every radar has <code>1..N</code> modes: seed a default <code>TTR</code>/<code>Manual</code> mode on create, refuse to delete a radar's last remaining mode, and seed a default mode into any pre-existing modeless radar on database upgrade.<div class="req-detail">Rationale: matches STS's effective <code>&gt;=1</code>-mode rule; lead-confirmed (DD-8).</div></td>
+      <td>A new radar shows one mode; the per-row delete control is disabled at one mode; <code>RadarModeRepository.DeleteModeAsync</code> throws on the last mode; opening a DB with a modeless radar leaves it with exactly one seeded mode.</td>
+      <td class="req-trace">Design DD-8</td>
+    </tr>
+    <tr>
+      <td id="fr-6">FR-6</td>
+      <td><strong>At most one NATO name and one ELNOT per radar.</strong> The system SHALL allow <code>0..1</code> NATO alternate name and <code>0..1</code> ELNOT designator, enforced at the editor, the repository, and the database (<code>IX_ClaweRadarAlternateName_OnePerKind</code>).<div class="req-detail">Rationale: mirrors STS's one-textbox-per-identifier-kind UI; lead-confirmed (DD-7).</div></td>
+      <td>The editor exposes exactly one "NATO Name" and one "ELNOT" field; setting either to blank clears it; a hand-inserted duplicate-kind row is rejected by the unique index.</td>
+      <td class="req-trace">Design DD-7, §8</td>
+    </tr>
+    <tr>
+      <td id="fr-7">FR-7</td>
+      <td><strong>Canonical blob plus index, written atomically.</strong> On every radar write the system SHALL re-serialize the entire <code>ClaweRadarInstance</code> to a single <code>ClaweRadarProtoBlob</code> row and update the thin index rows in the <strong>same transaction</strong>, so the two layers never disagree.<div class="req-detail">Rationale: two-layer storage (DD-2, §6.1).</div></td>
+      <td>A test that commits a multi-mode radar then reads both layers finds identical mode lists; a fault injected between the blob write and the index write rolls back both.</td>
+      <td class="req-trace">Design DD-2, §6.1, §8</td>
+    </tr>
+    <tr>
+      <td id="fr-8">FR-8</td>
+      <td><strong>Rename propagates everywhere.</strong> When a radar or mode is renamed, the system SHALL update the blob's identity fields, the index row, and (for a radar) emit a <code>RadarModifiedEvent</code> with <code>change_kind = RENAMED</code> and <code>previous_name</code> set.<div class="req-detail">Rationale: <code>name</code> is the sole handle, and STS caches by name (DD-11, §6.2).</div></td>
+      <td>After a rename, <code>RequestRadars()</code> returns the new name; the emitted event carries both names; no stale index row remains.</td>
+      <td class="req-trace">Design DD-11, §5 (Proxy), §8</td>
+    </tr>
+    <tr>
+      <td id="fr-9">FR-9</td>
+      <td><strong>Delete removes blob and index together.</strong> Deleting a radar SHALL cascade-delete its <code>ClaweRadarMode</code> index rows and its <code>ClaweRadarProtoBlob</code> row, leaving nothing orphaned at either layer.<div class="req-detail">Rationale: Design §8.</div></td>
+      <td>After deleting a radar, no <code>ClaweRadar</code>, <code>ClaweRadarMode</code>, or <code>ClaweRadarProtoBlob</code> row referencing it remains.</td>
+      <td class="req-trace">Design §8</td>
+    </tr>
+    <tr>
+      <td id="fr-10">FR-10</td>
+      <td><strong>Versioned, atomic schema upgrades.</strong> The system SHALL evolve <code>CLAWE DB</code> through an ordered list of patch steps recorded in a <code>ClaweSchemaVersion</code> table, run each step in a transaction, record a step's version only on success, and refuse to start (with a diagnostic) if a step fails.<div class="req-detail">Rationale: no EF Migrations (DD-3); FM-4.</div></td>
+      <td>A deliberately failing patch step leaves <code>ClaweSchemaVersion</code> at the previous version and the app does not launch; a clean upgrade advances the version and the app launches.</td>
+      <td class="req-trace">Design DD-3, §5 (CLAWE DB), §9 (FM-4)</td>
+    </tr>
+    <tr>
+      <td id="fr-11">FR-11</td>
+      <td><strong>Persistence across relaunch.</strong> Data committed by the Maintenance View SHALL survive process exit and be readable by a fresh process opening the same database file, including the effect of deletions.<div class="req-detail">Rationale: the iteration-1 demo bar; Design §5.</div></td>
+      <td><code>PersistenceAcrossRelaunchTests</code> — write via one context, dispose, reopen at the same path, assert data and a deletion both survived.</td>
+      <td class="req-trace">Design §5 (CLAWE DB)</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="fr-authoring">3.2 Radar / mode / waveform authoring</h3>
+
+<table class="req">
+  <thead><tr><th style="width:7%">ID</th><th style="width:40%">Requirement</th><th style="width:33%">Acceptance</th><th>Traces to</th></tr></thead>
+  <tbody>
+    <tr>
+      <td id="fr-12">FR-12</td>
+      <td><strong>Combined radar-and-mode editor.</strong> The system SHALL present radar identity and the selected mode in a single editor, with a mode selector (pill strip) to switch modes and an "add mode" action that keeps the current radar.<div class="req-detail">Rationale: STS EmitterMaker style (Design §5 Maintenance View, §6.1).</div></td>
+      <td>An operator edits radar name and mode fields in one form; switching modes with unsaved mode edits prompts to discard; "+ Mode" adds a mode without leaving the radar.</td>
+      <td class="req-trace">Design §5 (Maintenance View), §6.1</td>
+    </tr>
+    <tr>
+      <td id="fr-13">FR-13</td>
+      <td><strong>Field validation against deck ranges at entry.</strong> The system SHALL validate every modifier parameter and constraint-envelope field against its hard min/max from deck slides 27–32 as it is entered, using <code>INotifyDataErrorInfo</code>.<div class="req-detail">Rationale: the editor is the validation authority (Design §2 goal 2, §6.1).</div></td>
+      <td>Entering a <code>DropRate_percent</code> of 10 (below the 25–75 range) flags the field immediately; entering 50 clears it.</td>
+      <td class="req-trace">Design §2, §5 (Maintenance View), §9 (FM-6)</td>
+    </tr>
+    <tr>
+      <td id="fr-14">FR-14</td>
+      <td><strong>Save gated on a clean form.</strong> While any validation error stands, the system SHALL disable Save, show a per-tab error indicator, and list the offending fields in a summary banner; it SHALL NOT write a radar with a known-invalid field.<div class="req-detail">Rationale: Design §6.1, FM-6.</div></td>
+      <td>With one out-of-range field, Save is disabled and the banner names that field; no <code>ClaweRadarProtoBlob</code> row is written.</td>
+      <td class="req-trace">Design §6.1, §9 (FM-6)</td>
+    </tr>
+    <tr>
+      <td id="fr-15">FR-15</td>
+      <td><strong>A mode must allow at least one base waveform.</strong> The system SHALL require a mode to have <code>PDConstraints</code>, <code>SPConstraints</code>, or both, and SHALL block saving a mode that has neither.<div class="req-detail">Rationale: FM-7.</div></td>
+      <td>Clearing both PD and SP constraint blocks disables Save with an explanatory message. A base waveform that one of the mode's waveforms uses can't be cleared at all (FR-18).</td>
+      <td class="req-trace">Design §9 (FM-7)</td>
+    </tr>
+    <tr>
+      <td id="fr-16">FR-16</td>
+      <td><strong>Exactly one operating mode.</strong> The system SHALL require each mode to set exactly one of Manual, Auto, or Cognitive; Auto SHALL carry a repeating <code>WaveformScheduleEntry</code> list; Cognitive SHALL carry an <code>OptimizationType</code> (<code>Learning</code> or <code>Speed</code>). An Auto mode MAY be saved with an empty schedule; the editor SHALL show this as a notice, not a validation error.<div class="req-detail">Rationale: the <code>operating_mode</code> oneof (Design §8). The empty-schedule allowance is Design DD-15: a new mode has no waveforms until it is saved, so it couldn't otherwise be saved as Auto at all.</div></td>
+      <td>The editor offers a single-choice operating-mode selector; Auto reveals a schedule table; Cognitive reveals the Learning/Speed toggle; the saved blob has exactly one oneof arm set. An Auto mode with no schedule entries saves, with a notice under the table.</td>
+      <td class="req-trace">Design §8, DD-15</td>
+    </tr>
+    <tr>
+      <td id="fr-17">FR-17</td>
+      <td><strong>Auto schedule references waveforms by ID.</strong> The system SHALL let an operator build an Auto-mode schedule as an ordered list of <code>(waveform_id, duration_s)</code> entries where <code>duration_s = 0</code> means "play once"; SHALL only offer <code>waveform_id</code> values that exist in the mode; and SHALL prevent deleting a waveform while an Auto-mode schedule entry references it, telling the operator which entries to clear first.<div class="req-detail">Rationale: Design §8, §6.3.</div></td>
+      <td>The schedule editor's waveform picker lists the mode's current waveforms (by name and ID), and "add entry" is unavailable while the mode has none; attempting to delete a scheduled waveform is blocked with a message naming the referencing entries; deleting a waveform no schedule references succeeds.</td>
+      <td class="req-trace">Design §8, §6.3, DD-15</td>
+    </tr>
+    <tr>
+      <td id="fr-18">FR-18</td>
+      <td><strong>Full nine-category modifier stack.</strong> The system SHALL let an operator independently enable and configure each of the nine modifier categories on a waveform, exposing only the branches and parameters valid for the waveform's <code>base_waveform</code> and the mode's <code>AllowedModifiers</code> set. The system SHALL NOT let a mode's <code>AllowedModifiers</code> set, or its PD / SP enablement, be narrowed to exclude a sub-type or base waveform that one of the mode's waveforms uses (including the open waveform's unsaved state).<div class="req-detail">Rationale: Design §8; the PD/SP compatibility matrix (deck slide 15). The narrowing lock is Design DD-14: it keeps a mode save from ever leaving its waveforms invalid, which FR-14 could otherwise only enforce by blocking the save outright.</div></td>
+      <td>For a PD waveform, PRI/PW/Trailing-Edge modifiers are offered and Amplitude is not; for SP, Amplitude is offered and PRI/PW/Trailing-Edge are not; a modifier not in <code>AllowedModifiers</code> is disabled. With a waveform using Base Agile PRI, the mode's Base Agile checkbox is disabled and its tooltip names that waveform; once no waveform uses it, it can be unchecked.</td>
+      <td class="req-trace">Design §8, §5 (Maintenance View), DD-14</td>
+    </tr>
+    <tr>
+      <td id="fr-19">FR-19</td>
+      <td><strong>Phase modifier three-way split.</strong> The system SHALL model the Phase modifier as <code>None</code> / <code>PartialPhaseEncoded</code> (with <code>phase_pattern_duration</code>) / <code>FullPhaseEncoded</code>.<div class="req-detail">Rationale: schema v3.0 (Design §8; timeline iteration 3).</div></td>
+      <td>The Phase modifier editor offers the three states; <code>PartialPhaseEncoded</code> shows the pattern-duration field.</td>
+      <td class="req-trace">Design §8</td>
+    </tr>
+    <tr>
+      <td id="fr-20">FR-20</td>
+      <td><strong><code>NumPulses</code> distinct from FFT size.</strong> The system SHALL model a PD waveform's <code>num_pulses</code> as a settable value defaulting to the fixed 1024-point FFT size, and SHALL allow it to be set lower.<div class="req-detail">Rationale: schema v3.0; affects processing gain (Design §8).</div></td>
+      <td>A new PD waveform shows <code>num_pulses = 1024</code>; setting it to 512 is accepted and feeds the processing-gain metric (FR-26).</td>
+      <td class="req-trace">Design §8</td>
+    </tr>
+    <tr>
+      <td id="fr-64">FR-64</td>
+      <td><strong>Values behind a waveform's Fixed choices.</strong> The system SHALL store, for a waveform whose center-frequency type is Fixed, its <code>cf_hz</code>; for a PD waveform whose PRI type is Fixed, its <code>base_pri_s</code>; and for an SP waveform, or a PD waveform whose PW type is Fixed, its <code>base_pw_s</code>. The system SHALL require each, and SHALL reject a value the mode's envelope doesn't allow: a CF outside the carrier-frequency range (or, for a channelized range, not at a channel centre) or not among its discretes; a PRI outside the PRI range or not among its discretes; a PW outside the PD or SP PW range. A mode that sets PW by duty cycle SHALL require waveforms whose PW type is Duty cycle, and the reverse. A Random choice stores no value.<div class="req-detail">Rationale: deck slide 12 (<code>CF_hz</code>, <code>BasePRI_s</code>, <code>BasePW_s</code>); the calculation engine's inputs (FR-26 to FR-31) need them. v0.3.0 stored only the Fixed/Random choice; found in the lead's v0.3.0 review.</div></td>
+      <td>With a mode of CF 9.0–9.5 GHz, PRI 1–100 µs and PW 0.1–10 µs, a Fixed waveform with CF 9.7 GHz or PRI 250 µs is rejected and names the mode's range; 9.25 GHz and 100 µs save and reload unchanged. In a channelized range with 100 MHz channels from 9.0 GHz, 9.15 GHz saves and 9.1 GHz is rejected. Tightening the mode's range so a saved waveform falls outside flags that waveform. A Random center-frequency waveform writes no <code>cf_hz</code>.</td>
+      <td class="req-trace">Design §8</td>
+    </tr>
+    <tr>
+      <td id="fr-21">FR-21</td>
+      <td><strong>TTR authorable; other mode types visible but disabled.</strong> The system SHALL allow <code>radar_mode_type = TTR</code> to be selected and SHALL show <code>Search</code>, <code>TAR</code>, and <code>Missile</code> as visible, non-selectable options.<div class="req-detail">Rationale: v1 scope (DD-12).</div></td>
+      <td>The mode-type control lists all four values; only <code>TTR</code> is selectable.</td>
+      <td class="req-trace">Design DD-12</td>
+    </tr>
+    <tr>
+      <td id="fr-22">FR-22</td>
+      <td><strong>Draft-then-save radar creation.</strong> Creating a radar SHALL open a blank unsaved draft; nothing SHALL persist until the operator saves.<div class="req-detail">Rationale: Design §6.1.</div></td>
+      <td>Starting a new radar and closing the editor without saving leaves no new row.</td>
+      <td class="req-trace">Design §6.1</td>
+    </tr>
+    <tr>
+      <td id="fr-23">FR-23</td>
+      <td><strong>Confirmation before destructive delete.</strong> The system SHALL require an explicit confirmation dialog before deleting a radar or a mode.<div class="req-detail">Rationale: ported <code>ConfirmDeleteDialog</code> pattern; prevents accidental loss.</div></td>
+      <td>The per-row delete control opens a dialog naming the target; Cancel/Esc aborts with the item still present; confirming deletes it.</td>
+      <td class="req-trace">Design §5 (Maintenance View)</td>
+    </tr>
+    <tr>
+      <td id="fr-24">FR-24</td>
+      <td><strong>Unsaved-changes indicator.</strong> The system SHALL show a visible "unsaved" indicator whenever the editor holds uncommitted changes, and SHALL clear it on a successful save.<div class="req-detail">Rationale: Design §6.1.</div></td>
+      <td>Editing any field shows the indicator; Save clears it; discarding restores the saved state and clears it.</td>
+      <td class="req-trace">Design §6.1</td>
+    </tr>
+    <tr>
+      <td id="fr-25">FR-25</td>
+      <td><strong>Radar search / filter overlay.</strong> The system SHALL provide a slide-out overlay to search radars by name, description, and alternate name, and SHALL be extensible to add frequency-range and PRI-range filters once rollup data exists.<div class="req-detail">Rationale: lead request; mirrors STS's <code>EmitterFilterPanel</code> (Design §5 Maintenance View).</div></td>
+      <td>Typing in the search box filters the radar list by the three text fields; selecting a result opens it in the editor. (Freq/PRI sections land with iteration 10.)</td>
+      <td class="req-trace">Design §2, §5 (Maintenance View)</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="fr-calc">3.3 Waveform calculation &amp; summary</h3>
+
+<table class="req">
+  <thead><tr><th style="width:7%">ID</th><th style="width:40%">Requirement</th><th style="width:33%">Acceptance</th><th>Traces to</th></tr></thead>
+  <tbody>
+    <tr>
+      <td id="fr-26">FR-26</td>
+      <td><strong>Five calc-metric families plus a text description.</strong> The system SHALL compute, for any waveform, CPI duration, processing gain, eclipsing fraction, range-ambiguity zone size and count, velocity-ambiguity zone size and count, and an auto-generated plain-text waveform description — as pure functions of the waveform, its mode's envelope, and the fixed <code>ScenarioAssumptions</code>.<div class="req-detail">Rationale: the Waveform Summary Screen (Design §5 Calc Engine).</div></td>
+      <td><code>WaveformMetricsCalculator.Compute(WaveformCalcInput)</code> returns all five families and the description for a representative waveform.</td>
+      <td class="req-trace">Design §5 (Waveform Calculation Engine)</td>
+    </tr>
+    <tr>
+      <td id="fr-27">FR-27</td>
+      <td><strong>Every deck worked example reproduced.</strong> The calc engine SHALL reproduce every worked numeric example in <code>CLAWE Waveform Calculations.pptx</code> within a stated tolerance.<div class="req-detail">Rationale: the deck is the spec (Design §5 Calc Engine).</div></td>
+      <td>An xUnit <code>[Theory]</code> with one <code>[InlineData]</code> row per deck example, all passing.</td>
+      <td class="req-trace">Design §5</td>
+    </tr>
+    <tr>
+      <td id="fr-28">FR-28</td>
+      <td><strong>Guarded against NaN and divide-by-zero.</strong> The calc engine SHALL never throw or produce <code>NaN</code>/<code>Infinity</code> for a partially-entered or zero-valued input; it SHALL return a "not computable" sentinel that the UI renders as "—".<div class="req-detail">Rationale: FM-8; the <code>GraphsAndFieldsReview.md</code> gap.</div></td>
+      <td>Computing with a zero PRI or an unset field yields the sentinel, not an exception; the summary shows "—" for that metric.</td>
+      <td class="req-trace">Design §9 (FM-8)</td>
+    </tr>
+    <tr>
+      <td id="fr-29">FR-29</td>
+      <td><strong>Live Waveform Summary Screen.</strong> The Waveform Summary Screen SHALL recompute and redisplay all metrics whenever a bound editor field changes, without a polling timer, and SHALL show the CPI (Tx / processing) and processing-gain (per-nonideal-effect) breakdowns.<div class="req-detail">Rationale: Design §5 Calc Engine; timeline iteration 8.</div></td>
+      <td>Changing a modifier value updates every metric and the breakdowns in the same interaction; no timer is used (same cadence as <code>RadarModeEditorViewModel</code>).</td>
+      <td class="req-trace">Design §5</td>
+    </tr>
+    <tr>
+      <td id="fr-30">FR-30</td>
+      <td><strong>Eclipsing chart.</strong> The summary SHALL render a processing-gain-loss-versus-target-range chart for the current waveform, updating live with the other metrics.<div class="req-detail">Rationale: Design §5; timeline iteration 8.</div></td>
+      <td>The chart is present, themed to match STS, and redraws on field change.</td>
+      <td class="req-trace">Design §5, DD-10</td>
+    </tr>
+    <tr>
+      <td id="fr-31">FR-31</td>
+      <td><strong>Metrics browsable across a mode's waveforms.</strong> The system SHALL let an operator browse and filter all of a mode's waveforms by name and by ranges of their computed metrics and parameters (frequency, PRI, PW, CPI duration, processing gain) and by modulation type, querying cached rollup rows and never deserializing a blob per row.<div class="req-detail">Rationale: Design §2 goal 3, §3 (scale), DD-2.</div></td>
+      <td>With several thousand waveforms in a mode, a filtered query returns results from <code>ClaweWaveformCalcRollup</code> rows only (verified by a no-blob-read assertion) and meets NFR-2.</td>
+      <td class="req-trace">Design §2, §3, DD-2, DD-9</td>
+    </tr>
+    <tr>
+      <td id="fr-32">FR-32</td>
+      <td><strong>Live signal preview.</strong> The waveform editor SHALL show a signal-shape preview (pulse train / PRI-PW timeline plus modifier-effect visualisation) that updates as fields change.<div class="req-detail">Rationale: Design §2 goal 5 (previews); timeline iteration 9.</div></td>
+      <td>Editing a PRI modifier updates the pulse-train preview in the same interaction.</td>
+      <td class="req-trace">Design §2, §5 (Maintenance View), DD-10</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="fr-process">3.4 Process &amp; instance model</h3>
+
+<table class="req">
+  <thead><tr><th style="width:7%">ID</th><th style="width:40%">Requirement</th><th style="width:33%">Acceptance</th><th>Traces to</th></tr></thead>
+  <tbody>
+    <tr>
+      <td id="fr-33">FR-33</td>
+      <td><strong>Always-on proxy.</strong> The CLAWE Proxy SHALL start at user logon (in the user's session, so it can open views — DD-21), stay running independently of any view, and hold the RabbitMQ connections for interfaces B and C plus a read-only <code>CLAWE DB</code> connection.<div class="req-detail">Rationale: Design §4, §5 (Proxy), DD-5.</div></td>
+      <td>With no view open, the proxy process is running and answers <code>RequestRadars()</code>.</td>
+      <td class="req-trace">Design §4, §5 (Proxy), DD-5</td>
+    </tr>
+    <tr>
+      <td id="fr-34">FR-34</td>
+      <td><strong>Singleton Maintenance View.</strong> The system SHALL permit at most one Maintenance View per host, enforced by the system-wide named mutex <code>Global\CLAWE_UI_Maintenance</code> acquired when the view enters maintenance mode; the proxy SHALL check it before spawning and a batch-file/double-click launch SHALL check it on startup.<div class="req-detail">Rationale: single-writer safety (Design §4, DD-5, FM-1).</div></td>
+      <td>A second launch attempt while a maintenance view runs does not open a second writer — it is focused (proxy path) or exits with a message (direct path).</td>
+      <td class="req-trace">Design §4, DD-5, §9 (FM-1)</td>
+    </tr>
+    <tr>
+      <td id="fr-35">FR-35</td>
+      <td><strong>Maintenance View is the sole writer.</strong> Only the Maintenance View SHALL write <code>CLAWE DB</code>; the proxy and every Execution View SHALL open it read-only. A write-owner row SHALL back the mutex: the Maintenance View claims it at startup, every commit it makes SHALL check it first, and a write attempted by a non-owner SHALL throw before committing. An owner whose process has died MAY be taken over.<div class="req-detail">Rationale: Design §4, DD-5, DD-18, FM-2.</div></td>
+      <td>A read-only context cannot commit; a second writer (even in the same process — NFR-7) can't claim the row, and its commits throw with nothing written.</td>
+      <td class="req-trace">Design §4, DD-5, DD-18, §9 (FM-2)</td>
+    </tr>
+    <tr>
+      <td id="fr-36">FR-36</td>
+      <td><strong>Two launch paths, one mutex.</strong> A view SHALL be startable either by the proxy or directly by a batch file / double-click; both paths SHALL honour the singleton mutex, and a directly-launched Maintenance View SHALL register with the proxy so a subsequent <code>LaunchMaintenanceUiCommand</code> focuses it.<div class="req-detail">Rationale: Design §4, §5 (Maintenance View).</div></td>
+      <td>Double-clicking the exe opens maintenance; a later <code>LaunchMaintenanceUiCommand</code> returns <code>FOCUSED</code> and brings that window forward.</td>
+      <td class="req-trace">Design §4</td>
+    </tr>
+    <tr>
+      <td id="fr-37">FR-37</td>
+      <td><strong>Mode-parameterised host process.</strong> <code>CLAWE.Host</code> SHALL run as <code>--mode maintenance</code> (singleton, writer) or <code>--mode execution</code> (<code>0..n</code>, read-only), replacing the single-window Maintenance/Operate <code>NavigationView</code> shell.<div class="req-detail">Rationale: Design §4, DD-5; timeline iteration 4.</div></td>
+      <td><code>CLAWE.Host --mode execution</code> starts a mode-locked window and never a maintenance editor; <code>--mode maintenance</code> starts the editor and acquires the mutex.</td>
+      <td class="req-trace">Design §4, DD-5</td>
+    </tr>
+    <tr>
+      <td id="fr-38">FR-38</td>
+      <td><strong>One proxy and one database per host.</strong> The system SHALL assume exactly one proxy and one <code>CLAWE DB</code> per host, and SHALL NOT attempt cross-host coordination of the singleton rule.<div class="req-detail">Rationale: Design §3 assumptions, §2 non-goal.</div></td>
+      <td>The mutex name and DB path are host-scoped; documentation states multi-host CLAWE means independent proxies and databases.</td>
+      <td class="req-trace">Design §2, §3</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="fr-ifaceb">3.5 Interface B — STS integration</h3>
+
+<table class="req">
+  <thead><tr><th style="width:7%">ID</th><th style="width:40%">Requirement</th><th style="width:33%">Acceptance</th><th>Traces to</th></tr></thead>
+  <tbody>
+    <tr>
+      <td id="fr-39">FR-39</td>
+      <td><strong><code>RequestRadars()</code> returns a rollup, no waveform detail.</strong> On <code>RequestRadars()</code> the proxy SHALL return a list of <code>ClaweRadarSummary</code>, each with per-radar identity and per-mode rollups, and SHALL NOT include any <code>ClaweWaveformInstance</code> detail.<div class="req-detail">Rationale: STS only picks a mode and validates a frequency (Design §6.2, DD-9).</div></td>
+      <td>The response contains no waveform-instance fields; it contains, per mode, the fields in FR-40.</td>
+      <td class="req-trace">Design §6.2, DD-9</td>
+    </tr>
+    <tr>
+      <td id="fr-40">FR-40</td>
+      <td><strong><code>ClaweRadarSummary</code> rollup content.</strong> Each <code>ClaweRadarModeSummary</code> SHALL carry <code>name</code>, <code>description</code>, <code>radar_mode_type</code>, <code>operating_mode</code>, the set of waveform base types present (<code>Pulsed</code> / <code>SinglePulse</code> / <code>CW</code>), <code>min/max</code> centre frequency, <code>min/max</code> PRI, <code>min/max</code> PW, and <code>modulation_types</code> — the <strong>6-value subset</strong> {Phase, Frequency, PRI, PW, Leading Edge, Trailing Edge} of the nine modifier categories, restricted to those enabled across the mode's waveforms. Each value is derived from the mode envelope unioned with per-waveform rollups.<div class="req-detail">Rationale: DD-9; Interface B §5. The 6-value set follows the deck's <code>ModulationType</code> enum; whether the omission of Pulse Compression / Amplitude / Discrimination is intended is open (<a href="CLAWE_Design.html#open">OQ-8</a>).</div></td>
+      <td>Met in two stages.
+        <ul>
+          <li><strong>Iteration 4 (hand-rolled builder, envelope-only):</strong>
+            <ul>
+              <li><code>min/max</code> frequency, PRI and PW come from the mode's constraint envelope. A PD duty-cycle PW is duty % × the PRI bounds.</li>
+              <li><code>waveform_types</code> is the envelope's allowed types plus those of the authored waveforms.</li>
+              <li><code>modulation_types</code> contains only values from the 6-value set, and only those actually enabled.</li>
+            </ul>
+          </li>
+          <li><strong>Iteration 10 (rollups):</strong> for a mode with two PD waveforms, <code>min/max</code> frequency spans the envelope widened by any per-waveform centre frequency outside it. Since FR-64, a waveform's CF, PRI and PW must lie inside the envelope, so that widening can no longer occur. What the rollup could still add is the span of the waveforms actually authored, if the lead wants that reported instead of the envelope (to confirm with the lead; not yet in the open-question register).</li>
+        </ul>
+      </td>
+      <td class="req-trace">Design DD-9, §8</td>
+    </tr>
+    <tr>
+      <td id="fr-41">FR-41</td>
+      <td><strong>Frequency data sufficient for STS validation.</strong> The <code>ClaweRadarSummary</code> SHALL carry, per mode, the centre-frequency bounds (and, for a channelized range, the channel spacing) that STS validates a scenario emitter's centre frequency against.<div class="req-detail">Rationale: frequency validation is the point of interface B (Design §6.2).</div></td>
+      <td>STS can accept or reject a chosen centre frequency using only summary fields.</td>
+      <td class="req-trace">Design §6.2, DD-9</td>
+    </tr>
+    <tr>
+      <td id="fr-42">FR-42</td>
+      <td><strong><code>RadarModifiedEvent</code> on every write.</strong> The system SHALL publish a <code>RadarModifiedEvent</code> to the <code>clawe.ifaceB.events</code> fanout exchange whenever a radar, mode, or waveform write commits, carrying <code>radar_name</code>, <code>change_kind</code> (<code>CREATED</code> / <code>UPDATED</code> / <code>RENAMED</code> / <code>DELETED</code>), <code>previous_name</code> on <code>RENAMED</code>, a UTC <code>timestamp</code>, and <code>source_name</code>.<div class="req-detail">Rationale: STS refreshes on change, not by polling (Design §2 goal 4, §6.1).</div></td>
+      <td>Each of create / edit-a-mode / rename / delete produces one event with the correct <code>change_kind</code>; a mode or waveform edit produces a radar-grained <code>UPDATED</code>.</td>
+      <td class="req-trace">Design §6.1, §5 (Proxy)</td>
+    </tr>
+    <tr>
+      <td id="fr-43">FR-43</td>
+      <td><strong>Event coalescing.</strong> The system SHALL debounce <code>UPDATED</code> events per radar so a burst of writes produces one <code>UPDATED</code> after a quiet period of <strong>250 ms</strong> (a configurable default) following the last write, with total create-to-event latency ≤ 1 s; <code>CREATED</code> / <code>DELETED</code> / <code>RENAMED</code> SHALL be sent without debounce.<div class="req-detail">Rationale: Design §6.2 (message table); Interface B §4.3.</div></td>
+      <td>Ten saves within 250 ms of each other yield one <code>UPDATED</code> ~250 ms after the last; a create followed by edits yields one prompt <code>CREATED</code> then one coalesced <code>UPDATED</code>.</td>
+      <td class="req-trace">Design §5 (Proxy), §6.2</td>
+    </tr>
+    <tr>
+      <td id="fr-44">FR-44</td>
+      <td><strong><code>LaunchMaintenanceUiCommand</code>.</strong> On <code>LaunchMaintenanceUiCommand</code> the proxy SHALL start a Maintenance View if none runs and return <code>LAUNCHED</code>; SHALL focus the existing one and return <code>FOCUSED</code> if one runs on the same host; and SHALL return <code>REJECTED</code> with detail when it cannot comply. An optional <code>radar_name</code> SHALL open the view with that radar selected.<div class="req-detail">Rationale: Design §4; Interface B §4.2.</div></td>
+      <td>First call → <code>LAUNCHED</code>; second call → <code>FOCUSED</code> and the window comes forward; a spawn failure → <code>REJECTED</code> with a message. (<a href="CLAWE_Design.html#open">OQ-10</a>'s proposed answer: focus; cross-host can't arise under FR-38.) Windows may only flash the window's taskbar button when the request comes from the background proxy (DD-20).</td>
+      <td class="req-trace">Design §4, §5 (Proxy)</td>
+    </tr>
+    <tr>
+      <td id="fr-45">FR-45</td>
+      <td><strong>Answer <code>RequestRadars()</code> with no view running.</strong> The proxy SHALL answer <code>RequestRadars()</code> from its own read-only database connection without starting any view.<div class="req-detail">Rationale: Design §5 (Proxy), DD-5.</div></td>
+      <td>With no view process running, <code>RequestRadars()</code> returns the current catalogue.</td>
+      <td class="req-trace">Design §5 (Proxy)</td>
+    </tr>
+    <tr>
+      <td id="fr-46">FR-46</td>
+      <td><strong>Transport and broker objects.</strong> Interface B SHALL run over TCP + RabbitMQ (AMQP 0-9-1) + Protobuf, using a request/command queue per CLAWE endpoint (<code>clawe.ifaceB.rpc.&lt;source_name&gt;</code> — namespaced so several CLAWE hosts can share one broker, <a href="CLAWE_Design.html#open">OQ-11</a>) and a fanout exchange (<code>clawe.ifaceB.events</code>); every message SHALL travel inside an <code>InterfaceBEnvelope</code> carrying a timestamp and protocol version.<div class="req-detail">Rationale: DD-6; Interface B §2.</div></td>
+      <td>A test client using RabbitMQ + the compiled <code>clawe_interface_b.proto</code> completes <code>RequestRadars</code>, <code>LaunchMaintenanceUiCommand</code>, and receives <code>RadarModifiedEvent</code>.</td>
+      <td class="req-trace">Design DD-6, §5 (Proxy)</td>
+    </tr>
+    <tr>
+      <td id="fr-47">FR-47</td>
+      <td><strong>DB-unavailable is an error response, not a timeout.</strong> If the proxy cannot open or read <code>CLAWE DB</code>, it SHALL return an explicit error response to <code>RequestRadars()</code> with detail, not let the request time out.<div class="req-detail">Rationale: FM-5 — STS must distinguish "errored" from "offline".</div></td>
+      <td>With the database file removed, <code>RequestRadars()</code> returns an error response within the deadline; STS shows the source as errored.</td>
+      <td class="req-trace">Design §9 (FM-5)</td>
+    </tr>
+    <tr>
+      <td id="fr-48">FR-48</td>
+      <td><strong>Broker-loss behaviour.</strong> On loss of the RabbitMQ connection: source shown offline, reconnect with backoff, no radar list served until restored; on reconnect STS SHALL re-run <code>RequestRadars()</code> unconditionally to resync.<div class="req-detail">Rationale: FM-9, FM-12; events are an optimisation, not the source of truth.</div></td>
+      <td>Killing the broker marks the source offline; restoring it reconnects and STS re-fetches without operator action.</td>
+      <td class="req-trace">Design §9 (FM-9, FM-12)</td>
+    </tr>
+    <tr>
+      <td id="fr-63">FR-63</td>
+      <td><strong>Response attribution and version tag.</strong> The <code>RequestRadars</code> response SHALL echo the <code>source_name</code> STS registered for this CLAWE endpoint and SHALL carry a <code>schema_version</code> string identifying the <code>ClaweRadarSummary</code> contract version.<div class="req-detail">Rationale: STS attributes the list to the source and detects a contract mismatch (Design §6.2; Interface B §4.1).</div></td>
+      <td>The response's <code>source_name</code> matches the registered source; <code>schema_version</code> is a stable identifier (e.g. <code>clawe-ifaceB-1</code>) that changes only on a breaking contract change.</td>
+      <td class="req-trace">Design §6.2, DD-9</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="fr-ifacec">3.6 Interface C — execution</h3>
+
+<table class="req">
+  <thead><tr><th style="width:7%">ID</th><th style="width:40%">Requirement</th><th style="width:33%">Acceptance</th><th>Traces to</th></tr></thead>
+  <tbody>
+    <tr>
+      <td id="fr-49">FR-49</td>
+      <td><strong>HOCA launches a mode-locked Execution View.</strong> On <code>LaunchExecutionUI(ActiveRadarMode)</code> (payload: radar name, mode name, CF, amplitude) the proxy SHALL create (or show) an Execution View locked to that mode.<div class="req-detail">Rationale: Design §6.3; deck slide 8.</div></td>
+      <td>The message opens a window whose title/header names the radar and mode and whose capability/constraint fields are read-only.</td>
+      <td class="req-trace">Design §5 (Execution View), §6.3</td>
+    </tr>
+    <tr>
+      <td id="fr-50">FR-50</td>
+      <td><strong>Execution View lock.</strong> An Execution View SHALL NOT allow edits to the radar's or mode's capabilities or constraints; it SHALL allow adding and editing <code>ClaweWaveformInstance</code> entries within the assigned mode.<div class="req-detail">Rationale: Design §5 (Execution View), §6.3.</div></td>
+      <td>Constraint-envelope controls are disabled; a new waveform can be added to the locked mode.</td>
+      <td class="req-trace">Design §5 (Execution View)</td>
+    </tr>
+    <tr>
+      <td id="fr-51">FR-51</td>
+      <td><strong>Execution View never writes the database.</strong> An Execution View SHALL open <code>CLAWE DB</code> read-only and SHALL hold only transient run state.<div class="req-detail">Rationale: Design §4, §5 (Execution View), FM-2.</div></td>
+      <td>The Execution View's database context cannot commit; closing it leaves the database unchanged.</td>
+      <td class="req-trace">Design §4, §5 (Execution View)</td>
+    </tr>
+    <tr>
+      <td id="fr-52">FR-52</td>
+      <td><strong>Load waveforms and schedule to HOCA.</strong> On activation the Execution View SHALL send <code>LoadWaveforms(List&lt;waveform&gt;)</code> with every waveform instance for the active radar and, when the mode is Auto, <code>LoadSchedule(List&lt;WaveformID, Duration&gt;)</code> with the schedule. It SHALL refuse to activate an Auto mode whose schedule is empty, and say why.<div class="req-detail">Rationale: Design §6.3; deck slide 8. The empty-schedule refusal is the other half of DD-15, which lets such a mode be saved.</div></td>
+      <td>Against a mocked HOCA, both messages are sent with the correct payloads on <code>ActivateRadar()</code>; an Auto mode with an empty schedule is not activated and no <code>LoadSchedule</code> is sent.</td>
+      <td class="req-trace">Design §5 (Execution View), §6.3</td>
+    </tr>
+    <tr>
+      <td id="fr-53">FR-53</td>
+      <td><strong>Activate / deactivate.</strong> The Execution View SHALL start radar operation on <code>ActivateRadar()</code> and end it on <code>DeactivateRadar()</code>, showing itself if hidden, and SHALL remain open after <code>DeactivateRadar()</code>.<div class="req-detail">Rationale: Design §6.3; deck slide 8.</div></td>
+      <td><code>ActivateRadar()</code> begins schedule playback; <code>DeactivateRadar()</code> stops it and the window stays open.</td>
+      <td class="req-trace">Design §6.3</td>
+    </tr>
+    <tr>
+      <td id="fr-54">FR-54</td>
+      <td><strong>Multiple concurrent Execution Views.</strong> The system SHALL allow <code>0..n</code> Execution Views to run at once, each locked to its own assigned mode.<div class="req-detail">Rationale: Design §4, §5 (Execution View).</div></td>
+      <td>A second <code>LaunchExecutionUI</code> for a different mode opens a second independent window.</td>
+      <td class="req-trace">Design §4, §5 (Execution View)</td>
+    </tr>
+    <tr>
+      <td id="fr-55">FR-55</td>
+      <td><strong>Operator-in-the-loop and cognitive control.</strong> In an Execution View the operator SHALL be able to search and select the active waveform (operator-in-the-loop) or hand control to cognitive optimisation (Learning / Speed), switching between the two.<div class="req-detail">Rationale: Design §6.3; deck UI notes (slides 33–34).</div></td>
+      <td>The Control tab offers an operating-mode switch; in operator-in-the-loop the operator picks a waveform from the mode's list; in cognitive the Learning/Speed state is shown.</td>
+      <td class="req-trace">Design §5 (Execution View), §6.3</td>
+    </tr>
+    <tr>
+      <td id="fr-56">FR-56</td>
+      <td><strong>HOCA connection loss mid-run.</strong> If the interface-C connection drops during a scenario, the Execution View SHALL hold its last state, show a disconnected banner, and SHALL NOT exit; on reconnect it SHALL accept a re-sent <code>ActivateRadar()</code>.<div class="req-detail">Rationale: FM-10.</div></td>
+      <td>Dropping the mocked HOCA connection mid-run leaves the window open with a banner; restoring it and re-sending <code>ActivateRadar()</code> resumes.</td>
+      <td class="req-trace">Design §9 (FM-10)</td>
+    </tr>
+    <tr>
+      <td id="fr-57">FR-57</td>
+      <td><strong>Dockable graph-window container.</strong> The Execution View SHALL provide a container in which graph windows (2D RDI scope, 3D RDI scope, target table) can be added, resized, and removed.<div class="req-detail">Rationale: Design §5 (Execution View); deck UI notes (slides 33–34).</div></td>
+      <td>An operator adds a target-table window, resizes it, and removes it; the container lays out multiple windows without overlap.</td>
+      <td class="req-trace">Design §5 (Execution View), <a href="CLAWE_Design.html#open">OQ-4</a></td>
+    </tr>
+    <tr>
+      <td id="fr-58">FR-58</td>
+      <td><strong>RDI scope and target-table windows render their feeds.</strong> The 2D RDI scope SHALL render compressed-RDI data and the target-table window SHALL list active targets and their information, each updating live as its feed changes.<div class="req-detail">Rationale: deck UI notes; Design §5 (Execution View).</div></td>
+      <td><strong>Verified against a simulated feed</strong> — the 2D RDI scope redraws from a mock compressed-RDI stream and the target table updates from mock target data. <strong>Live-feed acceptance is deferred</strong> until the interface-C telemetry path is specified (<a href="CLAWE_Design.html#open">OQ-3b</a>); until then FR-58's live-data clause is held at Draft.</td>
+      <td class="req-trace">Design §5 (Execution View), §6.3, <a href="CLAWE_Design.html#open">OQ-3b</a></td>
+    </tr>
+    <tr>
+      <td id="fr-61">FR-61</td>
+      <td><strong>Execution View cannot open the database.</strong> If an Execution View cannot open <code>CLAWE DB</code> read-only at launch, it SHALL report the failure to HOCA over interface C, SHALL NOT enter execution mode, and SHALL start no partial run.<div class="req-detail">Rationale: Design §9 (FM-13).</div></td>
+      <td>Launching <code>CLAWE.Host --mode execution</code> with the database file removed sends an error to the (mocked) HOCA and the window does not activate any radar.</td>
+      <td class="req-trace">Design §9 (FM-13)</td>
+    </tr>
+    <tr>
+      <td id="fr-62">FR-62</td>
+      <td><strong>HOCA rejects a waveform or schedule load.</strong> If HOCA rejects <code>LoadWaveforms</code> or <code>LoadSchedule</code>, the Execution View SHALL display the rejection detail, SHALL remain in a not-activated state, and SHALL refuse <code>ActivateRadar()</code> until a valid load succeeds.<div class="req-detail">Rationale: Design §9 (FM-14).</div></td>
+      <td>A mocked HOCA that nacks <code>LoadWaveforms</code> leaves the view not-activated with the reason shown; a subsequent <code>ActivateRadar()</code> is refused; a successful reload clears the state.</td>
+      <td class="req-trace">Design §9 (FM-14)</td>
+    </tr>
+  </tbody>
+</table>
+
+<h3 id="fr-lookfeel">3.7 Look and feel</h3>
+
+<table class="req">
+  <thead><tr><th style="width:7%">ID</th><th style="width:40%">Requirement</th><th style="width:33%">Acceptance</th><th>Traces to</th></tr></thead>
+  <tbody>
+    <tr>
+      <td id="fr-59">FR-59</td>
+      <td><strong>Copied, not referenced, PRISM theme.</strong> <code>CLAWE.UI</code> SHALL carry its own copies of the <code>PRISM.UI</code> theme tokens and control styles it uses, with attribution, and SHALL NOT hold a <code>ProjectReference</code> into the PRISM solution.<div class="req-detail">Rationale: architectural independence (DD-1, DD-4).</div></td>
+      <td>The CLAWE solution builds with no PRISM project reference; the theme files are local copies.</td>
+      <td class="req-trace">Design DD-4</td>
+    </tr>
+    <tr>
+      <td id="fr-60">FR-60</td>
+      <td><strong>STS-matching chrome.</strong> The application window SHALL render the WPF-UI dark Mica chrome, the Spartan-helmet icon, and the STS blue accent, applying the theme explicitly at startup.<div class="req-detail">Rationale: Design §2 ("recognises the app"), DD-4 (the startup gotcha).</div></td>
+      <td>The built exe launches with dark Mica chrome and the correct icon; a visual checkpoint at timeline iterations 2, 7, 8, and 9 confirms parity with the lead.</td>
+      <td class="req-trace">Design §2, DD-4</td>
+    </tr>
+  </tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="nonfunctional">4. Non-functional requirements</h2>
+
+<p>Each names a measurable target and a verification method. <strong>16 non-functional requirements.</strong>
+Performance targets (NFR-1 – NFR-4) are stated against the <em>reference benchmark host</em> defined in §5.</p>
+
+<table class="req">
+  <thead><tr><th style="width:7%">ID</th><th style="width:44%">Target</th><th style="width:30%">Verification</th><th>Traces to</th></tr></thead>
+  <tbody>
+    <tr><td id="nfr-1">NFR-1</td><td><strong>Whole-radar save latency.</strong> Saving a radar (which re-serializes the entire <code>ClaweRadarInstance</code>) SHALL complete in ≤ 500 ms for a radar holding 2,000 waveforms on the reference benchmark host.</td><td>A benchmark that builds a 2,000-waveform radar and times a save, recorded per iteration from iteration 3. <code>WaveformSaveLatencyBenchmarkTests</code> times the full editor Save, which is three whole-blob writes: radar identity, mode, waveform. Iteration 3: median 63 ms (Release, 572 KiB blob) on a 20-core dev machine; not yet run on the reference host.</td><td class="req-trace">Design DD-2, §3, <a href="CLAWE_Design.html#open">OQ-9</a></td></tr>
+    <tr><td id="nfr-2">NFR-2</td><td><strong>Waveform-browser query latency.</strong> A filtered query over a mode of 5,000 waveforms SHALL return the first page in ≤ 200 ms on the reference benchmark host and SHALL execute against <code>ClaweWaveformCalcRollup</code> rows only, with zero blob deserializations.</td><td>A benchmark plus an assertion that no <code>ClaweRadarProtoBlob</code> read occurs during the query.</td><td class="req-trace">Design §3, DD-2, DD-9</td></tr>
+    <tr><td id="nfr-3">NFR-3</td><td><strong>Live-recompute responsiveness.</strong> The Waveform Summary Screen and the signal preview SHALL fully update within 100 ms of a bound field change on the reference benchmark host, without a polling timer.</td><td>Measured latency from a simulated property change to the rendered update.</td><td class="req-trace">Design §5 (Calc Engine), §6.1</td></tr>
+    <tr><td id="nfr-4">NFR-4</td><td><strong><code>RequestRadars()</code> deadline.</strong> The proxy SHALL respond within a 5 s RPC deadline for the design catalogue size of 500 radars on the reference benchmark host; a response that would exceed the deadline SHALL be paged or streamed (mechanism — <a href="CLAWE_Design.html#open">OQ-12</a>).</td><td>Load test with a 500-radar database.</td><td class="req-trace">Design §3, §6.2, §9 (FM-11), <a href="CLAWE_Design.html#open">OQ-12</a></td></tr>
+    <tr><td id="nfr-5">NFR-5</td><td><strong>Two storage layers never diverge.</strong> After any sequence of radar writes, the mode list in each <code>ClaweRadarProtoBlob</code> SHALL exactly match the <code>ClaweRadarMode</code> index rows for that radar.</td><td>A property/invariant test that performs randomised write sequences and asserts equality after each commit.</td><td class="req-trace">Design DD-2, §6.1</td></tr>
+    <tr><td id="nfr-6">NFR-6</td><td><strong>Atomic schema upgrade.</strong> No schema-update run SHALL leave <code>CLAWE DB</code> in a state where the applied structure and the <code>ClaweSchemaVersion</code> value disagree.</td><td>Fault-injection test that fails each patch step in turn and asserts the version and structure both reflect the last fully-applied step.</td><td class="req-trace">Design DD-3, §9 (FM-4)</td></tr>
+    <tr><td id="nfr-7">NFR-7</td><td><strong>Single-writer guarantee under mutex bypass.</strong> Even if two processes both believe they hold the maintenance role, at most one SHALL be able to commit a write; the second SHALL fail before committing.</td><td>A test that opens two writer contexts against one file and asserts the second commit throws.</td><td class="req-trace">Design DD-5, §9 (FM-2)</td></tr>
+    <tr><td id="nfr-8">NFR-8</td><td><strong>Isolation from PRISM data.</strong> CLAWE UI SHALL never open, read, or write <code>emitters.db</code> or any PRISM database, and SHALL share no connection, schema, or primary-key sequence with PRISM.</td><td>Static review of all <code>DbContext</code> construction plus a check that the CLAWE solution references no PRISM project.</td><td class="req-trace">Design DD-1, DD-3</td></tr>
+    <tr><td id="nfr-9">NFR-9</td><td><strong>Offline authoring.</strong> The Maintenance View SHALL perform all authoring, validation, and calculation with no network access.</td><td>Run the full author-a-radar flow with networking disabled.</td><td class="req-trace">Design §3 (platform)</td></tr>
+    <tr><td id="nfr-10">NFR-10</td><td><strong>Proxy auto-start.</strong> The CLAWE Proxy SHALL be configured to start at user logon (DD-21) and to restart within 30 s of an unexpected exit.</td><td>Deployment check on the reference host — (a) a reboot and logon leave the proxy running; (b) killing the proxy process, it is running again within 30 s.</td><td class="req-trace">Design §5 (Proxy), DD-5</td></tr>
+    <tr><td id="nfr-11">NFR-11</td><td><strong>Backward-compatible blobs.</strong> An additive proto3 field SHALL NOT prevent an older <code>clawe-v1</code> blob from deserializing; the reader SHALL apply defaults for absent fields.</td><td>A round-trip test that reads a stored <code>clawe-v1</code> blob with the current schema.</td><td class="req-trace">Design §9 (FM-3), DD-2</td></tr>
+    <tr><td id="nfr-12">NFR-12</td><td><strong>Transport-neutral message contract.</strong> The <code>CLAWE.Contracts</code> message types SHALL contain no RabbitMQ-specific code, so a switch to ZeroMQ would change only <code>CLAWE.Messaging</code>.</td><td>Review — <code>CLAWE.Contracts</code> has no transport dependency.</td><td class="req-trace">Design DD-6, <a href="CLAWE_Design.html#open">OQ-2</a></td></tr>
+    <tr><td id="nfr-13">NFR-13</td><td><strong>Multi-host operation.</strong> The system SHALL function with STS UI, CLAWE UI, and HOCA on separate machines, making no same-host assumption about another component's database or filesystem.</td><td>An integration test (or review of every cross-component access) confirming only network calls cross component boundaries; an end-to-end run across two machines before release.</td><td class="req-trace">Design §3 (assumptions), DD-1</td></tr>
+    <tr><td id="nfr-14">NFR-14</td><td><strong>Iteration demo cadence.</strong> Every 2-week iteration SHALL end in a runnable demo <code>.exe</code> that preserves all prior demo functionality.</td><td>The iteration review records a built exe and a regression check of prior demo flows.</td><td class="req-trace">Design §1; the timeline</td></tr>
+    <tr><td id="nfr-15">NFR-15</td><td><strong>Calc-engine determinism and purity.</strong> <code>WaveformMetricsCalculator.Compute</code> SHALL be a pure function — same <code>WaveformCalcInput</code> and <code>ScenarioAssumptions</code> always yield the same result, with no WPF, EF, or I/O dependency.</td><td><code>CLAWE.Calc</code> references neither WPF nor EF; repeated calls with equal input return equal output.</td><td class="req-trace">Design §5 (Calc Engine)</td></tr>
+    <tr><td id="nfr-16">NFR-16</td><td><strong>Validation coverage of the deck.</strong> Every modifier parameter listed in deck slides 27–32 SHALL have an enforced min/max in the editor.</td><td>A test that enumerates the deck parameter table and asserts a validation rule exists for each entry.</td><td class="req-trace">Design §2 (goal 2), §6.1</td></tr>
+  </tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="constraints">5. Constraints &amp; assumptions</h2>
+
+<p>Carried from <a href="CLAWE_Design.html#context">Design §3</a>:</p>
+<ul>
+  <li><strong>Platform:</strong> C#/WPF/.NET 10; SQLite via EF Core; Protobuf (proto3, <code>Clawe.V1</code>); RabbitMQ (AMQP 0-9-1) for interfaces B and C; Windows desktop.</li>
+  <li><strong>Approved data model:</strong> <code>ClaweRadarInstance</code> / <code>ClaweRadarModeInstance</code> / <code>ClaweWaveformInstance</code> approved as-is 2026-08-18; the two cardinality narrowings (DD-7, DD-8) are lead-confirmed. No schema-concept changes are pending.</li>
+  <li><strong>Look and feel:</strong> must match the STS UI (<code>PRISM.UI</code> conventions) and follow <code>PRISM.Database</code> DB patterns.</li>
+  <li><strong>Scale:</strong> hundreds to thousands of waveforms per mode.</li>
+  <li><strong>Assumptions:</strong> STS / CLAWE / HOCA may be co-located or on separate machines; one proxy and one <code>CLAWE DB</code> per host; a radar always has <code>1..N</code> modes; authoring happens only in the singleton Maintenance View.</li>
+  <li><strong>Legacy parity:</strong> field names and behaviour are reconciled against <code>sparta/</code>'s CLAWE settings objects during iteration 3 (<a href="CLAWE_Design.html#open">OQ-5</a>) — the data model itself does not change.</li>
+  <li><strong>Delivery:</strong> ~20 hrs/week, 2-week iterations, 12 iterations (~24 weeks); <code>1.0.0</code> is a deliberate release-readiness pass after iteration 12.</li>
+  <li><strong>Reference benchmark host:</strong> performance targets (NFR-1 – NFR-4) are stated against the project's CI benchmark host — a mid-range developer laptop (4-core x64, 16 GB RAM, SSD), running the self-contained Release build. Numbers are recorded per iteration so regressions are visible even if the exact host changes.</li>
+  <li><strong>Catalogue size:</strong> a <code>CLAWE DB</code> is expected to hold on the order of a few hundred radars; <strong>500 radars</strong> is the design figure for interface-B response sizing.</li>
+</ul>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="scope">6. Out of scope</h2>
+
+<p>From <a href="CLAWE_Design.html#goals">Design §2 non-goals</a>, plus clarifications:</p>
+<ul>
+  <li>CW waveform authoring (parameters, modifiers, editor). The <code>BaseWaveform.CW</code> enum value ships for interface-B vocabulary stability only.</li>
+  <li><code>RadarModeType</code> values other than <code>TTR</code> (authoring). They are modelled and shown, not authorable.</li>
+  <li>Any PRISM-plugin packaging or shared runtime assembly with PRISM.</li>
+  <li>Implementing HOCA, STEEM, the SPARTA SW Simulator, or the STS static-scenario builder.</li>
+  <li>Standing up or operating the RabbitMQ broker.</li>
+  <li>Cross-host coordination of the single-writer rule.</li>
+  <li>A general emitter-authoring tool — CLAWE UI models closed-loop CLAWE radars only.</li>
+  <li>The internal algorithm of cognitive optimisation (Learning vs Speed search). Only its UI and state display are in scope.</li>
+  <li>The specific 3D-RDI-scope rendering library — a placeholder is acceptable; any library that fits may be used (see §8.2 item 2).</li>
+  <li>Interface A, D, E, F.</li>
+</ul>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="trace">7. Traceability matrix</h2>
+
+<p>The third column is filled from the <a href="CLAWE_UI_Iterative_Timeline.html">iteration timeline</a>
+(used here in place of a <code>TASKS.md</code>) as work is scheduled.</p>
+
+<table class="fixed">
+  <thead><tr><th style="width:12%">Requirement</th><th style="width:44%">Design section</th><th>Timeline iteration</th></tr></thead>
+  <tbody>
+    <tr><td>FR-1</td><td>§5 (CLAWE DB), §8</td><td>1–3</td></tr>
+    <tr><td>FR-2</td><td>§8, DD-11</td><td>1</td></tr>
+    <tr><td>FR-3</td><td>§8</td><td>2</td></tr>
+    <tr><td>FR-4</td><td>§8, §6.3</td><td>3</td></tr>
+    <tr><td>FR-5</td><td>DD-8</td><td>2</td></tr>
+    <tr><td>FR-6</td><td>DD-7, §8</td><td>1</td></tr>
+    <tr><td>FR-7</td><td>DD-2, §6.1, §8</td><td>2–3</td></tr>
+    <tr><td>FR-8</td><td>DD-11, §5, §8</td><td>1 (rename), 4 (event)</td></tr>
+    <tr><td>FR-9</td><td>§8</td><td>1</td></tr>
+    <tr><td>FR-10</td><td>DD-3, §5, §9 (FM-4)</td><td>1</td></tr>
+    <tr><td>FR-11</td><td>§5 (CLAWE DB)</td><td>1</td></tr>
+    <tr><td>FR-12</td><td>§5 (Maintenance View), §6.1</td><td>2</td></tr>
+    <tr><td>FR-13</td><td>§2, §5, §9 (FM-6)</td><td>2–3</td></tr>
+    <tr><td>FR-14</td><td>§6.1, §9 (FM-6)</td><td>2–3</td></tr>
+    <tr><td>FR-15</td><td>§9 (FM-7)</td><td>2</td></tr>
+    <tr><td>FR-16</td><td>§8, DD-15</td><td>2, 3</td></tr>
+    <tr><td>FR-17</td><td>§8, §6.3, DD-15</td><td>2, 3</td></tr>
+    <tr><td>FR-18</td><td>§8, DD-14</td><td>3</td></tr>
+    <tr><td>FR-19</td><td>§8</td><td>3</td></tr>
+    <tr><td>FR-20</td><td>§8</td><td>3</td></tr>
+    <tr><td>FR-21</td><td>DD-12</td><td>2</td></tr>
+    <tr><td>FR-22</td><td>§6.1</td><td>1</td></tr>
+    <tr><td>FR-23</td><td>§5 (Maintenance View)</td><td>1</td></tr>
+    <tr><td>FR-24</td><td>§6.1</td><td>2</td></tr>
+    <tr><td>FR-25</td><td>§2, §5 (Maintenance View)</td><td>1 (shell), 10 (Freq/PRI)</td></tr>
+    <tr><td>FR-26</td><td>§5 (Calc Engine)</td><td>5</td></tr>
+    <tr><td>FR-27</td><td>§5 (Calc Engine)</td><td>5</td></tr>
+    <tr><td>FR-28</td><td>§9 (FM-8)</td><td>5, 8</td></tr>
+    <tr><td>FR-29</td><td>§5 (Calc Engine)</td><td>8</td></tr>
+    <tr><td>FR-30</td><td>§5, DD-10</td><td>8</td></tr>
+    <tr><td>FR-31</td><td>§2, §3, DD-2, DD-9</td><td>10</td></tr>
+    <tr><td>FR-32</td><td>§2, §5, DD-10</td><td>9</td></tr>
+    <tr><td>FR-33</td><td>§4, §5 (Proxy), DD-5</td><td>4</td></tr>
+    <tr><td>FR-34</td><td>§4, DD-5, §9 (FM-1)</td><td>4</td></tr>
+    <tr><td>FR-35</td><td>§4, DD-5, §9 (FM-2)</td><td>4</td></tr>
+    <tr><td>FR-36</td><td>§4, §5 (Maintenance View)</td><td>4</td></tr>
+    <tr><td>FR-37</td><td>§4, DD-5</td><td>4</td></tr>
+    <tr><td>FR-38</td><td>§2, §3</td><td>4</td></tr>
+    <tr><td>FR-39</td><td>§6.2, DD-9</td><td>4</td></tr>
+    <tr><td>FR-40</td><td>DD-9, §8</td><td>4 (hand-rolled), 10 (rollup)</td></tr>
+    <tr><td>FR-41</td><td>§6.2, DD-9</td><td>4</td></tr>
+    <tr><td>FR-42</td><td>§6.1, §5 (Proxy)</td><td>4</td></tr>
+    <tr><td>FR-43</td><td>§5 (Proxy), §6.2</td><td>4</td></tr>
+    <tr><td>FR-44</td><td>§4, §5 (Proxy)</td><td>4</td></tr>
+    <tr><td>FR-45</td><td>§5 (Proxy)</td><td>4</td></tr>
+    <tr><td>FR-46</td><td>DD-6, §5 (Proxy)</td><td>4</td></tr>
+    <tr><td>FR-47</td><td>§9 (FM-5)</td><td>4</td></tr>
+    <tr><td>FR-48</td><td>§9 (FM-9, FM-12)</td><td>4</td></tr>
+    <tr><td>FR-49</td><td>§5 (Execution View), §6.3</td><td>6 (demo launch), 11 (HOCA launch)</td></tr>
+    <tr><td>FR-50</td><td>§5 (Execution View)</td><td>6</td></tr>
+    <tr><td>FR-51</td><td>§4, §5 (Execution View)</td><td>6</td></tr>
+    <tr><td>FR-52</td><td>§5 (Execution View), §6.3, DD-15</td><td>6 (empty-schedule refusal), 11 (HOCA load)</td></tr>
+    <tr><td>FR-53</td><td>§6.3</td><td>6, 11</td></tr>
+    <tr><td>FR-54</td><td>§4, §5 (Execution View)</td><td>6</td></tr>
+    <tr><td>FR-55</td><td>§5 (Execution View), §6.3</td><td>6, 12 (cognitive)</td></tr>
+    <tr><td>FR-56</td><td>§9 (FM-10)</td><td>11</td></tr>
+    <tr><td>FR-57</td><td>§5 (Execution View), OQ-4</td><td>7</td></tr>
+    <tr><td>FR-58</td><td>§5 (Execution View), §6.3, OQ-3b</td><td>6 (target table), 7 (container, RDI scope), deferred (live feed)</td></tr>
+    <tr><td>FR-59</td><td>DD-4</td><td>1</td></tr>
+    <tr><td>FR-60</td><td>§2, DD-4</td><td>1</td></tr>
+    <tr><td>FR-61</td><td>§9 (FM-13)</td><td>6 (local report), 11 (report to HOCA)</td></tr>
+    <tr><td>FR-62</td><td>§9 (FM-14)</td><td>11</td></tr>
+    <tr><td>FR-63</td><td>§6.2, DD-9</td><td>4</td></tr>
+    <tr><td>FR-64</td><td>§8</td><td>4</td></tr>
+    <tr><td>NFR-1</td><td>DD-2, §3, OQ-9</td><td>3, ongoing</td></tr>
+    <tr><td>NFR-2</td><td>§3, DD-2, DD-9</td><td>10</td></tr>
+    <tr><td>NFR-3</td><td>§5 (Calc Engine), §6.1</td><td>8-9</td></tr>
+    <tr><td>NFR-4</td><td>§6.2, §9 (FM-11), OQ-12</td><td>4, 10</td></tr>
+    <tr><td>NFR-5</td><td>DD-2, §6.1</td><td>2–3</td></tr>
+    <tr><td>NFR-6</td><td>DD-3, §9 (FM-4)</td><td>1</td></tr>
+    <tr><td>NFR-7</td><td>DD-5, §9 (FM-2)</td><td>4</td></tr>
+    <tr><td>NFR-8</td><td>DD-1, DD-3</td><td>1</td></tr>
+    <tr><td>NFR-9</td><td>§3</td><td>1</td></tr>
+    <tr><td>NFR-10</td><td>§5 (Proxy), DD-5</td><td>4, 12</td></tr>
+    <tr><td>NFR-11</td><td>§9 (FM-3), DD-2</td><td>3</td></tr>
+    <tr><td>NFR-12</td><td>DD-6, OQ-2</td><td>4</td></tr>
+    <tr><td>NFR-13</td><td>§3, DD-1</td><td>4, 11, 12</td></tr>
+    <tr><td>NFR-14</td><td>§1</td><td>every</td></tr>
+    <tr><td>NFR-15</td><td>§5 (Calc Engine)</td><td>5</td></tr>
+    <tr><td>NFR-16</td><td>§2, §6.1</td><td>3</td></tr>
+  </tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="open">8. Open questions</h2>
+
+<p>
+  The open questions themselves live in the <strong>canonical register</strong> —
+  <a href="CLAWE_Design.html#open">Design §10</a>, <code>OQ-1</code> … <code>OQ-16</code>. This section
+  records <strong>which requirement each one blocks or refines</strong>, and which design elements
+  deliberately produced no requirement.
+</p>
+
+<h3>8.1 Requirements blocked or limited by an open question</h3>
+
+<table class="fixed">
+  <thead><tr><th style="width:14%">Open question</th><th style="width:26%">Requirement affected</th><th>How</th></tr></thead>
+  <tbody>
+    <tr><td><a href="CLAWE_Design.html#open">OQ-3b</a> — interface-C telemetry feed</td><td>FR-58 (live-feed clause), FR-57 (partial)</td><td>FR-57's container is verifiable now; FR-58's live-feed acceptance is held at Draft and verified against a mock until the feed is specified.</td></tr>
+    <tr><td><a href="CLAWE_Design.html#open">OQ-12</a> — large-response paging/streaming</td><td>NFR-4, FR-39</td><td>NFR-4 states the 5 s deadline. Measured in iteration 4: 1,000 radars take 37 ms (128 KiB), so a paging mechanism isn't needed at the design scale.</td></tr>
+    <tr><td><a href="CLAWE_Design.html#open">OQ-10</a> — second-launch behaviour</td><td>FR-44</td><td>FR-44 covers same-host focus and reject. Proposed in iteration 4, pending the lead: focus; cross-host can't arise under FR-38.</td></tr>
+    <tr><td><a href="CLAWE_Design.html#open">OQ-16</a> — Execution View waveform edits vs. the single writer</td><td>FR-50, FR-51</td><td>FR-50 lets the operator add/edit waveforms in an Execution View; FR-51 says it never writes. One of them changes once the lead decides whether those edits are transient. Before iteration 6.</td></tr>
+    <tr><td><a href="CLAWE_Design.html#open">OQ-8</a> — <code>modulation_types</code> 6-of-9 scope</td><td>FR-40</td><td>FR-40 specifies the 6-value set provisionally; whether the 3 omitted categories are intended is open.</td></tr>
+    <tr><td><a href="CLAWE_Design.html#open">OQ-6</a> — calc-engine formula ambiguities</td><td>FR-26, FR-27</td><td>FR-27's tolerance for the affected worked examples cannot be fixed until the formulas are confirmed.</td></tr>
+    <tr><td><a href="CLAWE_Design.html#open">OQ-1</a> — RabbitMQ broker ownership</td><td>§3.5 / §3.6 (operational)</td><td>Not a requirement gap — an environment decision. The interface requirements are testable against a local broker regardless (a Docker broker since iteration 4).</td></tr>
+    <tr><td><a href="CLAWE_Design.html#open">OQ-2</a> — RabbitMQ vs ZeroMQ</td><td>(none; resolved)</td><td>Resolved in iteration 4: RabbitMQ, per the deck. NFR-12 still holds, so a later change would touch only <code>CLAWE.Messaging</code>.</td></tr>
+    <tr><td><a href="CLAWE_Design.html#open">OQ-11</a> — proxy multi-PC identity / discovery</td><td>NFR-13, FR-38</td><td>NFR-13 is verifiable with statically-configured endpoints until discovery is designed.</td></tr>
+    <tr><td><a href="CLAWE_Design.html#open">OQ-5</a> — legacy field reconciliation</td><td>(none; resolved)</td><td>Resolved in iteration 3 with no schema change (<code>CLAWE_Legacy_Reconciliation.md</code>). Its open deck questions moved to OQ-15.</td></tr>
+    <tr><td><a href="CLAWE_Design.html#open">OQ-15</a> — waveform-parameter gaps and legacy conflicts</td><td>FR-13</td><td>FR-13 validates against the deck's ranges. Six fields the deck leaves unbounded are checked <code>&ge; 0</code> only. The SP Rampup / SP Prepulse ranges conflict with legacy values. Each is tightened or widened once the deck author answers.</td></tr>
+    <tr><td><a href="CLAWE_Design.html#open">OQ-13</a> — high-pulse-count preview strategy</td><td>FR-32, FR-58</td><td>These state <em>that</em> a preview / RDI scope renders and updates; the rendering approach for ~1,024-pulse trains is held open and iterated with the lead.</td></tr>
+    <tr><td><a href="CLAWE_Design.html#open">OQ-14</a> — <code>LoadWaveforms</code> radar vs. mode scope</td><td>FR-52</td><td>FR-52 follows the deck's "every waveform instance for the active radar" wording provisionally; if the answer is "active mode", the payload narrows; if "whole radar", waveform IDs need a radar-wide-unique or composite key.</td></tr>
+  </tbody>
+</table>
+
+<h3>8.2 Design elements that deliberately produced no requirement</h3>
+
+<p>Flagged so a reviewer does not read the absence as an omission:</p>
+<ol>
+  <li><strong>Cognitive-optimisation internals.</strong> <code>DESIGN.md</code> §6.3 / §8 name
+    <code>OptimizationType {Learning, Speed}</code> but not the search behaviour. Out of scope by
+    decision (§6); FR-55 covers only the UI and state display.</li>
+  <li><strong>The 3D RDI scope beyond FR-57's container.</strong> <code>DESIGN.md</code> OQ-4 and the
+    timeline treat it as a genuine placeholder; a dedicated requirement would be premature.</li>
+  <li><strong><code>DESIGN.md</code> DD-13</strong> (git-repo structure, Markdown-is-source). A
+    documentation-process decision, not product behaviour — out of scope for this spec by nature.</li>
+</ol>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="changelog">9. Changelog</h2>
+
+<div class="changelog">
+  <div class="entry">
+    <div class="date">September 2026 — v1.6</div>
+    <div class="detail">Iteration 4 (Design v1.6, DD-18 to DD-21):
+      <ul>
+        <li><strong>Iteration numbers follow timeline Draft v5</strong> (running-radar demo first): the
+          Execution View and a simulated radar are iteration 6, the graph container and 2D RDI scope 7,
+          the summary screen 8, the live preview 9, rollups and the browser 10, interface C and real
+          HOCA 11. §7 is remapped (FR-25, 26–32, 40, 49–58, 61, 62; NFR-2, 3, 4, 13).</li>
+        <li>Added <strong>FR-64</strong> (the values behind a waveform's Fixed CF / PRI / PW choices,
+          checked against the mode's envelope), from the lead's v0.3.0 review. Total 63 → 64 FR.</li>
+        <li><strong>FR-33</strong> and <strong>NFR-10:</strong> the proxy starts at user logon, in the
+          user's session (DD-21), rather than at system start.</li>
+        <li><strong>FR-35:</strong> the write-owner row is claimed at startup and checked before every
+          commit; the acceptance names NFR-7's same-process case.</li>
+        <li><strong>FR-40:</strong> acceptance split into iteration 4 (envelope-only) and iteration 10
+          (rollups). Waveforms store their CF, PRI and PW from v0.4.0 (FR-64), and FR-64 keeps them
+          inside the envelope.</li>
+        <li><strong>FR-44:</strong> notes OQ-10's proposed answer, and the Windows foreground limit.</li>
+        <li><strong>FR-46:</strong> the request queue is namespaced per endpoint,
+          <code>clawe.ifaceB.rpc.&lt;source_name&gt;</code>.</li>
+        <li>§8.1: OQ-2 resolved; OQ-10 and OQ-12 updated; new <strong>OQ-16</strong> (FR-50 vs.
+          FR-51).</li>
+      </ul>
+    </div>
+  </div>
+  <div class="entry">
+    <div class="date">September 2026 — v1.5</div>
+    <div class="detail">Iteration 3 decisions recorded (Design DD-14, DD-15):
+      <ul>
+        <li><strong>FR-18:</strong> a mode's allowed modifiers and PD / SP enablement can't be narrowed
+          under a waveform that uses them (DD-14). FR-15 notes the lock.</li>
+        <li><strong>FR-16:</strong> an Auto mode may be saved with an empty schedule, shown as a
+          notice (DD-15).</li>
+        <li><strong>FR-17:</strong> the schedule picker lists the mode's waveforms, and "add entry"
+          needs one.</li>
+        <li><strong>FR-52:</strong> activation refuses an Auto mode with an empty schedule.</li>
+      </ul>
+      Also: NFR-1 records the iteration-3 benchmark figure (63 ms). §8.1 marks OQ-5 resolved and adds
+      OQ-15, affecting FR-13.</div>
+  </div>
+  <div class="entry">
+    <div class="date">September 2026 — v1.4</div>
+    <div class="detail">Added <strong>OQ-14</strong> (<code>LoadWaveforms</code> radar vs. mode scope)
+      to §8.1, affecting FR-52.</div>
+  </div>
+  <div class="entry">
+    <div class="date">September 2026 — v1.3</div>
+    <div class="detail">Added <strong>OQ-13</strong> (high-pulse-count preview rendering strategy) to
+      §8.1, affecting FR-32 and FR-58. Raised by the lead's v0.2.0 feedback.</div>
+  </div>
+  <div class="entry">
+    <div class="date">September 2026 — v1.2</div>
+    <div class="detail">§8 restructured: open questions now live in the canonical register
+      (<a href="CLAWE_Design.html#open">Design §10</a>, <code>OQ-1</code> … <code>OQ-12</code>); §8.1
+      maps each <code>OQ</code> to the requirement it blocks, §8.2 keeps the "no requirement
+      generated" notes. All <code>§8.x</code> / <code>§10 (Qn)</code> cross-references in FR/NFR
+      bodies and the traceability matrix replaced with <code>OQ-&lt;n&gt;</code>. Fixed an FR-20
+      acceptance typo (<code>FR-25</code> → <code>FR-26</code>).</div>
+  </div>
+  <div class="entry">
+    <div class="date">September 2026 — v1.1</div>
+    <div class="detail">Applied <code>SPEC_REVIEW.md</code> findings. FR-17 rewritten as a single
+      testable rule (block deleting a scheduled waveform) — F-2. FR-57 / FR-58 split into a
+      verifiable-now container requirement and a Draft live-feed clause — F-3. Added a reference
+      benchmark host and a 500-radar catalogue figure to §5, and re-anchored NFR-1 – NFR-4 on them —
+      F-4, F-5. FR-43 given a 250 ms debounce window and a ≤ 1 s latency bound — F-6. FR-5 trace
+      corrected — F-7. FR-40 names the 6-value modulation set explicitly — F-10. Added FR-61 / FR-62
+      for the interface-C load-failure paths — F-9. FR-4 states ID auto-assignment — F-15. NFR-10
+      verifies restart-on-failure — F-16. Added §8 item 10 (DD-13 produced no requirement) — F-11.
+      Added FR-63 for the <code>RequestRadars</code> response <code>source_name</code> /
+      <code>schema_version</code> fields — F-R1. Total 60 → 63 FR.</div>
+  </div>
+  <div class="entry">
+    <div class="date">September 2026 — v1.0</div>
+    <div class="detail">Initial draft. 60 functional and 16 non-functional requirements derived from
+      the Design v1.0, covering data model and persistence, authoring and validation, the waveform
+      calculation engine, the proxy and instance model, interface B, interface C and execution, and
+      look-and-feel. Open questions recorded, including design elements (cognitive-search internals,
+      3D RDI scope) that deliberately generated no requirement.</div>
+  </div>
+</div>
+
+</body>
+</html>

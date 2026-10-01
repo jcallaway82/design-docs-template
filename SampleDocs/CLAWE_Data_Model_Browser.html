@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CLAWE Data Model — Interactive Reference</title>
+<style>
+  /* ═══ Tokens — same palette as lib/doc.css, plus a light theme ═══ */
+  :root {
+    --bg: #0d1117;
+    --bg-2: #161b22;
+    --bg-3: #1f2630;
+    --bg-4: #2a323d;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --text-2: #9aa5b1;
+    --text-3: #6b7785;
+    --accent: #58a6ff;
+    --accent-2: #39d2c0;
+    --warn: #d29922;
+    --danger: #f47067;
+    --purple: #b48eff;
+    --mono: "Cascadia Code", "Fira Code", "JetBrains Mono", Consolas, monospace;
+  }
+  body.light {
+    --bg: #fafafa;
+    --bg-2: #ffffff;
+    --bg-3: #f1f3f5;
+    --bg-4: #e6e9ec;
+    --border: #d8dde2;
+    --text: #1a1a1a;
+    --text-2: #4a5560;
+    --text-3: #7a848e;
+    --accent: #1659a8;
+    --accent-2: #008b8b;
+    --warn: #b56a14;
+    --danger: #b83a3a;
+    --purple: #8b3aa1;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    font-size: 14px; line-height: 1.55;
+  }
+
+  /* ═══ Sticky header: title + search + actions ═══ */
+  header {
+    background: var(--bg-2); border-bottom: 1px solid var(--border);
+    padding: 12px 20px; display: flex; align-items: center; gap: 16px;
+    position: sticky; top: 0; z-index: 10;
+  }
+  header h1 { margin: 0; font-size: 16px; font-weight: 600; color: var(--accent); flex-shrink: 0; }
+  header h1 small { color: var(--text-3); font-weight: 400; margin-left: 6px; }
+  #search {
+    flex: 1; max-width: 380px; padding: 7px 12px;
+    background: var(--bg-3); border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); font-size: 13px; font-family: inherit;
+  }
+  #search:focus { outline: none; border-color: var(--accent); }
+  .header-actions { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  .btn {
+    background: var(--bg-3); border: 1px solid var(--border); color: var(--text);
+    padding: 6px 12px; border-radius: 6px; cursor: pointer;
+    font-size: 13px; font-family: inherit; text-decoration: none; display: inline-block;
+  }
+  .btn:hover { background: var(--bg-4); border-color: var(--accent); }
+
+  /* ═══ Two-pane layout ═══ */
+  .layout { display: grid; grid-template-columns: 320px 1fr; height: calc(100vh - 53px); }
+  #sidebar { background: var(--bg-2); border-right: 1px solid var(--border); overflow-y: auto; padding: 12px 8px; }
+  main { overflow-y: auto; padding: 24px 32px 80px; max-width: 980px; }
+
+  /* ═══ Sidebar tree ═══ */
+  .tree-section {
+    color: var(--text-3); font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.05em; padding: 12px 8px 4px; font-weight: 600;
+  }
+  .tree-row {
+    display: flex; align-items: center; padding: 4px 8px; border-radius: 4px;
+    cursor: pointer; font-family: var(--mono); font-size: 12.5px;
+    color: var(--text-2); white-space: nowrap; user-select: none;
+  }
+  .tree-row:hover { background: var(--bg-3); color: var(--text); }
+  .tree-row.active { background: var(--bg-4); color: var(--accent); }
+  .tree-row.hidden { display: none; }
+  .tree-children { padding-left: 16px; }
+
+  /* ═══ Content ═══ */
+  .breadcrumb { font-family: var(--mono); font-size: 12px; color: var(--text-3); margin-bottom: 12px; }
+  .breadcrumb a { color: var(--text-2); text-decoration: none; cursor: pointer; }
+  .breadcrumb a:hover { color: var(--accent); text-decoration: underline; }
+  .breadcrumb .sep { margin: 0 6px; color: var(--text-3); }
+
+  .item-title { display: flex; align-items: baseline; gap: 12px; margin: 0 0 4px; }
+  .item-title h2 { margin: 0; font-family: var(--mono); font-size: 22px; color: var(--accent); }
+  .item-section { color: var(--text-3); font-size: 12px; font-family: var(--mono); }
+  .item-plain { color: var(--text); margin: 0 0 8px; font-size: 15px; font-weight: 500; }
+  .item-desc { color: var(--text-2); margin: 0 0 16px; line-height: 1.7; }
+  .item-desc code, .field-desc code { font-family: var(--mono); font-size: 0.92em; background: var(--bg-3); padding: 1px 4px; border-radius: 3px; }
+
+  .kind-tag {
+    display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px;
+    font-family: var(--mono); border: 1px solid var(--border); color: var(--text-2);
+  }
+  .kind-tag.msg { color: var(--accent-2); border-color: var(--accent-2); }
+  .kind-tag.enum { color: var(--purple); border-color: var(--purple); }
+  .kind-tag.planned { color: var(--warn); border-color: var(--warn); }
+
+  .fields-header {
+    color: var(--text-3); font-size: 11px; text-transform: uppercase;
+    letter-spacing: 0.05em; margin: 24px 0 8px; font-weight: 600;
+  }
+  .field {
+    background: var(--bg-2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px 16px; margin-bottom: 10px;
+  }
+  .field-head { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+  .field-name { font-family: var(--mono); font-size: 14px; color: var(--text); font-weight: 600; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 11px; font-family: var(--mono);
+    border: 1px solid var(--border); background: var(--bg-3); color: var(--text-2);
+  }
+  .badge.type-ref { color: var(--accent); border-color: var(--accent); cursor: pointer; }
+  .badge.type-ref:hover { background: var(--accent); color: var(--bg); }
+  .badge.required { color: var(--danger); border-color: var(--danger); }
+  .badge.optional { color: var(--text-3); }
+  .badge.many { color: var(--purple); border-color: var(--purple); }
+  .badge.units { color: var(--text-3); font-size: 10.5px; }
+  .field-desc { color: var(--text-2); margin: 6px 0 0; font-size: 13.5px; }
+
+  .note {
+    background: var(--bg-3); border-left: 3px solid var(--warn); border-radius: 4px;
+    padding: 10px 14px; margin: 0 0 16px; font-size: 13px; color: var(--text-2);
+  }
+  .note strong { color: var(--text); }
+
+  .home-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 24px; }
+  .home-card {
+    background: var(--bg-2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 16px; cursor: pointer;
+  }
+  .home-card:hover { border-color: var(--accent); }
+  .home-card h3 { margin: 0 0 6px; font-family: var(--mono); font-size: 14px; color: var(--accent); }
+  .home-card p { margin: 0; color: var(--text-2); font-size: 13px; }
+
+  .used-at { margin-top: 16px; padding: 10px 14px; background: var(--bg-3); border-radius: 6px; font-size: 12.5px; }
+  .used-at-label { color: var(--text-3); margin-bottom: 6px; }
+  .used-at a {
+    display: inline-block; margin: 2px 4px 2px 0; padding: 2px 8px;
+    background: var(--bg-2); border: 1px solid var(--border); border-radius: 4px;
+    color: var(--accent); font-family: var(--mono); font-size: 11.5px;
+    text-decoration: none; cursor: pointer;
+  }
+  .used-at a:hover { background: var(--accent); color: var(--bg); }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--bg-4); border-radius: 5px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--border); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>CLAWE Data Model <small>Interactive Reference · clawe.v1</small></h1>
+  <input id="search" placeholder="Search messages and fields...">
+  <div class="header-actions">
+    <a class="btn" href="index.html">← Design docs</a>
+    <button class="btn" onclick="navigate('__home__')">Home</button>
+    <button class="btn" id="theme-toggle" onclick="toggleTheme()">Light theme</button>
+  </div>
+</header>
+
+<div class="layout">
+  <aside id="sidebar"></aside>
+  <main id="main"></main>
+</div>
+
+<script>
+// ============================================================================
+// DATA — the CLAWE v1 canonical data model (ClaweRadarInstance → …).
+//
+// Each item:
+//   kind    : "message" | "enum" | "planned"  (planned = a derived projection that is
+//             computed, never stored in the proto: section 4.5)
+//   section : display section (schema-doc section where relevant)
+//   parent  : key of parent item (builds the sidebar tree), or null for roots
+//   plain   : one-line plain-English summary
+//   desc    : full prose — why-first
+//   fields  : [{ n: name, t: type, c: "1"|"0..1"|"0..N"|"1..N"|"", u: units|"—"|"",
+//                d: description }]
+//             When t matches another ITEMS key it renders as a click-through link.
+//
+// GENERATED from CLAWE_UI/proto/clawe/v1/clawe_radar.proto by scripts/regen_data_model_browser.py:
+// every message, enum, field name, type, cardinality and unit comes from the proto. The prose
+// (plain / desc / field descriptions) is hand-written and kept across regenerations. Do not edit
+// the field rows by hand; change the proto and re-run the script.
+// ============================================================================
+
+const ITEMS = {
+
+  "ClaweRadarInstance": {
+    kind: "message", section: "4.1", parent: null,
+    plain: "One CLAWE closed-loop radar — the top-level record everything hangs off.",
+    desc: "The canonical, full-fidelity object for a radar. One serialized <code>ClaweRadarInstance</code> is stored per radar in <code>ClaweRadarProtoBlob.ProtoBytes</code>; the SQLite <code>ClaweRadar</code> / <code>ClaweRadarMode</code> tables are a thin queryable index (id / name / type only) over it. <code>Name</code> is the sole external handle — there is no separate public ID.",
+    fields: [
+      { n: "name", t: "string", c: "1", u: "—", d: "Unique within the radar database. Sole external handle." },
+      { n: "description", t: "string", c: "0..1", u: "—", d: "Free-text description." },
+      { n: "alternate_names", t: "ClaweAlternateName", c: "0..N", u: "—", d: "At most one entry per kind — one NATO name and one ELNOT (0–2 total), matching STS/PRISM's single-field-per-identifier-type UI. Kept repeated on the wire (mirrors STS's `repeated Identifier`); the one-per-kind invariant is enforced by the DB and UI, not proto3." },
+      { n: "modes", t: "ClaweRadarModeInstance", c: "1..N", u: "—", d: "A radar always has at least one mode, matching STS's own “an emitter requires ≥ 1 mode” invariant. proto3 `repeated` can't express that on the wire — it is enforced by the save flow (seeds a default mode), a delete guard (refuses to remove the last mode), and a one-time migration for older data." }
+    ]
+  },
+
+  "AlternateNameKind": {
+    kind: "enum", section: "4.1", parent: "ClaweAlternateName",
+    plain: "Which identifier system an alternate name comes from.",
+    desc: "Every enum has an explicit <code>*_UNSPECIFIED = 0</code> zero value that no UI dropdown offers (PRISM proto-style convention).",
+    fields: [
+      { n: "ALTERNATE_NAME_KIND_UNSPECIFIED", t: "", c: "", u: "", d: "= 0. Never offered in the UI." },
+      { n: "ALTERNATE_NAME_KIND_NATO", t: "", c: "", u: "", d: "= 1. NATO reporting name." },
+      { n: "ALTERNATE_NAME_KIND_ELNOT", t: "", c: "", u: "", d: "= 2. ELINT notation designator." }
+    ]
+  },
+
+  "ClaweAlternateName": {
+    kind: "message", section: "4.1", parent: "ClaweRadarInstance",
+    plain: "One alternate designator for a radar (a NATO name or an ELNOT).",
+    desc: "A typed key/value pair. The database enforces one row per <code>kind</code> per radar (<code>IX_ClaweRadarAlternateName_OnePerKind</code>); the editor exposes exactly one textbox per kind. Narrows the 2026-08-18-approved “0..N” — lead-confirmed.",
+    fields: [
+      { n: "kind", t: "AlternateNameKind", c: "1", u: "—", d: "NATO or ELNOT." },
+      { n: "value", t: "string", c: "1", u: "—", d: "The designator text." }
+    ]
+  },
+
+  "RadarModeType": {
+    kind: "enum", section: "4.2", parent: "ClaweRadarModeInstance",
+    plain: "The tactical role of a radar mode.",
+    desc: "Only <code>TTR</code> is supported in v1; the others are visible-but-disabled in the editor.",
+    fields: [
+      { n: "RADAR_MODE_TYPE_UNSPECIFIED", t: "", c: "", u: "", d: "= 0." },
+      { n: "RADAR_MODE_TYPE_SEARCH", t: "", c: "", u: "", d: "= 1. Volume search. Disabled in v1." },
+      { n: "RADAR_MODE_TYPE_TAR", t: "", c: "", u: "", d: "= 2. Target acquisition radar. Disabled in v1." },
+      { n: "RADAR_MODE_TYPE_TTR", t: "", c: "", u: "", d: "= 3. Target tracking radar. The only v1 mode type." },
+      { n: "RADAR_MODE_TYPE_MISSILE", t: "", c: "", u: "", d: "= 4. Missile seeker. Disabled in v1." }
+    ]
+  },
+
+  "ClaweRadarModeInstance": {
+    kind: "message", section: "4.2", parent: "ClaweRadarInstance",
+    plain: "One operating mode of a radar — its identity, operating strategy, constraint envelope, and waveforms.",
+    desc: "In the canonical blob a mode has no identity outside its parent: it is just an element of the radar's <code>modes</code> list. In the thin SQLite index a mode is its own row with a foreign key back to the radar. Same relationship, expressed as containment in one layer and a key reference in the other. <code>Name</code> is unique per radar (composite index on <code>(ClaweRadarPk, Name)</code>), so two radars may both have a mode named “Search”.",
+    fields: [
+      { n: "name", t: "string", c: "1", u: "—", d: "Unique within the parent radar." },
+      { n: "description", t: "string", c: "0..1", u: "—", d: "Free-text description." },
+      { n: "radar_mode_type", t: "RadarModeType", c: "1", u: "—", d: "Search / TAR / TTR / Missile. TTR only in v1." },
+      { n: "manual", t: "ManualOperatingMode", c: "0..1", u: "—", d: "oneof arm — operator-in-the-loop." },
+      { n: "auto", t: "AutoOperatingMode", c: "0..1", u: "—", d: "oneof arm — repeating waveform schedule, no operator." },
+      { n: "cognitive", t: "CognitiveOperatingMode", c: "0..1", u: "—", d: "oneof arm — closed-loop optimisation, no operator." },
+      { n: "envelope", t: "ConstraintEnvelope", c: "1", u: "—", d: "The capability/constraint bounds every waveform in this mode must satisfy." },
+      { n: "waveforms", t: "ClaweWaveformInstance", c: "0..N", u: "—", d: "Waveform instances authored under this mode." },
+      { n: "mode_id", t: "uint32", c: "0..1", u: "—", d: "Internal, stable identity (iteration 4): unique within the parent radar, assigned by the repository (highest in use + 1; 0 = not yet assigned), and unchanged by a rename or edit. It ties this entry to its ClaweRadarMode index row. Not an external handle: interface B still names modes by `name` (DD-11, DD-17). Additive — older blobs read as 0 and are numbered by schema update v8." }
+    ]
+  },
+
+  "ManualOperatingMode": {
+    kind: "message", section: "4.2", parent: "ClaweRadarModeInstance",
+    plain: "Operator-in-the-loop. The operator picks the active waveform.",
+    desc: "Carries no parameters — its presence in the <code>operating_mode</code> oneof is the whole signal.",
+    fields: [
+    ]
+  },
+
+  "AutoOperatingMode": {
+    kind: "message", section: "4.2", parent: "ClaweRadarModeInstance",
+    plain: "A repeating waveform schedule played with no operator intervention.",
+    desc: "The schedule is a list of (waveform, dwell) entries, repeated in hardware.",
+    fields: [
+      { n: "schedule", t: "WaveformScheduleEntry", c: "0..N", u: "—", d: "Ordered schedule entries. Empty is legal (nothing scheduled yet)." }
+    ]
+  },
+
+  "WaveformScheduleEntry": {
+    kind: "message", section: "4.2", parent: "AutoOperatingMode",
+    plain: "One (waveform, dwell-duration) slot in an Auto-mode schedule.",
+    desc: "References a waveform by its <code>WaveformID</code> (unique within the mode), not by object identity.",
+    fields: [
+      { n: "waveform_id", t: "uint32", c: "1", u: "—", d: "The ClaweWaveformInstance.waveform_id to play." },
+      { n: "duration_s", t: "double", c: "1", u: "s", d: "Dwell before advancing. 0 means “play once”." }
+    ]
+  },
+
+  "OptimizationType": {
+    kind: "enum", section: "4.2", parent: "CognitiveOperatingMode",
+    plain: "How aggressively cognitive mode searches for a waveform.",
+    desc: "",
+    fields: [
+      { n: "OPTIMIZATION_TYPE_UNSPECIFIED", t: "", c: "", u: "", d: "= 0." },
+      { n: "OPTIMIZATION_TYPE_LEARNING", t: "", c: "", u: "", d: "= 1. Interrogate as fully as possible before settling on an optimal waveform." },
+      { n: "OPTIMIZATION_TYPE_SPEED", t: "", c: "", u: "", d: "= 2. Settle as soon as a waveform defeats the jamming." }
+    ]
+  },
+
+  "CognitiveOperatingMode": {
+    kind: "message", section: "4.2", parent: "ClaweRadarModeInstance",
+    plain: "Closed-loop cognitive optimisation with no operator.",
+    desc: "",
+    fields: [
+      { n: "optimization_type", t: "OptimizationType", c: "1", u: "—", d: "Learning (thorough) or Speed (fast)." }
+    ]
+  },
+
+  "ConstraintEnvelope": {
+    kind: "message", section: "4.2", parent: "ClaweRadarModeInstance",
+    plain: "The capability bounds every waveform in a mode must respect.",
+    desc: "Carrier-frequency bounds, duty-cycle ceiling, CPI-duration rule, and — independently — whether pulsed (PD) and/or single-pulse (SP) waveforms are allowed. <code>pd_constraints</code> and <code>sp_constraints</code> may both be set: a mode is not restricted to one base waveform type.",
+    fields: [
+      { n: "carrier_frequency", t: "CFConstraint", c: "1", u: "—", d: "Allowed centre-frequency range or discrete list." },
+      { n: "max_duty_cycle_percent", t: "double", c: "1", u: "%", d: "If a waveform would exceed this, the radar blanks pulses to comply." },
+      { n: "cpi_duration", t: "CPIDurationConstraint", c: "1", u: "—", d: "Fixed CPI duration, or variable (each waveform gets its minimum required)." },
+      { n: "pd_constraints", t: "PDConstraints", c: "0..1", u: "—", d: "Present iff pulsed waveforms are allowed." },
+      { n: "sp_constraints", t: "SPConstraints", c: "0..1", u: "—", d: "Present iff single-pulse waveforms are allowed." }
+    ]
+  },
+
+  "CFConstraintKind": {
+    kind: "enum", section: "4.2", parent: "CFConstraint",
+    plain: "Whether carrier frequency is a range or a discrete list.",
+    desc: "",
+    fields: [
+      { n: "CF_CONSTRAINT_KIND_UNSPECIFIED", t: "", c: "", u: "", d: "= 0." },
+      { n: "CF_CONSTRAINT_KIND_RANGE", t: "", c: "", u: "", d: "= 1. A min/max band, optionally channelized." },
+      { n: "CF_CONSTRAINT_KIND_DISCRETES", t: "", c: "", u: "", d: "= 2. An explicit list of allowed centre frequencies." }
+    ]
+  },
+
+  "CFConstraint": {
+    kind: "message", section: "4.2", parent: "ConstraintEnvelope",
+    plain: "The carrier-frequency constraint — a range or a discrete list.",
+    desc: "A <code>oneof detail</code>; exactly one arm is set. Legacy CLAWE used hardcoded discrete lookup tables, not parametric ranges.",
+    fields: [
+      { n: "range", t: "CFRange", c: "0..1", u: "—", d: "oneof arm — a min/max band." },
+      { n: "discretes", t: "CFDiscretes", c: "0..1", u: "—", d: "oneof arm — an explicit frequency list." }
+    ]
+  },
+
+  "CFRange": {
+    kind: "message", section: "4.2", parent: "CFConstraint",
+    plain: "A carrier-frequency band, optionally divided into channels.",
+    desc: "",
+    fields: [
+      { n: "min_hz", t: "double", c: "1", u: "Hz", d: "Band lower bound." },
+      { n: "max_hz", t: "double", c: "1", u: "Hz", d: "Band upper bound." },
+      { n: "channelized", t: "bool", c: "1", u: "—", d: "If true, the band is quantised into channels." },
+      { n: "chan_spacing_hz", t: "double", c: "0..1", u: "Hz", d: "Channel spacing. Meaningful only when channelized." }
+    ]
+  },
+
+  "CFDiscretes": {
+    kind: "message", section: "4.2", parent: "CFConstraint",
+    plain: "An explicit list of allowed centre frequencies.",
+    desc: "",
+    fields: [
+      { n: "freqs_hz", t: "double", c: "0..N", u: "Hz", d: "Allowed centre frequencies." }
+    ]
+  },
+
+  "CPIDurationKind": {
+    kind: "enum", section: "4.2", parent: "CPIDurationConstraint",
+    plain: "Whether CPI duration is fixed or per-waveform.",
+    desc: "",
+    fields: [
+      { n: "CPI_DURATION_KIND_UNSPECIFIED", t: "", c: "", u: "", d: "= 0." },
+      { n: "CPI_DURATION_KIND_FIXED", t: "", c: "", u: "", d: "= 1. Every waveform uses duration_s." },
+      { n: "CPI_DURATION_KIND_VARIABLE", t: "", c: "", u: "", d: "= 2. Each waveform gets its own minimum required duration." }
+    ]
+  },
+
+  "CPIDurationConstraint": {
+    kind: "message", section: "4.2", parent: "ConstraintEnvelope",
+    plain: "The coherent-processing-interval duration rule for the mode.",
+    desc: "",
+    fields: [
+      { n: "kind", t: "CPIDurationKind", c: "1", u: "—", d: "Fixed or Variable." },
+      { n: "duration_s", t: "double", c: "0..1", u: "s", d: "Meaningful only when kind = FIXED." }
+    ]
+  },
+
+  "PriKind": {
+    kind: "enum", section: "4.2", parent: "PDConstraints",
+    plain: "Whether allowed PRI values are a range or a discrete list.",
+    desc: "",
+    fields: [
+      { n: "PRI_KIND_UNSPECIFIED", t: "", c: "", u: "", d: "= 0." },
+      { n: "PRI_KIND_RANGE", t: "", c: "", u: "", d: "= 1." },
+      { n: "PRI_KIND_DISCRETES", t: "", c: "", u: "", d: "= 2." }
+    ]
+  },
+
+  "PwKind": {
+    kind: "enum", section: "4.2", parent: "PDConstraints",
+    plain: "Whether allowed PW is expressed as a range or a duty cycle.",
+    desc: "Single-pulse PW is Range only (SP has no PRI, and duty cycle is meaningless).",
+    fields: [
+      { n: "PW_KIND_UNSPECIFIED", t: "", c: "", u: "", d: "= 0." },
+      { n: "PW_KIND_RANGE", t: "", c: "", u: "", d: "= 1." },
+      { n: "PW_KIND_DUTY_CYCLE", t: "", c: "", u: "", d: "= 2. PD only." }
+    ]
+  },
+
+  "PriConstraint": {
+    kind: "message", section: "4.2", parent: "PDConstraints",
+    plain: "PRI constraint detail (deck slide 9): a min/max band, or an explicit list.",
+    desc: "PRI constraint detail (deck slide 9): a min/max band, or an explicit list. Same Range/Discretes shape as CFConstraint. The PriKind selector picks which case.",
+    fields: [
+      { n: "range", t: "PriRange", c: "0..1", u: "—", d: "oneof <code>detail</code> arm." },
+      { n: "discretes", t: "PriDiscretes", c: "0..1", u: "—", d: "oneof <code>detail</code> arm." }
+    ]
+  },
+
+  "PriRange": {
+    kind: "message", section: "4.2", parent: "PriConstraint",
+    plain: "A PRI band: the smallest and largest PRI the mode allows.",
+    desc: "",
+    fields: [
+      { n: "min_s", t: "double", c: "0..1", u: "s", d: "Smallest allowed PRI (deck: MinPRI_s)." },
+      { n: "max_s", t: "double", c: "0..1", u: "s", d: "Largest allowed PRI (deck: MaxPRI_s)." }
+    ]
+  },
+
+  "PriDiscretes": {
+    kind: "message", section: "4.2", parent: "PriConstraint",
+    plain: "An explicit list of the PRIs the mode allows.",
+    desc: "",
+    fields: [
+      { n: "pri_s", t: "double", c: "0..N", u: "s", d: "One allowed PRI (deck: PRI_s)." }
+    ]
+  },
+
+  "PwConstraint": {
+    kind: "message", section: "4.2", parent: "PDConstraints",
+    plain: "PW constraint detail (deck slide 9).",
+    desc: "PW constraint detail (deck slide 9). PD allows Range or DutyCycle; SP is Range only.",
+    fields: [
+      { n: "range", t: "PwRange", c: "0..1", u: "—", d: "oneof <code>detail</code> arm." },
+      { n: "duty_cycle", t: "PwDutyCycle", c: "0..1", u: "—", d: "oneof <code>detail</code> arm." }
+    ]
+  },
+
+  "PwRange": {
+    kind: "message", section: "4.2", parent: "PwConstraint",
+    plain: "A pulse-width band: the smallest and largest PW the mode allows.",
+    desc: "",
+    fields: [
+      { n: "min_s", t: "double", c: "0..1", u: "s", d: "Smallest allowed PW (deck: MinPW_s)." },
+      { n: "max_s", t: "double", c: "0..1", u: "s", d: "Largest allowed PW (deck: MaxPW_s)." }
+    ]
+  },
+
+  "PwDutyCycle": {
+    kind: "message", section: "4.2", parent: "PwConstraint",
+    plain: "A required duty cycle; the PW follows from the PRI.",
+    desc: "",
+    fields: [
+      { n: "duty_cycle_percent", t: "double", c: "0..1", u: "%", d: "Required duty cycle (deck: DutyCycle_percent). Example: 20 % at a 10 µs PRI gives a 2 µs PW." }
+    ]
+  },
+
+  "PhaseModifierType": {
+    kind: "enum", section: "4.2", parent: "PDAllowedModifiers",
+    plain: "Per-category modifier sub-types (deck slide 9 / slides 12-13).",
+    desc: "Per-category modifier sub-types (deck slide 9 / slides 12-13). The mode's AllowedModifiers picks which sub-types are permitted; the per-waveform modifier stack reuses these same enums.",
+    fields: [
+      { n: "PHASE_MODIFIER_TYPE_UNSPECIFIED", t: "", c: "", u: "", d: "= 0." },
+      { n: "PHASE_MODIFIER_TYPE_PARTIAL_PHASE_ENCODED", t: "", c: "", u: "", d: "= 1. BREAKING vs iteration 2: value 1 was PHASE_MODIFIER_TYPE_PHASE_ENCODED (a single generic option). No persisted production data exists (dev-only DBs) — renamed in place rather than deprecated, same precedent as PDConstraints.allowed_modifiers' iteration-2 break." },
+      { n: "PHASE_MODIFIER_TYPE_FULL_PHASE_ENCODED", t: "", c: "", u: "", d: "= 2." }
+    ]
+  },
+
+  "FrequencyModifierType": {
+    kind: "enum", section: "4.2", parent: "PDAllowedModifiers",
+    plain: "The frequency-modifier sub-types a mode may allow.",
+    desc: "",
+    fields: [
+      { n: "FREQUENCY_MODIFIER_TYPE_UNSPECIFIED", t: "", c: "", u: "", d: "= 0." },
+      { n: "FREQUENCY_MODIFIER_TYPE_SPREAD_SPECTRUM", t: "", c: "", u: "", d: "= 1." }
+    ]
+  },
+
+  "PulseCompressionModifierType": {
+    kind: "enum", section: "4.2", parent: "PDAllowedModifiers",
+    plain: "The pulse-compression sub-types a mode may allow.",
+    desc: "",
+    fields: [
+      { n: "PULSE_COMPRESSION_MODIFIER_TYPE_UNSPECIFIED", t: "", c: "", u: "", d: "= 0." },
+      { n: "PULSE_COMPRESSION_MODIFIER_TYPE_PSK16", t: "", c: "", u: "", d: "= 1." },
+      { n: "PULSE_COMPRESSION_MODIFIER_TYPE_BARKER13", t: "", c: "", u: "", d: "= 2." },
+      { n: "PULSE_COMPRESSION_MODIFIER_TYPE_LFM", t: "", c: "", u: "", d: "= 3." }
+    ]
+  },
+
+  "PriModifierType": {
+    kind: "enum", section: "4.2", parent: "PDAllowedModifiers",
+    plain: "The PRI-modifier sub-types a mode may allow.",
+    desc: "",
+    fields: [
+      { n: "PRI_MODIFIER_TYPE_UNSPECIFIED", t: "", c: "", u: "", d: "= 0." },
+      { n: "PRI_MODIFIER_TYPE_BASE_AGILE", t: "", c: "", u: "", d: "= 1." },
+      { n: "PRI_MODIFIER_TYPE_RANDOM_AGILE", t: "", c: "", u: "", d: "= 2." }
+    ]
+  },
+
+  "PwModifierType": {
+    kind: "enum", section: "4.2", parent: "PDAllowedModifiers",
+    plain: "The PW-modifier sub-types a mode may allow.",
+    desc: "",
+    fields: [
+      { n: "PW_MODIFIER_TYPE_UNSPECIFIED", t: "", c: "", u: "", d: "= 0." },
+      { n: "PW_MODIFIER_TYPE_RANDOM_AGILE", t: "", c: "", u: "", d: "= 1." }
+    ]
+  },
+
+  "AmplitudeModifierType": {
+    kind: "enum", section: "4.2", parent: "SPAllowedModifiers",
+    plain: "The amplitude-modifier sub-types a mode may allow (single pulse only).",
+    desc: "",
+    fields: [
+      { n: "AMPLITUDE_MODIFIER_TYPE_UNSPECIFIED", t: "", c: "", u: "", d: "= 0." },
+      { n: "AMPLITUDE_MODIFIER_TYPE_CHOP", t: "", c: "", u: "", d: "= 1." }
+    ]
+  },
+
+  "LeadingEdgeModifierType": {
+    kind: "enum", section: "4.2", parent: "PDAllowedModifiers",
+    plain: "The leading-edge sub-types a mode may allow.",
+    desc: "",
+    fields: [
+      { n: "LEADING_EDGE_MODIFIER_TYPE_UNSPECIFIED", t: "", c: "", u: "", d: "= 0." },
+      { n: "LEADING_EDGE_MODIFIER_TYPE_RAMPUP", t: "", c: "", u: "", d: "= 1." },
+      { n: "LEADING_EDGE_MODIFIER_TYPE_PREPULSE", t: "", c: "", u: "", d: "= 2." }
+    ]
+  },
+
+  "TrailingEdgeModifierType": {
+    kind: "enum", section: "4.2", parent: "PDAllowedModifiers",
+    plain: "The trailing-edge sub-types a mode may allow (pulsed only).",
+    desc: "",
+    fields: [
+      { n: "TRAILING_EDGE_MODIFIER_TYPE_UNSPECIFIED", t: "", c: "", u: "", d: "= 0." },
+      { n: "TRAILING_EDGE_MODIFIER_TYPE_POSTPULSE", t: "", c: "", u: "", d: "= 1." }
+    ]
+  },
+
+  "DiscriminationModifierType": {
+    kind: "enum", section: "4.2", parent: "PDAllowedModifiers",
+    plain: "The discrimination sub-types a mode may allow.",
+    desc: "",
+    fields: [
+      { n: "DISCRIMINATION_MODIFIER_TYPE_UNSPECIFIED", t: "", c: "", u: "", d: "= 0." },
+      { n: "DISCRIMINATION_MODIFIER_TYPE_LEADING_EDGE_TRACK", t: "", c: "", u: "", d: "= 1." },
+      { n: "DISCRIMINATION_MODIFIER_TYPE_WBLFM", t: "", c: "", u: "", d: "= 2." }
+    ]
+  },
+
+  "PDAllowedModifiers": {
+    kind: "message", section: "4.2", parent: "PDConstraints",
+    plain: "PD allowed-modifier sets — one repeated sub-type list per category (deck slide 9).",
+    desc: "PD allowed-modifier sets — one repeated sub-type list per category (deck slide 9).",
+    fields: [
+      { n: "phase", t: "PhaseModifierType", c: "0..N", u: "—", d: "Allowed phase sub-types." },
+      { n: "frequency", t: "FrequencyModifierType", c: "0..N", u: "—", d: "Allowed frequency sub-types." },
+      { n: "pulse_compression", t: "PulseCompressionModifierType", c: "0..N", u: "—", d: "Allowed pulse-compression sub-types." },
+      { n: "pri", t: "PriModifierType", c: "0..N", u: "—", d: "Allowed PRI-modifier sub-types." },
+      { n: "pw", t: "PwModifierType", c: "0..N", u: "—", d: "Allowed PW-modifier sub-types." },
+      { n: "leading_edge", t: "LeadingEdgeModifierType", c: "0..N", u: "—", d: "Allowed leading-edge sub-types." },
+      { n: "trailing_edge", t: "TrailingEdgeModifierType", c: "0..N", u: "—", d: "Allowed trailing-edge sub-types." },
+      { n: "discrimination", t: "DiscriminationModifierType", c: "0..N", u: "—", d: "Allowed discrimination sub-types." }
+    ]
+  },
+
+  "SPAllowedModifiers": {
+    kind: "message", section: "4.2", parent: "SPConstraints",
+    plain: "SP allowed-modifier sets — no PRI/PW/TrailingEdge; adds Amplitude (deck slide 9).",
+    desc: "SP allowed-modifier sets — no PRI/PW/TrailingEdge; adds Amplitude (deck slide 9).",
+    fields: [
+      { n: "phase", t: "PhaseModifierType", c: "0..N", u: "—", d: "Allowed phase sub-types." },
+      { n: "frequency", t: "FrequencyModifierType", c: "0..N", u: "—", d: "Allowed frequency sub-types." },
+      { n: "pulse_compression", t: "PulseCompressionModifierType", c: "0..N", u: "—", d: "Allowed pulse-compression sub-types." },
+      { n: "amplitude", t: "AmplitudeModifierType", c: "0..N", u: "—", d: "Allowed amplitude sub-types." },
+      { n: "leading_edge", t: "LeadingEdgeModifierType", c: "0..N", u: "—", d: "Allowed leading-edge sub-types." },
+      { n: "discrimination", t: "DiscriminationModifierType", c: "0..N", u: "—", d: "Allowed discrimination sub-types." }
+    ]
+  },
+
+  "PDConstraints": {
+    kind: "message", section: "4.2", parent: "ConstraintEnvelope",
+    plain: "The bounds for pulsed (PD) waveforms in a mode.",
+    desc: "Present iff PD waveforms are allowed. May coexist with SPConstraints.",
+    fields: [
+      { n: "pri_kind", t: "PriKind", c: "1", u: "—", d: "PRI expressed as a range or discretes." },
+      { n: "pw_kind", t: "PwKind", c: "1", u: "—", d: "PW expressed as a range or a duty cycle." },
+      { n: "allowed_modifiers", t: "PDAllowedModifiers", c: "0..1", u: "—", d: "Which modifier categories a PD waveform in this mode may enable." },
+      { n: "pri", t: "PriConstraint", c: "0..1", u: "—", d: "The PRI band or list. Its shape follows pri_kind." },
+      { n: "pw", t: "PwConstraint", c: "0..1", u: "—", d: "The PW band or duty cycle. Its shape follows pw_kind." }
+    ]
+  },
+
+  "SPConstraints": {
+    kind: "message", section: "4.2", parent: "ConstraintEnvelope",
+    plain: "The bounds for single-pulse (SP) waveforms in a mode.",
+    desc: "Present iff SP waveforms are allowed. May coexist with PDConstraints. SP has no PRI and no PW/PRI modifiers.",
+    fields: [
+      { n: "pw_kind", t: "PwKind", c: "1", u: "—", d: "Range only for SP." },
+      { n: "allowed_modifiers", t: "SPAllowedModifiers", c: "0..1", u: "—", d: "The smaller SP modifier set (no PRI/PW/Trailing-Edge)." },
+      { n: "pw", t: "PwConstraint", c: "0..1", u: "—", d: "The single-pulse PW band." }
+    ]
+  },
+
+  "BaseWaveform": {
+    kind: "enum", section: "4.3", parent: "ClaweWaveformInstance",
+    plain: "The base waveform family, which decides what other fields apply.",
+    desc: "“PD” is surfaced in the UI as “Pulsed” to match the newer deck vocabulary.",
+    fields: [
+      { n: "BASE_WAVEFORM_UNSPECIFIED", t: "", c: "", u: "", d: "= 0." },
+      { n: "BASE_WAVEFORM_PD", t: "", c: "", u: "", d: "= 1. Pulse-Doppler (“Pulsed”). PRI/PW/RDI fields apply." },
+      { n: "BASE_WAVEFORM_SP", t: "", c: "", u: "", d: "= 2. Single-pulse. No PRI; amplitude modifier applies." },
+      { n: "BASE_WAVEFORM_CW", t: "", c: "", u: "", d: "Added v3.0 for the interface-B WaveformType vocabulary. CW authoring is out of scope for v1 — the value exists so the wire format is stable when CW support lands." }
+    ]
+  },
+
+  "CenterFreqType": {
+    kind: "enum", section: "4.3", parent: "ClaweWaveformInstance",
+    plain: "Whether a waveform's centre frequency is fixed or randomised.",
+    desc: "",
+    fields: [
+      { n: "CENTER_FREQ_TYPE_UNSPECIFIED", t: "", c: "", u: "", d: "= 0." },
+      { n: "CENTER_FREQ_TYPE_FIXED", t: "", c: "", u: "", d: "= 1." },
+      { n: "CENTER_FREQ_TYPE_RANDOM", t: "", c: "", u: "", d: "= 2." }
+    ]
+  },
+
+  "WaveformPriType": {
+    kind: "enum", section: "4.3", parent: "ClaweWaveformInstance",
+    plain: "How a pulsed waveform picks its PRI: fixed, or random within the mode's constraints.",
+    desc: "",
+    fields: [
+      { n: "WAVEFORM_PRI_TYPE_UNSPECIFIED", t: "", c: "", u: "", d: "= 0." },
+      { n: "WAVEFORM_PRI_TYPE_FIXED", t: "", c: "", u: "", d: "= 1." },
+      { n: "WAVEFORM_PRI_TYPE_RANDOM", t: "", c: "", u: "", d: "= 2." }
+    ]
+  },
+
+  "WaveformPwType": {
+    kind: "enum", section: "4.3", parent: "ClaweWaveformInstance",
+    plain: "How a pulsed waveform picks its PW: fixed, or from the mode's duty cycle. (RANDOM is retired.)",
+    desc: "",
+    fields: [
+      { n: "WAVEFORM_PW_TYPE_UNSPECIFIED", t: "", c: "", u: "", d: "= 0." },
+      { n: "WAVEFORM_PW_TYPE_FIXED", t: "", c: "", u: "", d: "= 1." },
+      { n: "WAVEFORM_PW_TYPE_RANDOM", t: "", c: "", u: "", d: "= 2. Not in the deck ({Fixed, DutyCycle}, slide 12) and never given a value field; the editor no longer offers it and reads an old blob's RANDOM as FIXED. Random PW is the PW modifier's RandomAgile. The number stays so old blobs still parse." },
+      { n: "WAVEFORM_PW_TYPE_DUTY_CYCLE", t: "", c: "", u: "", d: "= 3." }
+    ]
+  },
+
+  "RDIIntegration": {
+    kind: "enum", section: "4.3", parent: "ClaweWaveformInstance",
+    plain: "How many consecutive RDI maps are integrated to improve SNR.",
+    desc: "",
+    fields: [
+      { n: "RDI_INTEGRATION_UNSPECIFIED", t: "", c: "", u: "", d: "= 0. \"None\" per the deck — no integration." },
+      { n: "RDI_INTEGRATION_2", t: "", c: "", u: "", d: "= 2." },
+      { n: "RDI_INTEGRATION_4", t: "", c: "", u: "", d: "= 4." },
+      { n: "RDI_INTEGRATION_8", t: "", c: "", u: "", d: "= 8." },
+      { n: "RDI_INTEGRATION_16", t: "", c: "", u: "", d: "= 16." },
+      { n: "RDI_INTEGRATION_32", t: "", c: "", u: "", d: "= 32." },
+      { n: "RDI_INTEGRATION_64", t: "", c: "", u: "", d: "= 64." }
+    ]
+  },
+
+  "WaveformCompression": {
+    kind: "message", section: "4.3", parent: "ClaweWaveformInstance",
+    plain: "The waveform-compression (FFT) processing-gain settings.",
+    desc: "Fixed at 30 dB / 1024-pt FFT for now. Distinct from the legacy Doppler <code>ProcessingGain</code>/<code>FFTSize</code>.",
+    fields: [
+      { n: "fft_size", t: "uint32", c: "1", u: "—", d: "Fixed at 1024 points for now." },
+      { n: "compression_db", t: "double", c: "0..1", u: "dB", d: "always 30" }
+    ]
+  },
+
+  "EdgeFreqType": {
+    kind: "enum", section: "4.4", parent: "Prepulse",
+    plain: "Shared by LeadingEdgeModifier's Prepulse and TrailingEdgeModifier's Postpulse (identical shape per the deck).",
+    desc: "Shared by LeadingEdgeModifier's Prepulse and TrailingEdgeModifier's Postpulse (identical shape per the deck).",
+    fields: [
+      { n: "EDGE_FREQ_TYPE_UNSPECIFIED", t: "", c: "", u: "", d: "= 0." },
+      { n: "EDGE_FREQ_TYPE_STABLE", t: "", c: "", u: "", d: "= 1." },
+      { n: "EDGE_FREQ_TYPE_RANDOM", t: "", c: "", u: "", d: "= 2." }
+    ]
+  },
+
+  "PhaseModifier": {
+    kind: "message", section: "4.4", parent: "ClaweWaveformInstance",
+    plain: "Random phase encoding — trades range ambiguity for a processing-gain / detectability cost.",
+    desc: "<strong>Split in v3.0</strong> (was None / PhaseEncoded). Drives <code>RAZD</code> / <code>RAZ</code> / processing-range in the calc engine. Applies to PD + SP.",
+    fields: [
+      { n: "partial", t: "PartialPhaseEncoded", c: "0..1", u: "—", d: "oneof <code>selection</code> arm." },
+      { n: "full", t: "FullPhaseEncoded", c: "0..1", u: "—", d: "oneof <code>selection</code> arm." }
+    ]
+  },
+
+  "PartialPhaseEncoded": {
+    kind: "message", section: "4.4", parent: "PhaseModifier",
+    plain: "Phase modifier that repeats a short random phase pattern.",
+    desc: "",
+    fields: [
+      { n: "phase_pattern_duration_s", t: "double", c: "0..1", u: "s", d: "Repeating random-phase pattern length; the range-ambiguity zone equals this duration. No hard min/max given in the source deck material — enforce >= 0 only pending deck confirmation (see DESIGN.md OQ-15)." }
+    ]
+  },
+
+  "FullPhaseEncoded": {
+    kind: "message", section: "4.4", parent: "PhaseModifier",
+    plain: "Phase modifier with a random phase for every pulse across the CPI. No parameters yet.",
+    desc: "",
+    fields: [
+    ]
+  },
+
+  "FrequencyModifier": {
+    kind: "message", section: "4.4", parent: "ClaweWaveformInstance",
+    plain: "Spread-spectrum frequency agility across channels and sub-channels.",
+    desc: "Legacy splits this into two fields (<code>FreqModifier</code> + <code>BandwidthModifier</code>); the deck's single merged field is kept. Applies to PD + SP.",
+    fields: [
+      { n: "spread_spectrum", t: "SpreadSpectrum", c: "0..1", u: "—", d: "oneof <code>selection</code> arm." }
+    ]
+  },
+
+  "SpreadSpectrum": {
+    kind: "message", section: "4.4", parent: "FrequencyModifier",
+    plain: "Frequency modifier that spreads the waveform across the channel and sub-channels.",
+    desc: "",
+    fields: [
+      { n: "channel_spread", t: "bool", c: "0..1", u: "—", d: "Spread across the whole channel bandwidth." },
+      { n: "subchannel_spread", t: "bool", c: "0..1", u: "—", d: "Spread across the whole sub-channel bandwidth." },
+      { n: "spread_bw1_hz", t: "double", c: "0..1", u: "Hz", d: "Deck restricts these to a discrete 5-value set {10,20,30,40,50 MHz}, not a min/max band — modeled as plain double so the wire format doesn't need to change if the deck adds a 6th value; the UI constrains entry via a ComboBox, not free-form validation." },
+      { n: "spread_bw2_hz", t: "double", c: "0..1", u: "Hz", d: "Second optional spread bandwidth; 0 means None. Same choices as spread_bw1_hz." },
+      { n: "sidelobe_detection", t: "SidelobeDetection", c: "0..1", u: "—", d: "Which spread-spectrum sidelobe to process: None, right 1–4 or left 1–4." }
+    ]
+  },
+
+  "SidelobeDetection": {
+    kind: "enum", section: "4.4", parent: "SpreadSpectrum",
+    plain: "Which spread-spectrum sidelobe to process, if any (requirements deck slides 12 and 29: {None, R1–R4, L1–L4}).",
+    desc: "Which spread-spectrum sidelobe to process, if any (requirements deck slides 12 and 29: {None, R1–R4, L1–L4}). The deck notes the options \"may change based on testing\"; adding values later is wire-compatible.",
+    fields: [
+      { n: "SIDELOBE_DETECTION_UNSPECIFIED", t: "", c: "", u: "", d: "= 0. None" },
+      { n: "SIDELOBE_DETECTION_RIGHT_1", t: "", c: "", u: "", d: "= 1." },
+      { n: "SIDELOBE_DETECTION_RIGHT_2", t: "", c: "", u: "", d: "= 2." },
+      { n: "SIDELOBE_DETECTION_RIGHT_3", t: "", c: "", u: "", d: "= 3." },
+      { n: "SIDELOBE_DETECTION_RIGHT_4", t: "", c: "", u: "", d: "= 4." },
+      { n: "SIDELOBE_DETECTION_LEFT_1", t: "", c: "", u: "", d: "= 5." },
+      { n: "SIDELOBE_DETECTION_LEFT_2", t: "", c: "", u: "", d: "= 6." },
+      { n: "SIDELOBE_DETECTION_LEFT_3", t: "", c: "", u: "", d: "= 7." },
+      { n: "SIDELOBE_DETECTION_LEFT_4", t: "", c: "", u: "", d: "= 8." }
+    ]
+  },
+
+  "PulseCompressionModifier": {
+    kind: "message", section: "4.4", parent: "ClaweWaveformInstance",
+    plain: "Intra-pulse coding for range-resolution processing gain.",
+    desc: "No pulse-compression concept exists in legacy CLAWE code. Applies to PD + SP.",
+    fields: [
+      { n: "psk16", t: "Psk16Compression", c: "0..1", u: "—", d: "oneof <code>selection</code> arm." },
+      { n: "barker13", t: "Barker13Compression", c: "0..1", u: "—", d: "oneof <code>selection</code> arm." },
+      { n: "lfm", t: "LfmCompression", c: "0..1", u: "—", d: "oneof <code>selection</code> arm." }
+    ]
+  },
+
+  "Psk16Compression": {
+    kind: "message", section: "4.4", parent: "PulseCompressionModifier",
+    plain: "16-bit PSK pulse compression. Fixed 12 dB gain; no parameters.",
+    desc: "",
+    fields: [
+    ]
+  },
+
+  "Barker13Compression": {
+    kind: "message", section: "4.4", parent: "PulseCompressionModifier",
+    plain: "13-bit Barker-code pulse compression. Fixed 11 dB gain; no parameters.",
+    desc: "",
+    fields: [
+    ]
+  },
+
+  "LfmCompression": {
+    kind: "message", section: "4.4", parent: "PulseCompressionModifier",
+    plain: "Linear-FM pulse compression across a set bandwidth.",
+    desc: "",
+    fields: [
+      { n: "lfm_bandwidth_hz", t: "double", c: "0..1", u: "Hz", d: "No numeric range given in the source material for this (non-WBLFM) LFM bandwidth — enforce >= 0 only pending deck confirmation (OQ-15 gap)." }
+    ]
+  },
+
+  "PriModifier": {
+    kind: "message", section: "4.4", parent: "ClaweWaveformInstance",
+    plain: "PRI agility — makes the pulse train harder to predict / range-gate.",
+    desc: "PD only. Direct legacy equivalents (<code>PRIBaseAgile</code> / <code>PRIRandomAgile</code>).",
+    fields: [
+      { n: "base_agile", t: "BaseAgilePri", c: "0..1", u: "—", d: "oneof <code>selection</code> arm." },
+      { n: "random_agile", t: "RandomAgilePri", c: "0..1", u: "—", d: "oneof <code>selection</code> arm." }
+    ]
+  },
+
+  "BaseAgilePri": {
+    kind: "message", section: "4.4", parent: "PriModifier",
+    plain: "Base-agile PRI: a share of the pulses is dropped.",
+    desc: "",
+    fields: [
+      { n: "drop_rate_percent", t: "double", c: "0..1", u: "%", d: "hard range 25-75 (deck)" }
+    ]
+  },
+
+  "RandomAgilePri": {
+    kind: "message", section: "4.4", parent: "PriModifier",
+    plain: "Random-agile PRI: the PRI varies randomly about the base PRI.",
+    desc: "",
+    fields: [
+      { n: "agility_percent", t: "double", c: "0..1", u: "%", d: "hard range 0-75 (deck)" }
+    ]
+  },
+
+  "PwModifier": {
+    kind: "message", section: "4.4", parent: "ClaweWaveformInstance",
+    plain: "Pulse-width agility.",
+    desc: "PD only. Direct legacy equivalent (<code>PWRandomAgile</code>).",
+    fields: [
+      { n: "random_agile", t: "RandomAgilePw", c: "0..1", u: "—", d: "oneof <code>selection</code> arm." }
+    ]
+  },
+
+  "RandomAgilePw": {
+    kind: "message", section: "4.4", parent: "PwModifier",
+    plain: "Random-agile PW: the PW varies randomly about the base PW.",
+    desc: "",
+    fields: [
+      { n: "agility_percent", t: "double", c: "0..1", u: "%", d: "hard range 0-50 (deck)" }
+    ]
+  },
+
+  "AmplitudeModifier": {
+    kind: "message", section: "4.4", parent: "ClaweWaveformInstance",
+    plain: "Amplitude chopping for a single pulse.",
+    desc: "SP only. Direct legacy equivalent (<code>AmpChop</code>).",
+    fields: [
+      { n: "chop", t: "ChopAmplitude", c: "0..1", u: "—", d: "oneof <code>selection</code> arm." }
+    ]
+  },
+
+  "ChopAmplitude": {
+    kind: "message", section: "4.4", parent: "AmplitudeModifier",
+    plain: "Amplitude chop: each pulse is chopped to a target duty cycle (single pulse).",
+    desc: "",
+    fields: [
+      { n: "duty_cycle_percent", t: "double", c: "0..1", u: "%", d: "hard range 25-75 (deck)" },
+      { n: "max_on_time_s", t: "double", c: "0..1", u: "s", d: "no max given — enforce >= 0 only (OQ-15 gap)" },
+      { n: "increase_duty_cycle_before_target_range", t: "bool", c: "0..1", u: "—", d: "When true, the duty cycle before the expected target range is raised to about 90 %, then drops to the set value." }
+    ]
+  },
+
+  "LeadingEdgeModifier": {
+    kind: "message", section: "4.4", parent: "ClaweWaveformInstance",
+    plain: "Shapes the leading edge of the pulse (ramp-up or prepulse) to counter leading-edge trackers.",
+    desc: "PD + SP. Direct legacy equivalents (<code>LERampup</code> / <code>LEPrepulse</code>).",
+    fields: [
+      { n: "rampup", t: "Rampup", c: "0..1", u: "—", d: "oneof <code>selection</code> arm." },
+      { n: "prepulse", t: "Prepulse", c: "0..1", u: "—", d: "oneof <code>selection</code> arm." }
+    ]
+  },
+
+  "Rampup": {
+    kind: "message", section: "4.4", parent: "LeadingEdgeModifier",
+    plain: "Leading-edge ramp-up of each pulse.",
+    desc: "",
+    fields: [
+      { n: "ramp_time_s", t: "double", c: "0..1", u: "s", d: "hard range 0.25-2 microseconds (deck)" }
+    ]
+  },
+
+  "Prepulse": {
+    kind: "message", section: "4.4", parent: "LeadingEdgeModifier",
+    plain: "A short pulse played just before each main pulse.",
+    desc: "",
+    fields: [
+      { n: "pw_s", t: "double", c: "0..1", u: "s", d: "hard range 0.25-1 microseconds (deck)" },
+      { n: "gap_s", t: "double", c: "0..1", u: "s", d: "hard range 0-0.5 microseconds (deck)" },
+      { n: "freq_type", t: "EdgeFreqType", c: "0..1", u: "—", d: "Stable: main frequency plus the offset. Random: a random frequency within the offset either side." },
+      { n: "freq_offset_hz", t: "double", c: "0..1", u: "Hz", d: "no range given — enforce >= 0 only (OQ-15 gap)" },
+      { n: "apply_freq_mods", t: "bool", c: "0..1", u: "—", d: "Also apply the main pulse's frequency modifiers to the prepulse." }
+    ]
+  },
+
+  "TrailingEdgeModifier": {
+    kind: "message", section: "4.4", parent: "ClaweWaveformInstance",
+    plain: "Adds a postpulse after the main pulse.",
+    desc: "PD only. Same parameter shape as the Prepulse branch of LeadingEdgeModifier. Direct legacy equivalent (<code>TEPostpulse</code>).",
+    fields: [
+      { n: "postpulse", t: "Postpulse", c: "0..1", u: "—", d: "oneof <code>selection</code> arm." }
+    ]
+  },
+
+  "Postpulse": {
+    kind: "message", section: "4.4", parent: "TrailingEdgeModifier",
+    plain: "A short pulse played just after each main pulse. Same shape as Prepulse.",
+    desc: "",
+    fields: [
+      { n: "pw_s", t: "double", c: "0..1", u: "s", d: "Postpulse width, 0.25–1 µs." },
+      { n: "gap_s", t: "double", c: "0..1", u: "s", d: "Gap between the main pulse and the postpulse, 0–0.5 µs." },
+      { n: "freq_type", t: "EdgeFreqType", c: "0..1", u: "—", d: "Stable: main frequency plus the offset. Random: a random frequency within the offset either side." },
+      { n: "freq_offset_hz", t: "double", c: "0..1", u: "Hz", d: "Offset used with freq_type. No range is given (OQ-15)." },
+      { n: "apply_freq_mods", t: "bool", c: "0..1", u: "—", d: "Also apply the main pulse's frequency modifiers to the postpulse." }
+    ]
+  },
+
+  "DiscriminationModifier": {
+    kind: "message", section: "4.4", parent: "ClaweWaveformInstance",
+    plain: "Wideband / leading-edge techniques to discriminate a target from a repeater jammer.",
+    desc: "PD + SP. Legacy implements <code>DiscriminationWBLFM</code> only; <code>LeadingEdgeTrack</code> is an enum stub with no data class in legacy.",
+    fields: [
+      { n: "leading_edge_track", t: "LeadingEdgeTrackDiscrimination", c: "0..1", u: "—", d: "oneof <code>selection</code> arm." },
+      { n: "wblfm", t: "WblfmDiscrimination", c: "0..1", u: "—", d: "oneof <code>selection</code> arm." }
+    ]
+  },
+
+  "LeadingEdgeTrackDiscrimination": {
+    kind: "message", section: "4.4", parent: "DiscriminationModifier",
+    plain: "Leading-edge-track discrimination. No parameters.",
+    desc: "",
+    fields: [
+    ]
+  },
+
+  "WblfmDiscrimination": {
+    kind: "message", section: "4.4", parent: "DiscriminationModifier",
+    plain: "Wideband-LFM discrimination across the waveform.",
+    desc: "",
+    fields: [
+      { n: "lfm_bandwidth_hz", t: "double", c: "0..1", u: "Hz", d: "hard range 0-2e9 Hz (0-2 GHz, deck)" },
+      { n: "repeat", t: "uint32", c: "0..1", u: "—", d: "hard range 1-4 (deck)" }
+    ]
+  },
+
+  "ClaweWaveformInstance": {
+    kind: "message", section: "4.3", parent: "ClaweRadarModeInstance",
+    plain: "One authored waveform under a mode — base type plus an independently toggleable nine-modifier stack.",
+    desc: "The waveform instance as shipped in iteration 3: the base type, the fields behind the Fixed choices (center frequency, PRI, PW), and a nine-category modifier stack. Field names follow <code>clawe_radar.proto</code>; the deck's names are in <code>CLAWE_Data_Schema.html</code> §4.3.",
+    fields: [
+      { n: "waveform_id", t: "uint32", c: "1", u: "—", d: "Unique within the parent mode." },
+      { n: "name", t: "string", c: "1", u: "—", d: "Unique within the parent mode." },
+      { n: "description", t: "string", c: "0..1", u: "—", d: "Free-text description." },
+      { n: "base_waveform", t: "BaseWaveform", c: "1", u: "—", d: "PD / SP / CW. Decides which PD-only or SP-only fields apply." },
+      { n: "range_resolution_s", t: "double", c: "0..1", u: "s", d: "Optional; a default (typ. 100–400 ns) is used if missing." },
+      { n: "num_pulses", t: "uint32", c: "0..1", u: "—", d: "New in v3.0. PD only. Pulses actually transmitted. Defaults to the FFT size (1024); may be set lower to shorten CPI duration at the cost of processing gain (10·log10(NumPulses / FFTSize)). Distinct from WaveformCompression's fixed 1024-pt FFT." },
+      { n: "center_freq_type", t: "CenterFreqType", c: "1", u: "—", d: "Fixed or Random (respecting mode constraints)." },
+      { n: "clear_chan", t: "bool", c: "0..1", u: "—", d: "meaningful only when center_freq_type = RANDOM" },
+      { n: "compression", t: "WaveformCompression", c: "0..1", u: "—", d: "Fixed 1024-point FFT and 30 dB. The editor always writes these constants." },
+      { n: "pri_type", t: "WaveformPriType", c: "0..1", u: "—", d: "PD only." },
+      { n: "pw_type", t: "WaveformPwType", c: "0..1", u: "—", d: "PD only. A mode that sets PW by duty cycle needs DutyCycle. (The proto keeps a retired RANDOM value so old blobs parse.)" },
+      { n: "rdi_integration", t: "RDIIntegration", c: "0..1", u: "—", d: "PD only. Integrating multiple RDI maps improves SNR at the cost of range/velocity resolution." },
+      { n: "cf_hz", t: "double", c: "0..1", u: "Hz", d: "Fixed center frequency only. Must fall inside the mode's carrier-frequency range (at a channel centre when channelized) or be one of its discretes." },
+      { n: "base_pri_s", t: "double", c: "0..1", u: "s", d: "PD with a Fixed PRI type only. Inside the mode's PRI range, or one of its discretes." },
+      { n: "base_pw_s", t: "double", c: "0..1", u: "s", d: "SP always; PD with a Fixed PW type. Inside the mode's PD or SP PW range." },
+      { n: "phase_modifier", t: "PhaseModifier", c: "0..1", u: "—", d: "── nine-category modifier stack (deck slide 9 / 12-13, FR-18) ── PD+SP" },
+      { n: "frequency_modifier", t: "FrequencyModifier", c: "0..1", u: "—", d: "PD+SP" },
+      { n: "pulse_compression_modifier", t: "PulseCompressionModifier", c: "0..1", u: "—", d: "PD+SP" },
+      { n: "pri_modifier", t: "PriModifier", c: "0..1", u: "—", d: "PD only." },
+      { n: "pw_modifier", t: "PwModifier", c: "0..1", u: "—", d: "PD only." },
+      { n: "amplitude_modifier", t: "AmplitudeModifier", c: "0..1", u: "—", d: "SP only" },
+      { n: "leading_edge_modifier", t: "LeadingEdgeModifier", c: "0..1", u: "—", d: "PD+SP" },
+      { n: "trailing_edge_modifier", t: "TrailingEdgeModifier", c: "0..1", u: "—", d: "PD only" },
+      { n: "discrimination_modifier", t: "DiscriminationModifier", c: "0..1", u: "—", d: "PD+SP" }
+    ]
+  },
+
+  "ClaweRadarSummary": {
+    kind: "planned", section: "4.5", parent: null,
+    plain: "A flattened, rolled-up view of a radar and its modes — the interface-B RequestRadars() response.",
+    desc: "<strong>Computed, never persisted.</strong> Built for STS's Add-Emitter picker: radar/mode identity plus per-mode rollups over the mode envelope and its waveforms. Deliberately carries <strong>no</strong> ClaweWaveformInstance detail. Field list and rollup rules: <a href=\"CLAWE_Interface_B.html\">Interface B design §5</a>. Proto: <code>proto/clawe/v1/clawe_interface_b.proto</code> (draft, not yet compiled).",
+    fields: [
+      { n: "name / description / alternate_name[]", t: "—", c: "—", u: "—", d: "Per-radar identity, copied from ClaweRadarInstance." },
+      { n: "mode.name / mode.description", t: "—", c: "—", u: "—", d: "Per-mode identity." },
+      { n: "mode.radar_mode_type / mode.operating_mode", t: "—", c: "—", u: "—", d: "Copied from the mode." },
+      { n: "mode.waveform_type[]", t: "enum {Pulsed, Single Pulse, CW}", c: "0..N", u: "—", d: "Which base waveform types the mode's waveforms use." },
+      { n: "mode.min_freq / max_freq", t: "double", c: "1", u: "Hz", d: "Rollup over the mode's CF envelope + waveforms." },
+      { n: "mode.min_pri / max_pri", t: "double", c: "1", u: "s", d: "Rollup over the mode's PD constraint + waveforms." },
+      { n: "mode.min_pw / max_pw", t: "double", c: "1", u: "s", d: "Rollup over the mode's PD/SP constraint + waveforms." },
+      { n: "mode.modulation_type[]", t: "enum (6-value subset)", c: "0..N", u: "—", d: "Phase, Frequency, PRI, PW, Leading Edge, Trailing Edge — a subset of the nine modifier categories." }
+    ]
+  },
+
+  "ClaweWaveformCalcRollup": {
+    kind: "planned", section: "4.5", parent: null,
+    plain: "Cached scalar calc metrics per waveform — feeds the Waveform Summary Screen and the waveform browser's filters.",
+    desc: "<strong>Computed, never canonical.</strong> Produced by the <code>CLAWE.Calc</code> engine from the waveform + its mode's envelope + fixed scenario assumptions (in code, not the schema). Cached in a <code>ClaweWaveformCalcRollup</code> table added by an <em>additive</em> schema-update that walks existing blobs — the blob format is unchanged — so the browser filters thousands of waveforms without deserializing a blob per row. Formulas: <code>CLAWE Waveform Calculations.pptx</code> (calc engine is timeline iteration 5; rollup + browser is iteration 8).",
+    fields: [
+      { n: "cpi_duration_s", t: "double", c: "1", u: "s", d: "CD = Max(CTD, CCD, CPD)." },
+      { n: "processing_gain_db", t: "double", c: "1", u: "dB", d: "PG = WCG + PCG − Σ nonideal effects." },
+      { n: "eclipsing_fraction", t: "double", c: "1", u: "—", d: "Fraction of time a target is eclipsed." },
+      { n: "range_ambiguity_zone_size / count", t: "double / uint32", c: "1", u: "m / —", d: "Range-ambiguity zone geometry." },
+      { n: "velocity_ambiguity_zone_size / count", t: "double / uint32", c: "1", u: "m/s / —", d: "Velocity-ambiguity zone geometry." },
+      { n: "min/max freq, pri, pw", t: "double", c: "1", u: "Hz / s", d: "Per-waveform min/max for browser range filters." },
+      { n: "modulation_type_flags", t: "bitfield", c: "1", u: "—", d: "Which modifier categories are enabled, for browser enum-flag filters." }
+    ]
+  }
+
+};;
+
+// ============================================================================
+// ENGINE — hash routing, sidebar tree, search, breadcrumbs, backlinks, theme.
+// Only the two guards in cardBadge/typeBadge (empty c / empty t) were added, so
+// enum-value rows render as a plain name + description.
+// ============================================================================
+
+const $ = (id) => document.getElementById(id);
+
+function cardBadge(c) {
+  if (!c || c === "—") return '';
+  if (c === "1")    return '<span class="badge required">required · 1</span>';
+  if (c === "1..N") return '<span class="badge many">repeated · 1..N</span>';
+  if (c === "0..N") return '<span class="badge many">repeated · 0..N</span>';
+  return '<span class="badge optional">optional · 0..1</span>';
+}
+
+function typeBadge(t) {
+  if (!t || t === "—") return '';
+  if (ITEMS[t]) return `<span class="badge type-ref" onclick="navigate('${t}')">${t}</span>`;
+  return `<span class="badge">${t}</span>`;
+}
+
+function kindTag(kind) {
+  if (kind === "enum")    return '<span class="kind-tag enum">enum</span>';
+  if (kind === "planned") return '<span class="kind-tag planned">derived · not stored</span>';
+  return '<span class="kind-tag msg">message</span>';
+}
+
+function usedAt(key) {
+  const refs = Object.keys(ITEMS).filter(k =>
+    (ITEMS[k].fields || []).some(f => f.t === key));
+  if (!refs.length) return '';
+  return `<div class="used-at"><div class="used-at-label">Used by</div>` +
+    refs.map(r => `<a onclick="navigate('${r}')">${r}</a>`).join('') + `</div>`;
+}
+
+function breadcrumb(key) {
+  const chain = [];
+  let k = key;
+  while (k) { chain.unshift(k); k = ITEMS[k] && ITEMS[k].parent; }
+  return '<div class="breadcrumb"><a onclick="navigate(\'__home__\')">Home</a>' +
+    chain.map(c => `<span class="sep">›</span><a onclick="navigate('${c}')">${c}</a>`).join('') +
+    '</div>';
+}
+
+function renderItem(key) {
+  const it = ITEMS[key];
+  if (!it) return renderHome();
+  $('main').innerHTML =
+    breadcrumb(key) +
+    `<div class="item-title"><h2>${key}</h2><span class="item-section">${kindTag(it.kind)} &nbsp; § ${it.section}</span></div>` +
+    `<p class="item-plain">${it.plain}</p>` +
+    (it.desc ? `<p class="item-desc">${it.desc}</p>` : '') +
+    (it.kind === 'planned'
+      ? `<div class="note"><strong>Derived, not stored.</strong> This is a computed projection (design decision DD-9), so it is not part of <code>clawe_radar.proto</code>. The fields below follow <code>CLAWE_Data_Schema.html</code> §4.5.</div>`
+      : '') +
+    (it.fields && it.fields.length ? `<div class="fields-header">${it.kind === 'enum' ? 'Values' : 'Fields'}</div>` : '<p style="color:var(--text-3)">No fields.</p>') +
+    (it.fields || []).map(f => `
+      <div class="field">
+        <div class="field-head">
+          <span class="field-name">${f.n}</span>
+          ${typeBadge(f.t)}
+          ${cardBadge(f.c)}
+          ${f.u && f.u !== "—" && f.u !== "" ? `<span class="badge units">${f.u}</span>` : ''}
+        </div>
+        ${f.d ? `<p class="field-desc">${f.d}</p>` : ''}
+      </div>`).join('') +
+    usedAt(key);
+  $('main').scrollTop = 0;
+}
+
+function renderHome() {
+  const roots = Object.keys(ITEMS).filter(k => !ITEMS[k].parent);
+  $('main').innerHTML =
+    `<h2 style="margin-top:0;">CLAWE Data Model — Interactive Reference</h2>
+     <p style="color:var(--text-2); max-width:680px;">
+       Click-through reference for the <code>clawe.v1</code> canonical data model — one serialized
+       <code>ClaweRadarInstance</code> per radar in <code>ClaweRadarProtoBlob.ProtoBytes</code>, with the
+       SQLite tables a thin index over it. Use the sidebar tree or the search box; click any blue type
+       badge to jump to that message. Every message, enum and field is generated from the shipped
+       proto; the <span style="color:var(--warn)">derived</span> items in section 4.5 are computed projections that are not stored.</p>
+     <div class="home-cards">` +
+    roots.map(k => `<div class="home-card" onclick="navigate('${k}')">
+        <h3>${k}</h3><p>${ITEMS[k].plain}</p></div>`).join('') +
+    `</div>`;
+}
+
+function buildSidebar() {
+  const bar = $('sidebar');
+  bar.innerHTML = '<div class="tree-section">clawe.v1</div>';
+  function addNode(key, container) {
+    const row = document.createElement('div');
+    row.className = 'tree-row';
+    row.dataset.key = key;
+    row.textContent = key;
+    row.onclick = () => navigate(key);
+    container.appendChild(row);
+    const kids = Object.keys(ITEMS).filter(k => ITEMS[k].parent === key);
+    if (kids.length) {
+      const kidBox = document.createElement('div');
+      kidBox.className = 'tree-children';
+      kids.forEach(k => addNode(k, kidBox));
+      container.appendChild(kidBox);
+    }
+  }
+  Object.keys(ITEMS).filter(k => !ITEMS[k].parent).forEach(k => addNode(k, bar));
+}
+
+let currentKey = '';
+
+function navigate(key) {
+  currentKey = key === '__home__' ? '' : key;
+  // Hash routing keeps views linkable/bookmarkable; some sandboxed previews block
+  // writing location.hash, so fall back to in-memory routing when that throws.
+  try { location.hash = currentKey ? encodeURIComponent(currentKey) : ''; } catch (e) {}
+  render();
+}
+
+function route() {
+  const hashKey = decodeURIComponent(location.hash.replace(/^#/, ''));
+  if (hashKey || !location.hash) currentKey = hashKey;
+  render();
+}
+
+function render() {
+  document.querySelectorAll('.tree-row').forEach(r =>
+    r.classList.toggle('active', r.dataset.key === currentKey));
+  currentKey && ITEMS[currentKey] ? renderItem(currentKey) : renderHome();
+}
+
+// ── Search: filter the sidebar tree by item name or field name/description ──
+$('search').addEventListener('input', function () {
+  const q = this.value.trim().toLowerCase();
+  document.querySelectorAll('.tree-row').forEach(row => {
+    const key = row.dataset.key;
+    const it = ITEMS[key];
+    const hit = !q ||
+      key.toLowerCase().includes(q) ||
+      (it.fields || []).some(f =>
+        f.n.toLowerCase().includes(q) || (f.d || '').toLowerCase().includes(q));
+    row.classList.toggle('hidden', !hit);
+  });
+});
+
+// ── Theme toggle, persisted ──
+function toggleTheme() {
+  const light = document.body.classList.toggle('light');
+  $('theme-toggle').textContent = light ? 'Dark theme' : 'Light theme';
+  try { localStorage.setItem('clawe-ref-theme', light ? 'light' : 'dark'); } catch (e) {}
+}
+try {
+  if (localStorage.getItem('clawe-ref-theme') === 'light') {
+    document.body.classList.add('light');
+    $('theme-toggle').textContent = 'Dark theme';
+  }
+} catch (e) {}
+
+window.addEventListener('hashchange', route);
+buildSidebar();
+route();
+</script>
+
+</body>
+</html>
