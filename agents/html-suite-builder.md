@@ -39,6 +39,7 @@ design-docs/
 ├── design.html         ← from DESIGN.md
 ├── requirements.html   ← from REQUIREMENTS.md
 ├── tasks.html          ← from TASKS.md
+├── overview.html       ← from OVERVIEW.md (only if it exists; leads the hub)
 ├── review.html         ← from SPEC_REVIEW.md (only if it exists)
 └── lib/                ← copied whole from design-docs-template/lib/
 ```
@@ -64,7 +65,8 @@ per diagram" and the suite conventions); otherwise one Markdown file → one pag
 - Requirement / decision / task blocks → `.feature-box` (teal for ID schemes,
   blue for general, red for hard constraints).
 - Changelog section → the `.changelog` component, newest first.
-- `index.html` → a `.card-grid` with one `.card` per page; wire `lib/nav.js`
+- `OVERVIEW.md` → `overview.html` per §12.3: the At-a-glance table as a stat strip, status words as `.status` badges, every source ID as a link into the matching page anchor. Do not add prose; if a cell is long, report it rather than rewrite it.
+- `index.html` → a `.card-grid` with one `.card` per page (Overview card first, when present); wire `lib/nav.js`
   `links` array to the suite's pages.
 
 ## When done

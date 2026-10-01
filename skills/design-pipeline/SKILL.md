@@ -11,7 +11,7 @@ description: >-
 
 # Design docs pipeline
 
-This plugin ships five subagents that turn a brief into a reviewed, offline
+This plugin ships six subagents that turn a brief into a reviewed, offline
 HTML design-doc suite. Each stage is a human checkpoint — do not skip ahead
 without the user reviewing the previous stage's output, unless they've
 explicitly asked for the whole pipeline run unattended.
@@ -27,6 +27,10 @@ explicitly asked for the whole pipeline run unattended.
 5. **`html-suite-builder`** — the approved Markdown set → `design-docs/`
    HTML suite. Run last, and only once `SPEC_REVIEW.md` has no open
    Critical or High findings.
+6. **`overview-author`** — the approved set → `OVERVIEW.md`, a tables-and-diagrams
+   summary for managers. Optional; run after `spec-validator`, and ask for it
+   whenever the user mentions a PM, management, or executive audience. It
+   derives from the other documents, so re-run it after they change.
 
 Invoke the next agent by name — do not reimplement any agent's job inline;
 each has its own operating rules in `agents/<name>.md` and knows its own

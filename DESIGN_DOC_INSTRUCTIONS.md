@@ -415,7 +415,7 @@ Before a project has a polished HTML suite it has a set of **Markdown working do
 | `REQUIREMENTS.md` | `requirements-author` | `DESIGN.md` + user input | Numbered, individually testable functional and non-functional requirements, each traced back to a design section, each with acceptance criteria. |
 | `TASKS.md` | `tasks-planner` | `DESIGN.md` + `REQUIREMENTS.md` | An ordered, dependency-aware implementation breakdown. Each task cites the requirement IDs it satisfies and has its own acceptance criteria. |
 
-A fourth agent, `spec-validator`, reads all three and writes `SPEC_REVIEW.md` — a findings report (gaps, contradictions, untestable requirements, orphaned design decisions, traceability holes). It never edits the documents. A fifth agent, `html-suite-builder`, converts the approved Markdown set into the HTML suite per §3–§10.
+A fourth agent, `spec-validator`, reads all three and writes `SPEC_REVIEW.md` — a findings report (gaps, contradictions, untestable requirements, orphaned design decisions, traceability holes). It never edits the documents. A fifth agent, `html-suite-builder`, converts the approved Markdown set into the HTML suite per §3–§10. A sixth, `overview-author`, condenses the approved set into `OVERVIEW.md` for non-developer readers (§12); it is derived from the other documents and never a source of facts.
 
 ### 11.2 Shared structural rules (all three documents)
 
@@ -444,6 +444,30 @@ it lands in the plan) · `4. Dependency graph` (optional Mermaid) · `5. Risks &
 ### 11.4 Rendering to HTML
 
 `html-suite-builder` maps each Markdown document to an Archetype-A page: front matter → `<h1>` + `.subtitle` + `.doc-meta`; `> **Why:**` blockquotes → `.cross-note`; failure tables → the severity/recovery legend + badges; ` ```mermaid ` blocks → `.diagram-container`; the changelog section → the `.changelog` component. The result passes the §10 checklist. Skeleton Markdown files matching these outlines live in `templates/`.
+
+---
+
+## 12. The overview view (`OVERVIEW.md`)
+
+Audience: project managers and management. The three working documents answer *how* and *why*; the overview answers *what, when, how big, what needs me*. It is a **view over the same source documents**, not a parallel set of facts: every cell is derived, and every row links to the ID it came from.
+
+### 12.1 Rules
+
+- **Derived only.** Nothing appears in `OVERVIEW.md` that is not in `DESIGN.md`, `REQUIREMENTS.md`, `TASKS.md`, or `SPEC_REVIEW.md`. Regenerate it after any source version bump; its front matter records the versions it was derived from.
+- **Tables, diagrams, badges.** No prose except the 2–3 sentence "What & why". No rationale, alternatives, or decision history (§9's why-first rule applies to the source documents; the overview links to them instead).
+- **One headline per item.** Take the source's lead phrase and drop version tags, review history, and field-level detail. ~8 words in label cells, one sentence in outcome cells.
+- **Attention first.** Open decisions, Critical/High risks, and open Critical/High findings each get a table and a count in "At a glance".
+- **Link down.** Every row carries its source ID (`FR-7`, `DD-3`, `T-4`, `DESIGN §9`).
+- **Length.** Two printed pages. Cut by severity or size, never by shrinking type.
+- **Status is sourced.** Show Done / In progress / Planned only when `TASKS.md` carries it (milestone table `Status` column, optional); never estimate progress.
+
+### 12.2 Outline
+
+`1. At a glance` (count tiles) · `2. What & why` · `3. Scope` · `4. Architecture` (one diagram + component table) · `5. Milestones` (table + optional Gantt/dependency diagram) · `6. Key numbers` (NFR targets) · `7. Top risks` · `8. Open decisions` · `9. Spec health` · `10. Changelog`.
+
+### 12.3 Rendering
+
+`html-suite-builder` renders it to `overview.html` using the same tokens and components: section 1 as a stat strip, tables per §6.3 with status badges per §6.4, diagrams per §7. The hub `index.html` leads with an "Overview" card; each source ID in the overview links to its detail page anchor.
 
 ---
 

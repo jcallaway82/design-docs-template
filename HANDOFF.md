@@ -19,7 +19,7 @@ language, zero network dependencies) for the polished, shareable version.
 | `template.html` | Narrative-page skeleton + live component gallery. |
 | `template-interactive.html` | Self-contained interactive reference-browser skeleton. |
 | `lib/` | Shared stylesheet (`doc.css`), offline Mermaid bundle + init, lightbox, nav. |
-| `agents/` | The five pipeline subagents — nothing else (see below). |
+| `agents/` | The six pipeline subagents — nothing else (see below). |
 | `templates/` | Markdown skeletons for the three working documents. Moved out of `agents/templates/` on 2026-09-10 — see below. |
 | `.claude-plugin/plugin.json` | Plugin manifest — install via `claude --plugin-dir`. |
 | `skills/design-pipeline/` | Orchestrator skill — `/design-docs:design-pipeline`. |
@@ -122,3 +122,12 @@ needed updating — nothing else hardcoded it.
 - Why-first prose: rationale sits next to the decision it explains.
 - Stable IDs, never renumbered: `FR-*` / `NFR-*` (requirements), `DD-*` (design
   decisions), `T-*` (tasks). Dropped items are marked withdrawn, not deleted.
+
+## Overview view (added after 2026-09-10)
+
+Added `overview-author` (agent), `templates/OVERVIEW.template.md`, and
+`DESIGN_DOC_INSTRUCTIONS.md` §12: a derived, tables-and-diagrams-only
+`OVERVIEW.md` for PMs/management, rendered to `overview.html` by
+`html-suite-builder`. `TASKS.md` milestones gain an optional `Status` column.
+Not yet dry-run — next step: run it against the `mdtoc` sample brief and check
+that cells stay at one headline each. Plugin version bumped to 1.2.0.

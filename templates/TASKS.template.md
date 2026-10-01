@@ -13,10 +13,12 @@
 
 ## 2. Milestones
 
-| Milestone | Demoable increment | Tasks |
-|---|---|---|
-| M1 <name> | <what works at the end of it> | T-1, T-2, T-3 |
-| M2 <name> | … | T-4, T-5 |
+| Milestone | Demoable increment | Tasks | Status |
+|---|---|---|---|
+| M1 <name> (≤6 words) | <one sentence: what works at the end of it> | T-1, T-2, T-3 | Planned |
+| M2 <name> | … | T-4, T-5 | Planned |
+
+Status is `Planned` / `In progress` / `Done`; detail such as release tags and review history belongs in the task or changelog, not this table.
 
 ## 3. Tasks
 

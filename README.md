@@ -21,9 +21,9 @@ fully-offline HTML design documents and API references. Or run the agent pipelin
 | `lib/mermaid-init.js` | Shared Mermaid dark-theme configuration. |
 | `lib/lightbox.js` | Click-to-enlarge overlay for diagrams (no markup needed). |
 | `lib/nav.js` | Shared sticky nav bar — edit its `links` array once per suite. |
-| `agents/` | The five pipeline subagent definitions — nothing else lives in this directory (see below on why). |
-| `templates/` | Markdown skeletons (`DESIGN.template.md`, `REQUIREMENTS.template.md`, `TASKS.template.md`) matching `DESIGN_DOC_INSTRUCTIONS.md` §11.3. The agents start from these when present. |
-| `.claude-plugin/plugin.json` | Plugin manifest — lets a project install the five agents with `--plugin-dir` (or a marketplace, once one exists) instead of copying files. |
+| `agents/` | The six pipeline subagent definitions — nothing else lives in this directory (see below on why). |
+| `templates/` | Markdown skeletons (`DESIGN.template.md`, `REQUIREMENTS.template.md`, `TASKS.template.md`, `OVERVIEW.template.md`) matching `DESIGN_DOC_INSTRUCTIONS.md` §11.3. The agents start from these when present. |
+| `.claude-plugin/plugin.json` | Plugin manifest — lets a project install the six agents with `--plugin-dir` (or a marketplace, once one exists) instead of copying files. |
 
 ## The agent pipeline
 
@@ -43,6 +43,9 @@ brief ──▶ design-doc-author ──▶ DESIGN.md
                           (address findings, iterate)
                                    ▼
                          html-suite-builder ──▶ index.html + per-section pages + lib/
+
+   (optional, from the same approved set)
+                          overview-author ──▶ OVERVIEW.md ──▶ overview.html
 ```
 
 | Agent | Reads | Writes | Edits |
@@ -52,6 +55,7 @@ brief ──▶ design-doc-author ──▶ DESIGN.md
 | [`tasks-planner`](agents/tasks-planner.md) | `DESIGN.md` + `REQUIREMENTS.md` | `TASKS.md` | `REQUIREMENTS.md` §7 only |
 | [`spec-validator`](agents/spec-validator.md) | all three | `SPEC_REVIEW.md` | nothing (report only) |
 | [`html-suite-builder`](agents/html-suite-builder.md) | the approved Markdown set + `DESIGN_DOC_INSTRUCTIONS.md` | the offline HTML suite | — |
+| [`overview-author`](agents/overview-author.md) | the approved Markdown set | `OVERVIEW.md` (tables/diagrams only, for PMs and management) | nothing (derived view) |
 
 Each stage is a checkpoint: review the Markdown, then run the next agent. The
 authoring agents stay in their lane — `requirements-author` will not silently
@@ -59,7 +63,7 @@ expand scope, `spec-validator` will not edit the specs.
 
 ## Installing the agents in a project
 
-`agents/` holds exactly the five files above — nothing else — because Claude
+`agents/` holds exactly the six files above — nothing else — because Claude
 Code's plugin loader treats *every* `.md` file under an `agents/` directory
 as an agent definition, recursively. A stray `README.md` or a `templates/`
 subfolder in there gets registered as a broken agent with no name or
@@ -70,10 +74,10 @@ description. That's also why `templates/` lives at the repo root instead of
 ```bash
 claude --plugin-dir /path/to/design-docs-template
 ```
-Claude Code loads all five agents namespaced as `design-docs:<agent-name>`
+Claude Code loads all six agents namespaced as `design-docs:<agent-name>`
 (e.g. `design-docs:design-doc-author`) for that session, plus the
 `/design-docs:design-pipeline` skill — invoke it with a fresh brief for a
-guided walk through all five stages instead of naming each agent yourself.
+guided walk through all six stages instead of naming each agent yourself.
 Add the flag multiple times to load other plugins alongside it, or point it
 at a project that vendors this repo as a subfolder/submodule. There is no
 marketplace entry yet — see `PLUGIN_PACKAGING.md` if you want to add one.
@@ -96,7 +100,7 @@ Get-ChildItem design-docs-template\agents\*.md |
 mkdir -p .claude/agents && cp design-docs-template/agents/*.md .claude/agents/
 ```
 
-Whichever method you use, only the five files in `agents/*.md` land in
+Whichever method you use, only the six files in `agents/*.md` land in
 `.claude/agents/` — the glob above only matches that directory's top level,
 and `templates/` is no longer inside it. Then invoke by name, e.g. *"Use
 design-doc-author to draft a design for …"*.
