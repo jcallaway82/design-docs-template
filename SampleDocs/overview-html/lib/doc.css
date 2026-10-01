@@ -270,6 +270,9 @@ tbody tr:hover { background: var(--bg-raised); }
 .section-count { font-size: 0.75rem; color: var(--text-muted); font-weight: 400; margin-left: 0.5rem; }
 
 /* ── Legend strip ──────────────────────────────────────────────── */
+.row-key td { background: var(--tint-blue); }
+.row-key td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+
 .stat-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)); gap: 0.75rem; margin: 1rem 0 1.5rem; align-items: start; }
 .stat { background: var(--bg-raised); border: 1px solid var(--border); border-radius: 6px; padding: 0.75rem 1rem; }
 .stat-value { display: block; font-size: 1.6rem; font-weight: 600; color: var(--text-bright); line-height: 1.2; }

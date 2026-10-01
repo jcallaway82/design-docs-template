@@ -51,6 +51,10 @@ they want detail.
    - *Spec health* shows **open** findings only; a resolved one is noted as
      `(n resolved)` in its severity cell. "Open spec findings" in At a glance
      counts open Critical + High (the ones that block building).
+   - *Stale review*: if `SPEC_REVIEW.md` names source versions older than the
+     current ones, "Ready to build?" is `Not re-validated — review covers
+     v<x>, sources are v<y>`, never `Yes`, whatever the open count is.
+     Only a review of the current versions can say Yes.
    - *Gantt* only when the source gives **calendar dates** (use
      `dateFormat YYYY-MM-DD`; `after <id>, <n>d` for chained bars). Never use
      `dateFormat X`/`x` — numeric axes are ignored by the vendored Mermaid and

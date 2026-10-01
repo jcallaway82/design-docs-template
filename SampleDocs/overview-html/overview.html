@@ -8,15 +8,22 @@
 </head>
 <body class="wide">
 
+<div id="page-nav"></div>
+<script src="lib/nav.js"></script>
+
 <h1>CLAWE UI — Overview</h1>
-<p class="subtitle">A standalone app for authoring and running closed-loop CLAWE radars, for STS users and radar-scenario operators.</p>
+<p class="subtitle">A standalone app for authoring and running closed-loop CLAWE radars, for operators and STS users.</p>
 <div class="doc-meta">
   <span><strong>Version:</strong> 1.0</span>
   <span><strong>Status:</strong> Draft</span>
-  <span><strong>Date:</strong> 1 October 2026</span>
+  <span><strong>Date:</strong> 2026-10-01</span>
 </div>
 <div class="doc-meta">
-  <span><strong>Derived from:</strong> DESIGN v1.6 · REQUIREMENTS v1.6 · TASKS: none — <a href="../CLAWE_UI_Iterative_Timeline.md">CLAWE_UI_Iterative_Timeline</a> Draft v5 (30 Sep 2026) used in its place · SPEC_REVIEW September 2026, 2nd pass (covers DESIGN v1.1 / REQUIREMENTS v1.1 only)</span>
+  <span><strong>Derived from:</strong>
+    <a href="../DESIGN.md">DESIGN</a> v1.6 ·
+    <a href="../REQUIREMENTS.md">REQUIREMENTS</a> v1.6 ·
+    TASKS: <a href="../CLAWE_UI_Iterative_Timeline.md">Iterative Timeline</a> Draft v5 (stands in for TASKS.md) ·
+    <a href="../SPEC_REVIEW.md">SPEC_REVIEW</a> September 2026 (2nd pass, covers v1.1)</span>
 </div>
 
 <div class="toc">
@@ -28,9 +35,10 @@
     <li><a href="#architecture">Architecture</a></li>
     <li><a href="#milestones">Milestones</a></li>
     <li><a href="#key-numbers">Key numbers</a></li>
-    <li><a href="#risks">Top risks</a></li>
+    <li><a href="#top-risks">Top risks</a></li>
     <li><a href="#open-decisions">Open decisions</a></li>
     <li><a href="#spec-health">Spec health</a></li>
+    <li><a href="#visuals">Visuals</a></li>
     <li><a href="#changelog">Changelog</a></li>
   </ol>
 </div>
@@ -41,106 +49,128 @@
   <div class="stat"><span class="stat-value">12</span><span class="stat-label">Milestones</span></div>
   <div class="stat"><span class="stat-value">4 / 12</span><span class="stat-label">Done</span></div>
   <div class="stat"><span class="stat-value">64 FR · 16 NFR</span><span class="stat-label">Requirements</span></div>
-  <div class="stat stat-warn"><span class="stat-value">13</span><span class="stat-label">Open decisions</span></div>
+  <div class="stat stat-warn"><span class="stat-value">14</span><span class="stat-label">Open decisions</span></div>
   <div class="stat stat-bad"><span class="stat-value">9</span><span class="stat-label">Critical/High risks</span><span class="stat-note">3 Critical · 6 High</span></div>
-  <div class="stat"><span class="stat-value">0</span><span class="stat-label">Open Critical/High findings</span><span class="stat-note">review is stale — see <a href="#spec-health">§9</a></span></div>
+  <div class="stat"><span class="stat-value">0</span><span class="stat-label">Open Critical/High findings</span></div>
 </div>
 
 <h2 id="what-why">2. What &amp; why</h2>
 
-<p>A CLAWE radar adapts its waveform in response to jamming, and today there is no standalone tool to author and run one. CLAWE UI lets an operator build radars, modes and waveforms with full validation, and lets STS add a live CLAWE radar to a static scenario over the network. The outcome is a 12-iteration, ~24-week build that reaches a buyer-demo (a simulated running radar) at iteration 7.</p>
+<p>A CLAWE radar is a closed-loop radar generator that adapts its transmitted waveform in response to jamming. CLAWE UI is a standalone C#/WPF application where operators author these radars (radar, modes, waveforms) and run them. STS fetches the radar catalogue over the network, and HOCA runs an assigned mode on STS hardware. It is built to look and feel like STS so STS users recognise it.</p>
 
 <h2 id="scope">3. Scope</h2>
 
 <table class="fixed">
-  <thead><tr><th style="width:50%">In scope</th><th>Out of scope</th></tr></thead>
+  <thead>
+    <tr><th style="width:50%">In scope</th><th>Out of scope</th></tr>
+  </thead>
   <tbody>
-    <tr><td>Offline authoring of a full CLAWE radar (<a href="../DESIGN.md">DESIGN §2</a>)</td><td>Being a PRISM plugin or sharing its runtime (<a href="../DESIGN.md">DESIGN §2</a>)</td></tr>
-    <tr><td>Field ranges enforced at entry (<a href="../DESIGN.md">DESIGN §2</a>)</td><td>CW waveform authoring in v1 (<a href="../DESIGN.md">OQ-7</a>)</td></tr>
-    <tr><td>Live waveform metrics, browsable at scale (<a href="../DESIGN.md">DESIGN §2</a>)</td><td>Radar modes other than TTR in v1 (<a href="../DESIGN.md">DD-12</a>)</td></tr>
-    <tr><td>Radar catalogue to STS over interface B (<a href="../DESIGN.md">DESIGN §2</a>)</td><td>Building HOCA, STEEM, SPARTA simulator, STS builder (<a href="../DESIGN.md">DESIGN §2</a>)</td></tr>
-    <tr><td>Locked Execution View run via interface C (<a href="../DESIGN.md">DESIGN §2</a>)</td><td>Running the RabbitMQ broker (<a href="../DESIGN.md">DESIGN §2</a>)</td></tr>
-    <tr><td>Look and feel matching STS (<a href="../DESIGN.md">DESIGN §2</a>)</td><td>Multi-host maintenance-edit coordination (<a href="../DESIGN.md">DESIGN §2</a>)</td></tr>
-    <tr><td></td><td>General emitter tool (stays in PRISM EmitterBuilder) (<a href="../DESIGN.md">DESIGN §2</a>)</td></tr>
+    <tr><td>Offline radar, mode and waveform authoring · <a href="../DESIGN.md">DESIGN §2</a></td><td>CW waveform authoring · <a href="../REQUIREMENTS.md">REQUIREMENTS §6</a></td></tr>
+    <tr><td>Field-range validation at point of entry · <a href="../DESIGN.md">DESIGN §2</a></td><td>Radar mode types other than TTR · <a href="../REQUIREMENTS.md">REQUIREMENTS §6</a></td></tr>
+    <tr><td>Live waveform metrics, browsable at scale · <a href="../DESIGN.md">DESIGN §2</a></td><td>Being a PRISM plugin · <a href="../REQUIREMENTS.md">REQUIREMENTS §6</a></td></tr>
+    <tr><td>Radar catalogue and change events to STS · <a href="../DESIGN.md">DESIGN §2</a></td><td>Building HOCA, STEEM, SW Simulator, STS builder · <a href="../REQUIREMENTS.md">REQUIREMENTS §6</a></td></tr>
+    <tr><td>Locked Execution View run for HOCA · <a href="../DESIGN.md">DESIGN §2</a></td><td>Running the RabbitMQ broker · <a href="../REQUIREMENTS.md">REQUIREMENTS §6</a></td></tr>
   </tbody>
 </table>
+<p class="table-footnote">+1 more — see <a href="../DESIGN.md">DESIGN §2</a> (in scope) · +5 more — see <a href="../REQUIREMENTS.md">REQUIREMENTS §6</a> (out of scope)</p>
 
 <h2 id="architecture">4. Architecture</h2>
 
 <div class="diagram-container">
   <pre class="mermaid">
-graph LR
-    STS["STS UI (external)"] -->|"interface B"| MQ["RabbitMQ broker (external)"]
-    HOCA["HOCA (external)"] -->|"interface C"| MQ
-    MQ --> PROXY["CLAWE Proxy"]
-    PROXY -->|"spawn / focus"| MV["Maintenance View"]
-    PROXY -->|"spawn 0..n"| EV["Execution View"]
-    MV -->|"read / write"| DB[("CLAWE DB")]
+flowchart TB
+    subgraph host["CLAWE host"]
+        PROXY["CLAWE Proxy"]
+        MV["Maintenance View"]
+        EV["Execution View"]
+        DB[("CLAWE DB")]
+    end
+    subgraph ext["External: not built here"]
+        STS["STS UI"]
+        HOCA["HOCA"]
+        MQ["RabbitMQ broker"]
+    end
+    STS -->|"interface B"| MQ
+    HOCA -->|"interface C"| MQ
+    MQ --> PROXY
+    PROXY -->|"spawn / focus"| MV
+    PROXY -->|"spawn 0..n"| EV
     PROXY -->|"read-only"| DB
+    MV -->|"read / write"| DB
     EV -->|"read-only"| DB
   </pre>
 </div>
-<p class="diagram-caption">Fig. 1 — Component architecture. Click to enlarge.</p>
+<p class="diagram-caption">Fig. 1 — Components and interfaces. Click to enlarge.</p>
 
 <table>
-  <thead><tr><th style="width:24%">Component</th><th>Responsibility (one line)</th><th style="width:14%">Design ref</th></tr></thead>
+  <thead>
+    <tr><th style="width:26%">Component</th><th>Responsibility (one line)</th><th style="width:14%">Design ref</th></tr>
+  </thead>
   <tbody>
-    <tr><td>CLAWE Proxy</td><td>Owns interface B and C connections; launches views</td><td><a href="../DESIGN.md">DESIGN §5</a></td></tr>
-    <tr><td>Maintenance View</td><td>Authors radars, modes, waveforms; sole DB writer</td><td><a href="../DESIGN.md">DESIGN §5</a></td></tr>
-    <tr><td>Execution View</td><td>Runs one assigned radar mode; never writes DB</td><td><a href="../DESIGN.md">DESIGN §5</a></td></tr>
-    <tr><td>CLAWE DB</td><td>SQLite store: protobuf blob per radar plus index</td><td><a href="../DESIGN.md">DESIGN §5</a></td></tr>
-    <tr><td>Waveform Calculation Engine</td><td>Computes five waveform metric families (planned)</td><td><a href="../DESIGN.md">DESIGN §5</a></td></tr>
-    <tr><td>STS UI (external)</td><td>Client on interface B</td><td><a href="../DESIGN.md">DESIGN §4</a></td></tr>
-    <tr><td>HOCA (external)</td><td>Hardware-abstraction layer; drives interface C</td><td><a href="../DESIGN.md">DESIGN §4</a></td></tr>
-    <tr><td>RabbitMQ broker (external)</td><td>Carries all interface B and C traffic</td><td><a href="../DESIGN.md">DESIGN §4</a></td></tr>
+    <tr id="clawe-proxy"><td><span class="row-name">CLAWE Proxy</span></td><td>Owns interfaces B and C; launches views</td><td><a href="../DESIGN.md">DESIGN §5</a></td></tr>
+    <tr id="maintenance-view"><td><span class="row-name">Maintenance View</span></td><td>Authors radars, modes, waveforms; sole database writer</td><td><a href="../DESIGN.md">DESIGN §5</a></td></tr>
+    <tr id="execution-view"><td><span class="row-name">Execution View</span></td><td>Runs one assigned radar mode, locked to it</td><td><a href="../DESIGN.md">DESIGN §5</a></td></tr>
+    <tr id="clawe-db"><td><span class="row-name">CLAWE DB</span></td><td>Stores each radar as one blob plus a thin index</td><td><a href="../DESIGN.md">DESIGN §5</a></td></tr>
+    <tr id="waveform-calculation-engine"><td><span class="row-name">Waveform Calculation Engine</span> (planned)</td><td>Computes five waveform metrics and a description</td><td><a href="../DESIGN.md">DESIGN §5</a></td></tr>
   </tbody>
 </table>
-<p class="table-footnote">Total: <strong>8 components</strong> (5 internal, 3 external).</p>
 
 <h2 id="milestones">5. Milestones</h2>
 
 <table>
-  <thead><tr><th style="width:4%">#</th><th style="width:24%">Milestone</th><th>Outcome (demo-able at end)</th><th style="width:8%">Weeks</th><th style="width:11%">Status</th><th style="width:7%">Ref</th></tr></thead>
+  <thead>
+    <tr>
+      <th style="width:6%">#</th>
+      <th style="width:22%">Milestone</th>
+      <th>Outcome (demo-able at end)</th>
+      <th style="width:8%">Weeks</th>
+      <th style="width:10%">Status</th>
+      <th style="width:12%">Ref</th>
+    </tr>
+  </thead>
   <tbody>
-    <tr id="m1"><td>1</td><td>Scaffolding, DB and Radar CRUD</td><td>Themed exe; radars persist across relaunch.</td><td>1–2</td><td class="status-cell"><span class="status s-complete">Done</span></td><td><a href="../CLAWE_UI_Iterative_Timeline.md">M1</a></td></tr>
-    <tr id="m2"><td>2</td><td>Radar mode editor and visualization spike</td><td>Author a full validated TTR mode with a themed pulse-train chart.</td><td>3–4</td><td class="status-cell"><span class="status s-complete">Done</span></td><td><a href="../CLAWE_UI_Iterative_Timeline.md">M2</a></td></tr>
-    <tr id="m3"><td>3</td><td>Waveform editor and schema extension</td><td>Author a complete validated waveform that round-trips through the blob.</td><td>5–6</td><td class="status-cell"><span class="status s-complete">Done</span></td><td><a href="../CLAWE_UI_Iterative_Timeline.md">M3</a></td></tr>
-    <tr id="m4"><td>4</td><td>Interface B and proxy restructure</td><td>Fetch radars, launch editor and get modified-events over RabbitMQ from a test client.</td><td>7–8</td><td class="status-cell"><span class="status s-complete">Done</span></td><td><a href="../CLAWE_UI_Iterative_Timeline.md">M4</a></td></tr>
-    <tr id="m5"><td>5</td><td>Domain validation and Waveform Calculation Engine</td><td>Every deck worked example reproduced by a passing unit test.</td><td>9–10</td><td class="status-cell"><span class="status s-planned">Planned</span></td><td><a href="../CLAWE_UI_Iterative_Timeline.md">M5</a></td></tr>
-    <tr id="m6"><td>6</td><td>Simulated radar and Execution View Control tab</td><td>Run a mode, press Play, watch simulated targets in the table.</td><td>11–12</td><td class="status-cell"><span class="status s-planned">Planned</span></td><td><a href="../CLAWE_UI_Iterative_Timeline.md">M6</a></td></tr>
-    <tr id="m7"><td>7</td><td>Graph-window container and 2D RDI scope</td><td>Running simulated radar with live 2D RDI scope; first buyer-demo build.</td><td>13–14</td><td class="status-cell"><span class="status s-planned">Planned</span></td><td><a href="../CLAWE_UI_Iterative_Timeline.md">M7</a></td></tr>
-    <tr id="m8"><td>8</td><td>Waveform Summary Screen and editor layout rework</td><td>Every metric, eclipsing chart and trade-off updates live.</td><td>15–16</td><td class="status-cell"><span class="status s-planned">Planned</span></td><td><a href="../CLAWE_UI_Iterative_Timeline.md">M8</a></td></tr>
-    <tr id="m9"><td>9</td><td>Live signal preview</td><td>Signal-shape preview updates live as modifiers change.</td><td>17–18</td><td class="status-cell"><span class="status s-planned">Planned</span></td><td><a href="../CLAWE_UI_Iterative_Timeline.md">M9</a></td></tr>
-    <tr id="m10"><td>10</td><td>Rollup infrastructure and Waveform browser</td><td>Filter thousands of waveforms; radar overlay gains Freq/PRI filters.</td><td>19–20</td><td class="status-cell"><span class="status s-planned">Planned</span></td><td><a href="../CLAWE_UI_Iterative_Timeline.md">M10</a></td></tr>
-    <tr id="m11"><td>11</td><td>Interface C and real HOCA wiring</td><td>Mock or real HOCA launches and streams a waveform via interface C.</td><td>21–22</td><td class="status-cell"><span class="status s-planned">Planned</span></td><td><a href="../CLAWE_UI_Iterative_Timeline.md">M11</a></td></tr>
-    <tr id="m12"><td>12</td><td>Cognitive mode, 3D RDI scope and polish</td><td>Full demo exe, authoring through cognitive run, no known validation gaps.</td><td>23–24</td><td class="status-cell"><span class="status s-planned">Planned</span></td><td><a href="../CLAWE_UI_Iterative_Timeline.md">M12</a></td></tr>
+    <tr id="m1-4"><td>1–4</td><td>Scaffolding · Mode editor · Waveform editor · Interface B + proxy</td><td>Radars, modes and waveforms are authored and saved, and STS-side requests work over RabbitMQ.</td><td>1–8</td><td class="status-cell"><span class="status s-complete">Done</span></td><td><a href="../CLAWE_UI_Iterative_Timeline.md">Timeline 1–4</a></td></tr>
+    <tr id="m5"><td>5</td><td>Validation module + Waveform Calculation Engine</td><td>Every worked example in the calc deck passes as a unit test.</td><td>9–10</td><td class="status-cell"><span class="status s-planned">Planned</span></td><td><a href="../CLAWE_UI_Iterative_Timeline.md">Timeline 5</a></td></tr>
+    <tr id="m6"><td>6</td><td>Simulated radar + Control tab</td><td>Pick a waveform, press Play, and watch simulated targets in a table.</td><td>11–12</td><td class="status-cell"><span class="status s-planned">Planned</span></td><td><a href="../CLAWE_UI_Iterative_Timeline.md">Timeline 6</a></td></tr>
+    <tr id="m7" class="row-key"><td>7</td><td>Graph windows + 2D RDI scope</td><td><strong>Key:</strong> the first build suitable for demos to potential buyers; a simulated radar runs live on the 2D RDI scope.</td><td>13–14</td><td class="status-cell"><span class="status s-planned">Planned</span></td><td><a href="../CLAWE_UI_Iterative_Timeline.md">Timeline 7</a></td></tr>
+    <tr id="m8"><td>8</td><td>Waveform Summary Screen + editor layout rework</td><td>Every metric, the eclipsing chart and trade-offs update live as a waveform is built.</td><td>15–16</td><td class="status-cell"><span class="status s-planned">Planned</span></td><td><a href="../CLAWE_UI_Iterative_Timeline.md">Timeline 8</a></td></tr>
+    <tr id="m9"><td>9</td><td>Live signal preview</td><td>The signal-shape preview updates live as modifiers are edited.</td><td>17–18</td><td class="status-cell"><span class="status s-planned">Planned</span></td><td><a href="../CLAWE_UI_Iterative_Timeline.md">Timeline 9</a></td></tr>
+    <tr id="m10"><td>10</td><td>Rollups + Waveform browser</td><td>Thousands of waveforms can be filtered by name, parameter range and modulation type.</td><td>19–20</td><td class="status-cell"><span class="status s-planned">Planned</span></td><td><a href="../CLAWE_UI_Iterative_Timeline.md">Timeline 10</a></td></tr>
+    <tr id="m11"><td>11</td><td>Interface C + real HOCA wiring</td><td>A mock or real HOCA launches the Execution View and streams data through interface C.</td><td>21–22</td><td class="status-cell"><span class="status s-planned">Planned</span></td><td><a href="../CLAWE_UI_Iterative_Timeline.md">Timeline 11</a></td></tr>
+    <tr id="m12"><td>12</td><td>Cognitive mode + 3D RDI scope + polish</td><td>Full demo build runs cognitive mode against a simulated jammer or real HOCA.</td><td>23–24</td><td class="status-cell"><span class="status s-planned">Planned</span></td><td><a href="../CLAWE_UI_Iterative_Timeline.md">Timeline 12</a></td></tr>
   </tbody>
 </table>
-<p class="table-footnote">Total: <strong>12 milestones</strong> — 4 Done, 8 Planned.</p>
 
-<p>No <code>T-*</code> task IDs exist in the source; milestones link to the timeline's iteration rows. Durations: 2-week iterations, ~20 hrs/week (<a href="../CLAWE_UI_Iterative_Timeline.md">Timeline</a>).</p>
+<div class="diagram-container">
+  <pre class="mermaid">
+graph LR
+    M14["M1-4 Done"] --> M5["M5"] --> M6["M6"] --> M7["M7 Key: buyer demo"] --> M8["M8"] --> M9["M9"] --> M10["M10"] --> M11["M11"] --> M12["M12"]
+  </pre>
+</div>
+<p class="diagram-caption">Fig. 2 — Milestone sequence. Click to enlarge.</p>
 
-
+<ul>
+  <li>Plan size: 12 iterations · ~24 weeks · ~480 hours at ~20 hrs/week · <a href="../CLAWE_UI_Iterative_Timeline.md">Timeline</a></li>
+</ul>
 
 <h2 id="key-numbers">6. Key numbers</h2>
 
 <table>
-  <thead><tr><th style="width:44%">Measure</th><th>Target</th><th style="width:12%">Ref</th></tr></thead>
+  <thead>
+    <tr><th style="width:36%">Measure</th><th>Target</th><th style="width:10%">Ref</th></tr>
+  </thead>
   <tbody>
-    <tr><td>Whole-radar save, 2,000 waveforms</td><td><span class="mono-val">≤ 500 ms</span></td><td><a href="../REQUIREMENTS.md">NFR-1</a></td></tr>
-    <tr><td>Waveform-browser first page, 5,000 waveforms</td><td><span class="mono-val">≤ 200 ms, zero blob reads</span></td><td><a href="../REQUIREMENTS.md">NFR-2</a></td></tr>
-    <tr><td>Summary and preview recompute after field change</td><td><span class="mono-val">≤ 100 ms</span></td><td><a href="../REQUIREMENTS.md">NFR-3</a></td></tr>
-    <tr><td><code>RequestRadars()</code> deadline, 500 radars</td><td><span class="mono-val">5 s</span></td><td><a href="../REQUIREMENTS.md">NFR-4</a></td></tr>
-    <tr><td>Proxy restart after unexpected exit</td><td><span class="mono-val">≤ 30 s</span></td><td><a href="../REQUIREMENTS.md">NFR-10</a></td></tr>
-    <tr><td>Radar-modified event debounce / latency bound</td><td><span class="mono-val">250 ms / ≤ 1 s</span></td><td><a href="../REQUIREMENTS.md">FR-43</a></td></tr>
-    <tr><td>Design catalogue size</td><td><span class="mono-val">500 radars</span></td><td><a href="../DESIGN.md">DESIGN §3</a></td></tr>
-    <tr><td>Delivery size</td><td><span class="mono-val">12 iterations, ~24 weeks, ~480 hours</span></td><td><a href="../CLAWE_UI_Iterative_Timeline.md">Timeline</a></td></tr>
+    <tr><td>Whole-radar save latency</td><td>≤ 500 ms for 2,000 waveforms</td><td><a href="../REQUIREMENTS.md">NFR-1</a></td></tr>
+    <tr><td>Waveform browser first page</td><td>≤ 200 ms for 5,000 waveforms</td><td><a href="../REQUIREMENTS.md">NFR-2</a></td></tr>
+    <tr><td>Live metric and preview update</td><td>≤ 100 ms after a field change</td><td><a href="../REQUIREMENTS.md">NFR-3</a></td></tr>
+    <tr><td><code>RequestRadars()</code> response</td><td>≤ 5 s for 500 radars</td><td><a href="../REQUIREMENTS.md">NFR-4</a></td></tr>
+    <tr><td>Proxy restart after unexpected exit</td><td>≤ 30 s</td><td><a href="../REQUIREMENTS.md">NFR-10</a></td></tr>
+    <tr><td>Runnable demo build cadence</td><td>Every 2 weeks</td><td><a href="../REQUIREMENTS.md">NFR-14</a></td></tr>
   </tbody>
 </table>
+<p class="table-footnote">+10 more — see <a href="../REQUIREMENTS.md">REQUIREMENTS §4</a></p>
 
-<h2 id="risks">7. Top risks</h2>
-
-<p>Risks are DESIGN §9 failure modes rated High or Critical (9 of 14); the timeline has no severity-rated risk section.</p>
+<h2 id="top-risks">7. Top risks</h2>
 
 <div class="legend">
   <div class="legend-section">
@@ -148,86 +178,110 @@ graph LR
     <div class="legend-items">
       <span class="severity sev-critical">Critical</span>
       <span class="severity sev-high">High</span>
-      <span class="severity sev-medium">Medium</span>
-      <span class="severity sev-low">Low</span>
     </div>
   </div>
 </div>
 
 <table>
-  <thead><tr><th style="width:30%">Risk</th><th style="width:10%">Severity</th><th>Mitigation (one line)</th><th style="width:16%">Ref</th></tr></thead>
+  <thead>
+    <tr>
+      <th style="width:30%">Risk (TASKS §5 risks + High/Critical failure modes)</th>
+      <th style="width:10%">Severity</th>
+      <th>Mitigation (one line)</th>
+      <th style="width:14%">Ref</th>
+    </tr>
+  </thead>
   <tbody>
-    <tr><td>Concurrent writers reach CLAWE DB</td><td><span class="severity sev-critical">Critical</span></td><td>Write-owner row checked before every commit; others read-only</td><td><a href="../DESIGN.md">DESIGN §9 FM-2</a></td></tr>
-    <tr><td>Schema-update step fails mid-run</td><td><span class="severity sev-critical">Critical</span></td><td>Per-step transaction; app refuses to start with diagnostic</td><td><a href="../DESIGN.md">DESIGN §9 FM-4</a></td></tr>
-    <tr><td>RabbitMQ broker unreachable</td><td><span class="severity sev-critical">Critical</span></td><td>STS shows source offline, reconnects with backoff</td><td><a href="../DESIGN.md">DESIGN §9 FM-9</a></td></tr>
-    <tr><td>Second Maintenance View attempts to start</td><td><span class="severity sev-high">High</span></td><td>Mutex detected; new process exits or returns <code>FOCUSED</code></td><td><a href="../DESIGN.md">DESIGN §9 FM-1</a></td></tr>
-    <tr><td>Radar blob fails to deserialize</td><td><span class="severity sev-high">High</span></td><td>Listed from index; editor refuses to open, suggests restore</td><td><a href="../DESIGN.md">DESIGN §9 FM-3</a></td></tr>
-    <tr><td>Proxy cannot open CLAWE DB</td><td><span class="severity sev-high">High</span></td><td><code>RequestRadars()</code> returns an error response with detail</td><td><a href="../DESIGN.md">DESIGN §9 FM-5</a></td></tr>
-    <tr><td>Execution View loses HOCA connection mid-run</td><td><span class="severity sev-high">High</span></td><td>Holds last state, shows banner; HOCA re-sends activate</td><td><a href="../DESIGN.md">DESIGN §9 FM-10</a></td></tr>
-    <tr><td>Execution View cannot open CLAWE DB</td><td><span class="severity sev-high">High</span></td><td>Reports failure to HOCA; no partial run starts</td><td><a href="../DESIGN.md">DESIGN §9 FM-13</a></td></tr>
-    <tr><td>HOCA rejects <code>LoadWaveforms</code> / <code>LoadSchedule</code></td><td><span class="severity sev-high">High</span></td><td>Shows rejection; activation refused until valid load</td><td><a href="../DESIGN.md">DESIGN §9 FM-14</a></td></tr>
+    <tr><td>Schema-update step fails mid-run</td><td><span class="severity sev-critical">Critical</span></td><td>Each step is one transaction; app refuses to start</td><td><a href="../DESIGN.md">DESIGN §9 FM-4</a></td></tr>
+    <tr><td>Concurrent writers reach the database</td><td><span class="severity sev-critical">Critical</span></td><td>Write-owner row checked before every commit</td><td><a href="../DESIGN.md">DESIGN §9 FM-2</a></td></tr>
+    <tr><td>RabbitMQ broker unreachable</td><td><span class="severity sev-critical">Critical</span></td><td>STS shows source offline; reconnects with backoff</td><td><a href="../DESIGN.md">DESIGN §9 FM-9</a></td></tr>
+    <tr><td>Radar blob fails to deserialize</td><td><span class="severity sev-high">High</span></td><td>Radar stays listed; editor refuses and advises restore</td><td><a href="../DESIGN.md">DESIGN §9 FM-3</a></td></tr>
+    <tr><td>Second maintenance view starts</td><td><span class="severity sev-high">High</span></td><td>New process exits with a message; proxy returns FOCUSED</td><td><a href="../DESIGN.md">DESIGN §9 FM-1</a></td></tr>
+    <tr><td>Proxy cannot open the database</td><td><span class="severity sev-high">High</span></td><td><code>RequestRadars()</code> returns an error with detail</td><td><a href="../DESIGN.md">DESIGN §9 FM-5</a></td></tr>
   </tbody>
 </table>
-<p class="table-footnote">Total: <strong>9 risks</strong> — 3 Critical, 6 High.</p>
+<p class="table-footnote">+3 more — see <a href="../DESIGN.md">DESIGN §9</a> (<a href="../DESIGN.md">FM-10</a>, <a href="../DESIGN.md">FM-13</a>, <a href="../DESIGN.md">FM-14</a>)</p>
 
 <h2 id="open-decisions">8. Open decisions</h2>
 
 <table>
-  <thead><tr><th style="width:30%">Decision needed</th><th style="width:30%">Options (≤3, comma-separated)</th><th>Blocks</th><th style="width:9%">Ref</th></tr></thead>
+  <thead>
+    <tr>
+      <th style="width:38%">Decision needed</th>
+      <th>Options (≤3, comma-separated)</th>
+      <th style="width:10%">Blocks</th>
+      <th style="width:10%">Ref</th>
+    </tr>
+  </thead>
   <tbody>
-    <tr><td>RabbitMQ broker ownership in deployment</td><td>Not stated in source</td><td>M12 packaging; interface-B reviews</td><td><a href="../DESIGN.md">OQ-1</a></td></tr>
-    <tr><td>HOCA test instance and interface-C telemetry stream</td><td>Real HOCA, mocked HOCA</td><td>M11</td><td><a href="../DESIGN.md">OQ-3</a></td></tr>
-    <tr><td>Locate STS "RTSA window" pattern</td><td>Find existing pattern, placeholder dock container</td><td>M7</td><td><a href="../DESIGN.md">OQ-4</a></td></tr>
-    <tr><td>Calc-engine formula ambiguities</td><td>Not stated in source</td><td>M5</td><td><a href="../DESIGN.md">OQ-6</a></td></tr>
-    <tr><td>CW waveform authoring</td><td>Not stated in source (future deck)</td><td>CW editor (deferred)</td><td><a href="../DESIGN.md">OQ-7</a></td></tr>
-    <tr><td><code>modulation_types</code> covers 6 of 9 categories</td><td>Intended, omission</td><td>FR-40</td><td><a href="../DESIGN.md">OQ-8</a></td></tr>
-    <tr><td>Blob storage granularity</td><td>One blob per radar, per-waveform blob rows</td><td>M10 (revisit)</td><td><a href="../DESIGN.md">OQ-9</a></td></tr>
-    <tr><td>Second maintenance launch behaviour</td><td>Focus, reject</td><td>FR-44 (lead sign-off)</td><td><a href="../DESIGN.md">OQ-10</a></td></tr>
-    <tr><td>Proxy multi-PC identity and discovery</td><td>Not stated in source</td><td>Nothing stated</td><td><a href="../DESIGN.md">OQ-11</a></td></tr>
-    <tr><td>Preview rendering for ~1,024-pulse trains</td><td>Per-pulse, envelope/density, decimated (+2 more)</td><td>M7, M9</td><td><a href="../DESIGN.md">OQ-13</a></td></tr>
-    <tr><td><code>LoadWaveforms</code> scope</td><td>Active radar, active radar mode</td><td>M11</td><td><a href="../DESIGN.md">OQ-14</a></td></tr>
-    <tr><td>Waveform-parameter gaps and legacy range conflicts</td><td>Not stated in source</td><td>FR-13</td><td><a href="../DESIGN.md">OQ-15</a></td></tr>
-    <tr><td>Execution View waveform edits vs single writer</td><td>Transient edits, exception to single-writer rule</td><td>M6 (demo avoids it)</td><td><a href="../DESIGN.md">OQ-16</a></td></tr>
+    <tr><td>Can the deck author confirm the three ambiguous calc formulas?</td><td>none listed in source</td><td><a href="#m5">M5</a></td><td><a href="../DESIGN.md">OQ-6</a></td></tr>
+    <tr><td>Are waveform edits in an Execution View temporary, or saved?</td><td>Temporary (never saved), Saved via an exception to single-writer</td><td><a href="#m6">M6</a></td><td><a href="../DESIGN.md">OQ-16</a></td></tr>
+    <tr><td>Where is the STS "RTSA window" pattern, or do we ship a placeholder dock?</td><td>Locate the STS pattern, Placeholder container</td><td><a href="#m7">M7</a></td><td><a href="../DESIGN.md">OQ-4</a></td></tr>
+    <tr><td>How should ~1,024-pulse waveforms be drawn in previews?</td><td>Envelope/density, Decimated, Spectrogram (+2 more in source)</td><td><a href="#m7">M7</a>, <a href="#m9">M9</a></td><td><a href="../DESIGN.md">OQ-13</a></td></tr>
+    <tr><td>Will a runnable HOCA exist to test against, and how does scope data reach the Execution View?</td><td>Real HOCA, Mocked HOCA</td><td><a href="#m11">M11</a></td><td><a href="../DESIGN.md">OQ-3</a></td></tr>
   </tbody>
 </table>
-<p class="table-footnote">Total: <strong>13 open decisions</strong>.</p>
+<p class="table-footnote">+9 more — see <a href="../DESIGN.md">DESIGN §10</a></p>
 
 <h2 id="spec-health">9. Spec health</h2>
 
-<p>Counts are from SPEC_REVIEW (2nd pass), which reviewed DESIGN v1.1 / REQUIREMENTS v1.1. The sources are now v1.6 and have not been re-reviewed.</p>
-
 <table>
-  <thead><tr><th style="width:12%">Critical</th><th style="width:16%">High</th><th style="width:16%">Medium</th><th style="width:20%">Low (open; n resolved)</th><th>Ready to build?</th></tr></thead>
+  <thead>
+    <tr>
+      <th style="width:10%">Critical</th>
+      <th style="width:14%">High</th>
+      <th style="width:14%">Medium</th>
+      <th style="width:18%">Low (open; n resolved)</th>
+      <th>Ready to build?</th>
+    </tr>
+  </thead>
   <tbody>
-    <tr><td>0</td><td>0 (3 resolved)</td><td>0 (8 resolved)</td><td>0 (6 resolved)</td><td>Not re-validated — review predates DESIGN/REQUIREMENTS v1.2–v1.6</td></tr>
+    <tr>
+      <td>0</td><td>0 (3 resolved)</td><td>0 (8 resolved)</td><td>0 (7 resolved)</td>
+      <td>Not re-validated — review covers v1.1, sources are v1.6 · <a href="../SPEC_REVIEW.md">SPEC_REVIEW</a></td>
+    </tr>
   </tbody>
 </table>
 
-<p>Contradictions found while deriving this overview (reported, not resolved):</p>
-
 <table>
-  <thead><tr><th style="width:20%">Item</th><th>Conflict</th><th style="width:26%">Ref</th></tr></thead>
+  <thead>
+    <tr><th style="width:44%">Contradiction</th><th>Where</th><th style="width:16%">Ref</th></tr>
+  </thead>
   <tbody>
-    <tr><td>OQ-16 deadline</td><td>DESIGN says decide before iteration 6; REQUIREMENTS says before iteration 9</td><td><a href="../DESIGN.md">OQ-16</a> · <a href="../REQUIREMENTS.md">REQUIREMENTS §8.1</a></td></tr>
-    <tr><td>OQ-12 status</td><td>Iteration Review lists it resolved; DESIGN register does not mark it resolved</td><td><a href="../DESIGN.md">OQ-12</a> · <a href="../Iteration_Review.md">Iteration Review</a></td></tr>
-    <tr><td>Traceability remap</td><td>Timeline says matrix still uses old iteration numbers; REQUIREMENTS v1.6 says it was remapped</td><td><a href="../CLAWE_UI_Iterative_Timeline.md">Timeline</a> · <a href="../REQUIREMENTS.md">REQUIREMENTS §7</a></td></tr>
-    <tr><td>Stale counts</td><td>SPEC_REVIEW cites 63 FR and 13 DD; sources now hold 64 FR and 21 DD</td><td><a href="../SPEC_REVIEW.md">SPEC_REVIEW</a></td></tr>
+    <tr><td>OQ-16 due "before iteration 9" vs. "before iteration 6"</td><td><a href="../REQUIREMENTS.md">REQUIREMENTS §8.1</a> vs. <a href="../DESIGN.md">DESIGN §10</a></td><td><a href="../DESIGN.md">OQ-16</a></td></tr>
+    <tr><td>Traceability "still on old iteration numbers" vs. "remapped to Draft v5"</td><td><a href="../CLAWE_UI_Iterative_Timeline.md">Timeline</a> vs. <a href="../REQUIREMENTS.md">REQUIREMENTS §7</a></td><td><a href="../REQUIREMENTS.md">REQUIREMENTS §7</a></td></tr>
+    <tr><td>Review says start at iteration 3 and counts 13 DD; timeline shows 1–4 done, DESIGN has 21 DD</td><td><a href="../SPEC_REVIEW.md">SPEC_REVIEW</a> vs. <a href="../CLAWE_UI_Iterative_Timeline.md">Timeline</a>, <a href="../DESIGN.md">DESIGN</a></td><td><a href="../SPEC_REVIEW.md">SPEC_REVIEW §1</a></td></tr>
+    <tr><td>Timeline rows 3–4 cite preview in 7 and rollups in 8; table says 9 and 10</td><td>within <a href="../CLAWE_UI_Iterative_Timeline.md">Timeline</a></td><td><a href="../CLAWE_UI_Iterative_Timeline.md">Timeline 3, 4</a></td></tr>
   </tbody>
 </table>
-<p class="table-footnote">Total: <strong>4 contradictions</strong>.</p>
 
-<h2 id="changelog">10. Changelog</h2>
+<h2 id="visuals">10. Visuals</h2>
 
+<div class="card-grid">
+  <div class="card">
+    <a href="img/m07_graph_windows.png"><img src="img/m07_graph_windows_thumb.png" width="480" height="271" style="width:100%;height:auto;display:block" alt="Mockup, not built yet — iteration 7: graph windows with 2D RDI scope and target table (key milestone)"></a>
+    <p>Mockup, not built yet — iteration 7: graph windows with 2D RDI scope and target table (key milestone)</p>
+  </div>
+  <div class="card">
+    <a href="img/m06_control_tab.png"><img src="img/m06_control_tab_thumb.png" width="480" height="271" style="width:100%;height:auto;display:block" alt="Mockup, not built yet — iteration 6: Execution View Control tab with simulated targets"></a>
+    <p>Mockup, not built yet — iteration 6: Execution View Control tab with simulated targets</p>
+  </div>
+  <div class="card">
+    <a href="img/m12_cognitive.png"><img src="img/m12_cognitive_thumb.png" width="480" height="271" style="width:100%;height:auto;display:block" alt="Mockup, not built yet — iteration 12: cognitive mode panels against a simulated jammer"></a>
+    <p>Mockup, not built yet — iteration 12: cognitive mode panels against a simulated jammer</p>
+  </div>
+</div>
+
+<h2 id="changelog">11. Changelog</h2>
 <div class="changelog">
   <div class="entry">
     <div class="date">October 2026 — v1.0</div>
-    <div class="detail">Initial draft, derived from DESIGN v1.6, REQUIREMENTS v1.6, the iteration timeline Draft v5 and SPEC_REVIEW (2nd pass).</div>
+    <div class="detail">Initial draft.</div>
   </div>
 </div>
 
 <script src="lib/mermaid.min.js"></script>
 <script src="lib/mermaid-init.js"></script>
 <script src="lib/lightbox.js"></script>
-
 </body>
 </html>

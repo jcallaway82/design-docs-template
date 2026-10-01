@@ -160,3 +160,12 @@ stack), so Gantt is now calendar-dates-only; Gantt label colours fixed in
 milestones) — longer than the §12 "two printed pages" target; no stand-in
 rule yet for a missing `TASKS.md`; stale-SPEC_REVIEW handling is by agent
 judgement only.
+
+**Caps run (CLAWE):** §12.4 caps + key-row + Visuals applied. OVERVIEW.md
+1,759 -> 1,392 words; iterations 1-4 collapsed to one row, M7 marked key;
+risks 9->6, decisions 14->5, with "+N more" lines. Rendered page height
+barely moved (6,192 -> 6,361 px) because the architecture diagram renders tall;
+hand-built roadmap is 5,672 px with 5 mockups. Rule added: stale SPEC_REVIEW
+-> "Not re-validated", never "Yes". Open: cap diagram height; decide whether
+open decisions should be filtered to management-level ones (needs an owner
+field in the source).
