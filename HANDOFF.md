@@ -129,5 +129,12 @@ Added `overview-author` (agent), `templates/OVERVIEW.template.md`, and
 `DESIGN_DOC_INSTRUCTIONS.md` §12: a derived, tables-and-diagrams-only
 `OVERVIEW.md` for PMs/management, rendered to `overview.html` by
 `html-suite-builder`. `TASKS.md` milestones gain an optional `Status` column.
-Not yet dry-run — next step: run it against the `mdtoc` sample brief and check
-that cells stay at one headline each. Plugin version bumped to 1.2.0.
+Plugin version bumped to 1.2.0.
+
+Dry run (rebuilt `mdtoc` sources, deliberately verbose milestone rows): the
+overview compressed a ~90-word milestone row to one sentence + status, counts
+audited correct, and it flagged a source gap (component in diagram, no
+Components entry). It exposed 9 rule ambiguities — risk source, open vs
+resolved counts, Gantt without durations, date, link form, etc. — settled in
+`overview-author.md` rule 9 and the template. Re-run after further prompt
+changes; HTML rendering of `overview.html` is still untested.

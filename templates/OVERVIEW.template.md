@@ -9,7 +9,7 @@
 
 ## 1. At a glance
 
-| Milestones | Done | Requirements | Open decisions | Critical/High risks | Open spec findings |
+| Milestones | Done | Requirements | Open decisions | Critical/High risks | Open Critical/High findings |
 |---|---|---|---|---|---|
 | <n> | <n> / <n> | <n> FR · <n> NFR | <n> | <n> | <n> |
 
@@ -40,12 +40,10 @@ graph LR
 |---|---|---|---|---|
 | 1 | <name> | <one sentence> | T-1–T-3 | Planned |
 
+<!-- Gantt only if the source gives durations or dates; otherwise a milestone dependency graph and the line "No durations in source." -->
 ```mermaid
-gantt
-    dateFormat X
-    axisFormat %s
-    section Build
-    M1 <name> :m1, 0, 2
+graph LR
+    M1 --> M2
 ```
 
 ## 6. Key numbers
@@ -56,7 +54,7 @@ gantt
 
 ## 7. Top risks
 
-| Risk | Severity | Mitigation (one line) | Ref |
+| Risk (TASKS §5 risks + High/Critical failure modes) | Severity | Mitigation (one line) | Ref |
 |---|---|---|---|
 | <headline> | High | <headline> | DESIGN §9 |
 
@@ -68,7 +66,7 @@ gantt
 
 ## 9. Spec health
 
-| Critical | High | Medium | Low | Ready to build? |
+| Critical | High | Medium | Low (open; n resolved) | Ready to build? |
 |---|---|---|---|---|
 | <n> | <n> | <n> | <n> | Yes / No — <reason> |
 

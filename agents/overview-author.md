@@ -44,6 +44,24 @@ they want detail.
    `TASKS.md` carries a status; otherwise show planned size/effort only.
    Never estimate progress yourself.
 
+9. **Settled conventions** (so runs are comparable):
+   - *Risks* = `TASKS.md` §5 risks plus `DESIGN.md` failure modes rated
+     High or Critical. "Critical/High risks" counts both, and the Ref column
+     says which document each came from.
+   - *Spec health* shows **open** findings only; a resolved one is noted as
+     `(n resolved)` in its severity cell. "Open spec findings" in At a glance
+     counts open Critical + High (the ones that block building).
+   - *Gantt* only when the source gives durations or dates. Otherwise draw a
+     milestone dependency graph (dependencies may be derived from tasks'
+     `Depends on:`) and say "no durations in source".
+   - *Dates*: `Updated` is today's date; `Derived from` carries the source
+     versions. `Status` stays Draft until the user approves.
+   - *Links*: write the ID as text and link the file (`[FR-1](REQUIREMENTS.md)`);
+     do not invent anchors — `html-suite-builder` resolves IDs to anchors.
+   - A component, ID or section referenced in a source but never defined
+     (e.g. in a diagram but with no Components entry) is reported in the
+     "omitted" list; do not fill the gap.
+
 ## Output: `OVERVIEW.md`
 
 Write to the repo root unless told otherwise. Sections per §12 of the
