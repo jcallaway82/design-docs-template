@@ -51,9 +51,11 @@ they want detail.
    - *Spec health* shows **open** findings only; a resolved one is noted as
      `(n resolved)` in its severity cell. "Open spec findings" in At a glance
      counts open Critical + High (the ones that block building).
-   - *Gantt* only when the source gives durations or dates. Otherwise draw a
-     milestone dependency graph (dependencies may be derived from tasks'
-     `Depends on:`) and say "no durations in source".
+   - *Gantt* only when the source gives **calendar dates** (use
+     `dateFormat YYYY-MM-DD`; `after <id>, <n>d` for chained bars). Never use
+     `dateFormat X`/`x` — numeric axes are ignored by the vendored Mermaid and
+     stack every bar. Week-only or duration-only sources get no Gantt: the
+     Weeks column carries it, plus a milestone dependency graph if useful.
    - *Dates*: `Updated` is today's date; `Derived from` carries the source
      versions. `Status` stays Draft until the user approves.
    - *Links*: write the ID as text and link the file (`[FR-1](REQUIREMENTS.md)`);

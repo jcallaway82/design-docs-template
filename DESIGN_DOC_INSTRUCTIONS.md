@@ -467,7 +467,7 @@ Audience: project managers and management. The three working documents answer *h
 
 ### 12.2 Outline
 
-`1. At a glance` (count tiles) · `2. What & why` · `3. Scope` · `4. Architecture` (one diagram + component table) · `5. Milestones` (table + optional Gantt/dependency diagram) · `6. Key numbers` (NFR targets) · `7. Top risks` · `8. Open decisions` · `9. Spec health` · `10. Changelog`.
+`1. At a glance` (count tiles) · `2. What & why` · `3. Scope` · `4. Architecture` (one diagram + component table) · `5. Milestones` (table + dependency diagram; Gantt only with calendar dates) · `6. Key numbers` (NFR targets) · `7. Top risks` · `8. Open decisions` · `9. Spec health` · `10. Changelog`.
 
 ### 12.3 Rendering
 

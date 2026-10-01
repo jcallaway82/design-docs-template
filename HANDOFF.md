@@ -148,3 +148,15 @@ Fixes it drove: `html-suite-builder` lacked Bash (could not copy
 open-High gate since it displays that state. Known remaining: sources with
 gaps in section numbering (e.g. §3, §4, §6) make the builder hack `.toc`
 numbering with inline `counter-set` — not yet given a sanctioned class.
+
+**Real-project run (`SampleDocs/`, CLAWE UI):** `overview-author` produced
+`SampleDocs/OVERVIEW.md` (12 milestones, 13 open decisions, 9 risks, 4
+cross-document contradictions found) and `html-suite-builder` rendered
+`SampleDocs/overview-html/overview.html` (0 external requests, diagram
+renders). No `TASKS.md` exists there — the iteration timeline stood in. Found:
+`dateFormat X` Gantt charts do not work in the vendored Mermaid (all bars
+stack), so Gantt is now calendar-dates-only; Gantt label colours fixed in
+`lib/mermaid-init.js`. Open: the page runs ~6 screens (13 decisions, 12
+milestones) — longer than the §12 "two printed pages" target; no stand-in
+rule yet for a missing `TASKS.md`; stale-SPEC_REVIEW handling is by agent
+judgement only.

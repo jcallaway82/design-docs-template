@@ -40,7 +40,7 @@ graph LR
 |---|---|---|---|---|
 | 1 | <name> | <one sentence> | T-1–T-3 | Planned |
 
-<!-- Gantt only if the source gives durations or dates; otherwise a milestone dependency graph and the line "No durations in source." -->
+<!-- Gantt only with calendar dates (dateFormat YYYY-MM-DD, never X); week-only sources: Weeks column + this dependency graph -->
 ```mermaid
 graph LR
     M1 --> M2
