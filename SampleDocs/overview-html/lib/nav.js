@@ -24,7 +24,10 @@
 
   // ═══ EDIT ME — suite navigation ═══
   var links = [
-    { label: 'Overview', href: 'overview.html', match: ['overview.html'] },
+    { label: 'Home', href: 'index.html', match: ['index.html'] },
+    sep,
+    { label: 'Example Page A', href: 'Section A/Page_A.html', match: ['Page_A'] },
+    { label: 'Example Page B', href: 'Section B/Page_B.html', match: ['Page_B'] },
   ];
   // ═══ END EDIT ME ═══
 

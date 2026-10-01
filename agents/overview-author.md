@@ -58,6 +58,9 @@ they want detail.
    - *Milestones* are a table only — no Gantt, dependency graph, or other
      chart. The one diagram in the overview is the Architecture diagram:
      `graph LR`, at most 8 nodes, one level of grouping, short labels.
+   - *Risk order*: a risk that affects any not-yet-Done milestone ranks above
+     one whose milestones are all Done; Critical before High within each
+     group. If the source gives no milestone for a risk, treat it as open.
    - *Dates*: `Updated` is today's date; `Derived from` carries the source
      versions. `Status` stays Draft until the user approves.
    - *Links*: write the ID as text and link the file (`[FR-1](REQUIREMENTS.md)`);

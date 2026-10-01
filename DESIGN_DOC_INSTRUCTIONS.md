@@ -490,7 +490,7 @@ A row that is cut is never silently dropped: the At-a-glance tile keeps the full
 | Components | 8 | the system's own before external |
 | Milestones | 12 rows | **consecutive Done milestones collapse into one row** once there are 3 or more (`1–4 · Scaffolding … · Done`); remaining rows stay one per milestone |
 | Key numbers | 6 | NFRs with a stated target first |
-| Top risks | 6 | Critical before High; then by earliest milestone affected |
+| Top risks | 6 | risks that still affect a not-yet-Done milestone first, Critical before High within each group; risks whose milestones are all Done rank last (they are largely mitigated) |
 | Open decisions | 5 | `Level: Management` first (source Owner/Level fields), then by earliest milestone blocked; phrase each as a question a non-developer can answer; show Owner |
 | Spec contradictions | 4 | cross-document before within-document |
 

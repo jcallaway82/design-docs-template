@@ -169,3 +169,16 @@ hand-built roadmap is 5,672 px with 5 mockups. Rule added: stale SPEC_REVIEW
 -> "Not re-validated", never "Yes". Open: cap diagram height; decide whether
 open decisions should be filtered to management-level ones (needs an owner
 field in the source).
+
+**Round 3 (CLAWE):** architecture diagram forced to `graph LR` <= 8 nodes in a
+`.diagram-container.compact` (max 260 px svg; container ~365 px, was ~700);
+milestone chart removed (table only); Visuals now a `.thumb-row`; open
+questions gain **Owner** + **Level (Management|Technical)** in DESIGN/
+REQUIREMENTS templates, `design-doc-author`, `spec-validator` (missing =
+Low finding), and `overview-author` rule 10 (Management first; falls back to
+earliest-milestone-blocked when the source lacks the fields — CLAWE's
+DESIGN.md §10 does, so its Owner column is inferred from "Resolved by"
+prose). Risk order: risks touching not-yet-Done milestones rank first. Page
+height 6,361 -> 5,436 px (hand-built roadmap: 5,672 with 5 mockups).
+Not done: the CLAWE DESIGN.md itself has no Owner/Level fields (user's
+document; left unedited).

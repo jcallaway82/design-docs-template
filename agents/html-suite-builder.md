@@ -68,7 +68,7 @@ per diagram" and the suite conventions); otherwise one Markdown file → one pag
 - Requirement / decision / task blocks → `.feature-box` (teal for ID schemes,
   blue for general, red for hard constraints).
 - Changelog section → the `.changelog` component, newest first.
-- `OVERVIEW.md` → `overview.html` per §12.3: the At-a-glance table as a `.stat-strip`, status words as `.status` pills per §6.4, every source ID and `§` reference as a link per the §12.3 anchor convention; the single Architecture diagram goes in `.diagram-container compact`; a milestone row the Markdown marks key gets `class="row-key"`; `+N more` overflow lines render as a `.table-footnote` link; Visuals thumbnails are copied into the suite's `img/` and linked to the full image. Do not add prose; if a cell is long, report it rather than rewrite it.
+- `OVERVIEW.md` → `overview.html` per §12.3: the At-a-glance table as a `.stat-strip`, status words as `.status` pills per §6.4, every source ID and `§` reference as a link per the §12.3 anchor convention; the single Architecture diagram goes in `.diagram-container compact`; a milestone row the Markdown marks key gets `class="row-key"`; `+N more` overflow lines render as a `.table-footnote` link; Visuals thumbnails are copied into the suite's `img/` and rendered as `<div class="thumb-row"><figure><a href="img/full.png"><img src="img/thumb.png" alt="…"></a><figcaption>…</figcaption></figure>…</div>` — one row, each linked to the full image. Do not add prose; if a cell is long, report it rather than rewrite it.
 - `index.html` → a `.card-grid` with one `.card` per page (Overview card first, when present); wire `lib/nav.js`
   `links` array to the suite's pages.
 

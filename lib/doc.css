@@ -303,6 +303,12 @@ tbody tr:hover { background: var(--bg-raised); }
   overflow-x: auto;
   position: relative;
 }
+/* thumbnails side by side (overview Visuals) */
+.thumb-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 1rem; margin: 1rem 0; }
+.thumb-row figure { margin: 0; }
+.thumb-row img { width: 100%; height: auto; display: block; border: 1px solid var(--border); border-radius: 6px; }
+.thumb-row figcaption { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.4rem; }
+
 /* compact: keeps one-glance diagrams (overview) from dominating the page */
 .diagram-container.compact { padding: 1rem 1.5rem; }
 .diagram-container.compact svg { max-height: 260px; width: auto; max-width: 100%; display: block; margin: 0 auto; }
