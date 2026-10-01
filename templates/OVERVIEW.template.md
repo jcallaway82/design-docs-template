@@ -51,7 +51,9 @@ graph LR
 
 ## 7. Top risks
 
-| Risk (TASKS §5 risks + High/Critical failure modes) | Severity | Mitigation (one line) | Ref |
+<!-- Source: TASKS §5 risks + High/Critical failure modes. Keep this out of the column header. -->
+
+| Risk | Severity | Mitigation (one line) | Ref |
 |---|---|---|---|
 | <headline> | High | <headline> | DESIGN §9 |
 

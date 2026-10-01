@@ -94,7 +94,7 @@ graph LR
 
 ## 7. Top risks
 
-| Risk (TASKS §5 risks + High/Critical failure modes) | Severity | Mitigation (one line) | Ref |
+| Risk | Severity | Mitigation (one line) | Ref |
 |---|---|---|---|
 | Execution View cannot open the database | High | Report failure to HOCA; no partial run starts. | [DESIGN §9 FM-13](DESIGN.md) |
 | HOCA connection lost mid-run | High | Hold last state, show banner, stay open. | [DESIGN §9 FM-10](DESIGN.md) |

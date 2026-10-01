@@ -216,7 +216,7 @@ Severity/recovery aliases keep markup semantic: `severity sev-critical|sev-high|
 
 **Status pills** (rounded, for lifecycle): `status s-draft|s-review|s-complete|s-planned|s-deprecated`, placed after the thing they describe.
 
-**Legend strip** — required above any table using severity/recovery badges:
+**Legend strip** — required above any table using severity/recovery badges, except in `overview.html` (§12.3), where badges already carry their word and the table stands alone:
 
 ```html
 <div class="legend">
@@ -401,7 +401,7 @@ Before delivering, verify every item:
 - [ ] `doc-meta` present (Version / Status / Date); changelog section exists and matches the version.
 - [ ] TOC numbering matches `h2` numbering.
 - [ ] All colors via tokens; badge colors match the fixed semantic mapping (§4).
-- [ ] Tables: header widths set, badge tables have a legend, counted tables have a totals footnote.
+- [ ] Tables: header widths set, badge tables have a legend (not required on `overview.html`), counted tables have a totals footnote.
 - [ ] Wide content (tables, diagrams) scrolls inside its container — no horizontal scroll on the page body.
 - [ ] Hover states work: cards, table rows, nav links, diagram zoom affordance.
 - [ ] index.html links every child page; every child page's nav highlights the active entry.
@@ -475,6 +475,8 @@ Audience: project managers and management. The three working documents answer *h
 ### 12.3 Rendering
 
 `html-suite-builder` renders it to `overview.html` using the same tokens and components: section 1 as a stat strip (§6.4), tables per §6.3 with status pills per §6.4, diagrams per §7. The hub `index.html` leads with an "Overview" card.
+
+**No legend.** Severity and status badges already print their word (`High`, `Done`), so the overview omits the §6.4 legend strip: just the table.
 
 **ID anchors (all pages).** Every ID gets a lowercase `id` on its heading or row: `fr-1`, `nfr-2`, `dd-3`, `t-4`, `f-6`, `q-1`, `sr-1`; milestones `m2`; components by slug (`#parser`). Every ID or `§` reference in an overview table, including Ref columns, is a link to `<page>.html#<id>` — none left as plain text. A bare section reference inherits the document it appears under.
 
