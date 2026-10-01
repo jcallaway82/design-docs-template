@@ -1,0 +1,36 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="common.css"></head><body>
+<div class="win">
+  <div class="ribbon">MOCKUP · ITERATION 10 · NOT BUILT YET</div>
+  <div class="title"><div class="logo"></div><b>CLAWE Controller</b><span style="color:var(--t3)">— Radar editor</span><span class="ctl">— ▢ ✕</span></div>
+  <div class="band" style="padding:10px 20px"><b style="font-size:15px">AN/APQ-Demo</b><span style="color:var(--t3)">›</span><span class="pill">TTR Track</span><span style="color:var(--t3)">›</span><span class="pill sel">Waveform browser</span><span class="hint" style="margin-left:12px">Also available in the Execution view's Control tab, to pick a waveform to play.</span></div>
+  <div class="body" style="padding:12px;gap:12px">
+    <div class="card" style="width:340px;display:flex;flex-direction:column;gap:12px"><div class="hdr" style="display:flex">Filters<span style="margin-left:auto;text-transform:none;letter-spacing:0;color:var(--info)">Clear all</span></div>
+      <div class="field" style="color:var(--t3)">Search by name</div>
+      <div><div class="lbl">Base waveform</div><span class="pill sel">Pulsed</span> <span class="pill">Single pulse</span></div>
+      <div><div class="lbl">Modulation</div><span class="pill sel">PRI</span> <span class="pill">Phase</span> <span class="pill sel">Frequency</span> <span class="pill">PW</span> <span class="pill">Leading edge</span> <span class="pill">Trailing edge</span></div>
+      <div><div class="lbl">Center frequency <span class="u">(GHz)</span></div><div style="display:flex;gap:8px"><div class="field" style="flex:1">9.0</div><div class="field" style="flex:1">9.5</div></div></div>
+      <div><div class="lbl">PRI <span class="u">(µs)</span></div><div style="display:flex;gap:8px"><div class="field" style="flex:1">50</div><div class="field" style="flex:1">150</div></div></div>
+      <div><div class="lbl">PW <span class="u">(µs)</span></div><div style="display:flex;gap:8px"><div class="field" style="flex:1">0.5</div><div class="field" style="flex:1">10</div></div></div>
+      <div><div class="lbl">CPI duration <span class="u">(ms)</span></div><div style="display:flex;gap:8px"><div class="field" style="flex:1">5</div><div class="field" style="flex:1">20</div></div></div>
+      <div><div class="lbl">Processing gain <span class="u">(dB)</span></div><div style="display:flex;gap:8px"><div class="field" style="flex:1">25</div><div class="field" style="flex:1">33</div></div></div></div>
+    <div class="card" style="flex:1;display:flex;flex-direction:column;min-width:0"><div class="hdr" style="display:flex"><span>Results</span><span style="margin-left:auto;text-transform:none;letter-spacing:0;font-weight:400;color:var(--t2)">1,284 of 3,214 waveforms</span></div>
+      <table><tr><th>Name</th><th>Base</th><th class="num">CF <span class="u">(GHz)</span></th><th class="num">PRI <span class="u">(µs)</span></th><th class="num">PW <span class="u">(µs)</span></th><th class="num">CPI <span class="u">(ms)</span></th><th class="num">PG <span class="u">(dB)</span></th><th>Modulation</th></tr>
+        <tr class="sel"><td>Wf-0412 spread/agile</td><td>PD</td><td class="num">9.25</td><td class="num">80</td><td class="num">2.0</td><td class="num">8.2</td><td class="num">27.9</td><td>PRI · Freq</td></tr>
+        <tr><td>Wf-0413 spread/agile</td><td>PD</td><td class="num">9.25</td><td class="num">82</td><td class="num">2.0</td><td class="num">8.4</td><td class="num">27.9</td><td>PRI · Freq</td></tr>
+        <tr><td>Wf-0414 spread/agile</td><td>PD</td><td class="num">9.30</td><td class="num">90</td><td class="num">2.5</td><td class="num">9.2</td><td class="num">27.1</td><td>PRI · Freq</td></tr>
+        <tr><td>Wf-0420 barker/agile</td><td>PD</td><td class="num">9.10</td><td class="num">100</td><td class="num">8.0</td><td class="num">10.2</td><td class="num">29.0</td><td>PRI · Freq</td></tr>
+        <tr><td>Wf-0431 drop 25%</td><td>PD</td><td class="num">9.40</td><td class="num">60</td><td class="num">1.0</td><td class="num">6.1</td><td class="num">28.3</td><td>PRI · Freq</td></tr>
+        <tr><td>Wf-0432 drop 50%</td><td>PD</td><td class="num">9.40</td><td class="num">60</td><td class="num">1.0</td><td class="num">6.1</td><td class="num">25.9</td><td>PRI · Freq</td></tr>
+        <tr><td>Wf-0455 wide spread</td><td>PD</td><td class="num">9.20</td><td class="num">120</td><td class="num">5.0</td><td class="num">12.3</td><td class="num">29.4</td><td>PRI · Freq</td></tr>
+        <tr><td>Wf-0471 spread/agile</td><td>PD</td><td class="num">9.35</td><td class="num">75</td><td class="num">1.5</td><td class="num">7.7</td><td class="num">27.8</td><td>PRI · Freq</td></tr>
+        <tr><td>Wf-0472 spread/agile</td><td>PD</td><td class="num">9.35</td><td class="num">78</td><td class="num">1.5</td><td class="num">8.0</td><td class="num">27.8</td><td>PRI · Freq</td></tr>
+        <tr><td>Wf-0480 spread/agile</td><td>PD</td><td class="num">9.45</td><td class="num">110</td><td class="num">3.0</td><td class="num">11.3</td><td class="num">28.6</td><td>PRI · Freq</td></tr>
+        <tr><td>Wf-0501 spread/agile</td><td>PD</td><td class="num">9.05</td><td class="num">85</td><td class="num">2.0</td><td class="num">8.7</td><td class="num">27.9</td><td>PRI · Freq</td></tr>
+        <tr><td>Wf-0502 spread/agile</td><td>PD</td><td class="num">9.05</td><td class="num">88</td><td class="num">2.0</td><td class="num">9.0</td><td class="num">27.9</td><td>PRI · Freq</td></tr>
+        <tr><td>Wf-0510 spread/agile</td><td>PD</td><td class="num">9.15</td><td class="num">95</td><td class="num">2.0</td><td class="num">9.7</td><td class="num">27.9</td><td>PRI · Freq</td></tr>
+        <tr><td>Wf-0523 spread/agile</td><td>PD</td><td class="num">9.25</td><td class="num">70</td><td class="num">1.2</td><td class="num">7.2</td><td class="num">27.9</td><td>PRI · Freq</td></tr>
+        <tr><td>Wf-0530 spread/agile</td><td>PD</td><td class="num">9.30</td><td class="num">65</td><td class="num">1.0</td><td class="num">6.7</td><td class="num">27.9</td><td>PRI · Freq</td></tr></table>
+      <div class="hint" style="margin-top:auto;padding-top:8px">Scrolls through thousands of rows without slowing down; filters run on stored summary values, not by opening each waveform.</div></div>
+  </div>
+  <div class="caption"><b>Iteration 10 — Waveform browser + filters.</b> Find a waveform among thousands by name, parameter ranges, calculated metrics and modulation type.<span class="sim">Illustrative</span></div>
+</div></body></html>

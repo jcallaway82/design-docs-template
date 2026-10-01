@@ -1,0 +1,43 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="common.css"><script src="common.js"></script></head><body>
+<div class="win">
+  <div class="ribbon">MOCKUP · ITERATION 7 · NOT BUILT YET</div>
+  <div class="title"><div class="logo"></div><b>CLAWE Controller</b><span style="color:var(--t3)">— Execution</span><span class="ctl">— ▢ ✕</span></div>
+  <div class="band" style="padding:8px 20px">
+    <div style="font-size:15px;font-weight:600">AN/APQ-Demo <span style="color:var(--t3)">›</span> TTR Track</div>
+    <span class="pill">🔒 Locked</span><span class="pill warn">● Simulated radar</span>
+    <span class="pill sel">Playing: Track-2 PRI agile</span>
+    <div style="margin-left:auto;display:flex;gap:10px;align-items:center"><span class="btn">＋ Add window ▾</span><span class="pill ok">● RUNNING</span><span class="mono" style="font-size:15px">00:02:41</span><span class="btn stop">■ Stop</span></div>
+  </div>
+  <div class="body" style="padding:12px;gap:12px">
+    <div style="width:300px;display:flex;flex-direction:column;gap:12px">
+      <div class="card"><div class="hdr">Operating mode</div><div class="seg"><span class="on">Operator</span><span class="off">Cognitive</span></div></div>
+      <div class="card" style="flex:1"><div class="hdr">Waveform</div>
+        <table><tr class="sel"><td>▶ Track-2 PRI agile</td></tr><tr><td>Track-1 fixed</td></tr><tr><td>Track-3 spread spectrum</td></tr><tr><td>Track-4 barker</td></tr><tr><td>Burst-1</td></tr></table>
+        <div style="margin-top:12px" class="btn go">▶ Play selected</div></div>
+    </div>
+    <!-- window area -->
+    <div style="flex:1;display:grid;grid-template-columns:1.55fr 1fr;grid-template-rows:1.25fr 1fr;gap:12px;min-width:0">
+      <div class="gw" style="grid-row:1/3"><div class="gt">▦ 2D RDI scope <span class="hint">compressed · Doppler vs range</span><span class="x">⚙ — ✕</span></div>
+        <div class="gc" style="padding:0 0 0 0;display:flex;flex-direction:column">
+          <div style="flex:1;position:relative;margin:10px 70px 28px 52px"><canvas id="rdi"></canvas>
+            <div style="position:absolute;left:-46px;top:0;bottom:0;display:flex;flex-direction:column;justify-content:space-between;color:var(--t3);font-size:11px;text-align:right;width:40px"><span>+500</span><span>+250</span><span>0</span><span>−250</span><span>−500</span></div>
+            <div style="position:absolute;left:0;right:0;bottom:-20px;display:flex;justify-content:space-between;color:var(--t3);font-size:11px"><span>0</span><span>30</span><span>60</span><span>90</span><span>120</span><span>150 km</span></div>
+            <div style="position:absolute;right:-60px;top:0;bottom:0;width:14px;background:linear-gradient(#fde725,#5ec962,#21918c,#3b528b,#440154);border-radius:2px"></div>
+            <div style="position:absolute;right:-62px;top:-3px;color:var(--t3);font-size:10px;transform:translateX(34px);width:30px">0 dB</div>
+            <div style="position:absolute;right:-62px;bottom:-3px;color:var(--t3);font-size:10px;transform:translateX(34px);width:30px">−40</div></div>
+          <div style="padding:0 12px 8px;color:var(--t2);font-size:12px;display:flex;gap:16px"><span>Velocity (m/s) ↑</span><span style="margin-left:auto">Integration ×16 · PG 27.9 dB</span></div></div></div>
+      <div class="gw"><div class="gt">☰ Target table <span class="hint">5 active</span><span class="x">⚙ — ✕</span></div><div class="gc" style="padding:0"><table>
+          <tr><th>ID</th><th class="num">Range</th><th class="num">Vel</th><th class="num">SNR</th></tr>
+          <tr><td>T-01</td><td class="num">42.8 km</td><td class="num">+212</td><td class="num">22.1</td></tr>
+          <tr><td>T-02</td><td class="num">51.3 km</td><td class="num">−88</td><td class="num">17.4</td></tr>
+          <tr><td>T-03</td><td class="num">67.0 km</td><td class="num">+305</td><td class="num">9.8</td></tr>
+          <tr><td>T-04</td><td class="num">88.2 km</td><td class="num">+14</td><td class="num">12.6</td></tr>
+          <tr><td>T-05</td><td class="num">121.9 km</td><td class="num">−402</td><td class="num">6.1</td></tr></table></div></div>
+      <div class="gw"><div class="gt">◈ 3D RDI scope <span class="hint">placeholder</span><span class="x">⚙ — ✕</span></div><div class="gc"><div class="dash" style="height:100%">3D scope arrives in a later iteration</div></div></div>
+    </div>
+  </div>
+  <div class="caption"><b>Iteration 7 — Graph windows + 2D RDI scope.</b> Windows can be added, resized, dragged and removed. <b>This is the first point the radar can be demonstrated running.</b><span class="sim">All data shown is simulated</span></div>
+</div>
+<script>rdi(document.getElementById('rdi'),[
+ {x:.28,y:.30,a:.85,mark:'T-01'},{x:.34,y:.58,a:.62,mark:'T-02'},{x:.45,y:.22,a:.30,s:3,mark:'T-03'},{x:.59,y:.50,a:.45,mark:'T-04'},{x:.81,y:.75,a:.26,s:2.6,mark:'T-05'}],{seed:11,nx:200,ny:120})</script>
+</body></html>

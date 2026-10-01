@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CLAWE UI — Interface B Design (STS UI ↔ CLAWE UI)</title>
+<link rel="stylesheet" href="lib/doc.css">
+</head>
+<body class="wide">
+
+<div id="page-nav"></div>
+<script src="lib/nav.js"></script>
+
+<h1>Interface B — STS UI ↔ CLAWE UI</h1>
+<p class="subtitle">The network contract STS uses to discover CLAWE radars and to remote-launch CLAWE UI's maintenance mode</p>
+<div class="doc-meta">
+  <span><strong>Version:</strong> 0.3</span>
+  <span><strong>Status:</strong> Draft</span>
+  <span><strong>Date:</strong> September 2026</span>
+</div>
+
+<div class="note">
+  <strong>How to read this document:</strong> §2–§3 fix the transport and the process model; §4–§5 are
+  the message reference an implementer works from; §6 shows the flows end to end; §7 is the failure
+  matrix. This is a <strong>draft</strong> — the source is <code>STS SW Interface Descriptions.pptx</code>
+  slides 3–8 plus the 2026-09-08 interface meeting. CLAWE's side is <strong>implemented as of
+  v0.4.0</strong> (iteration 4): <code>CLAWE.Proxy</code> over <code>CLAWE.Messaging</code>; STS's side is
+  not yet built. Design-level open questions live in the canonical
+  register (<a href="CLAWE_Design.html#open">Design §10</a>, <code>OQ-*</code>); §9 maps the ones that
+  touch interface B to the message or field they affect.
+</div>
+
+<div class="toc">
+  <h4>Contents</h4>
+  <ol>
+    <li><a href="#overview">Overview</a></li>
+    <li><a href="#transport">Transport &amp; Topology</a></li>
+    <li><a href="#process">Process &amp; Instance Model</a></li>
+    <li><a href="#messages">Message Catalog</a></li>
+    <li><a href="#summary">ClaweRadarSummary Reference</a></li>
+    <li><a href="#sequences">Sequence Diagrams</a></li>
+    <li><a href="#failures">Failure Matrix</a></li>
+    <li><a href="#ac">Interfaces A &amp; C</a></li>
+    <li><a href="#open">Open Items</a></li>
+    <li><a href="#changelog">Changelog</a></li>
+  </ol>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="overview">1. Overview</h2>
+
+<p>
+  Interface B connects <strong>STS UI</strong> to <strong>CLAWE UI</strong> so that a user building a
+  static scenario in STS can add a live, closed-loop CLAWE radar to it. In STS Settings the user
+  registers an interactive-emitter source (a name + the CLAWE endpoint); in a static scenario the user
+  clicks "Add Emitter", picks that source, and STS fetches CLAWE's live list of radars and modes to
+  populate the picker. STS can also remote-launch CLAWE UI's maintenance mode so the user can edit a
+  radar without leaving the workflow.
+</p>
+<p>
+  The <strong>cast</strong>:
+</p>
+<ul>
+  <li><strong>STS UI</strong> — the existing PRISM/STS application. The client on this interface.</li>
+  <li><strong>CLAWE Proxy</strong> — an always-on CLAWE-side process that owns the interface-B (and
+    interface-C) network connection and launches views on request. STS connects here, never to a view
+    directly.</li>
+  <li><strong>Maintenance View</strong> — a single-purpose CLAWE UI window for authoring radars, modes,
+    and waveforms. <strong>Singleton</strong>: one instance at a time, and the <strong>only</strong>
+    writer to <code>CLAWE DB</code>.</li>
+  <li><strong>Execution View</strong> — a single-purpose CLAWE UI window locked to one assigned radar
+    mode, launched by HOCA over interface C to run a scenario. <code>0..n</code> may run at once. Not
+    launched over interface B, but listed here for context.</li>
+  <li><strong>CLAWE DB</strong> — CLAWE UI's own SQLite database. One per CLAWE host.</li>
+  <li><strong>RabbitMQ broker</strong> — the message broker all three TCP interfaces (A, B, C) run
+    over.</li>
+</ul>
+
+<div class="cross-note">
+  <strong>Why a proxy, not the view:</strong> STS/CLAWE/HOCA may run on different machines, and CLAWE's
+  views are single-purpose and short-lived (a maintenance view is only up while someone is editing; an
+  execution view only while a scenario runs). A persistent proxy gives STS and HOCA a stable endpoint
+  regardless of which views happen to be open, and is the natural place to enforce "one maintenance view
+  at a time" and to answer <code>RequestRadars()</code> from a read-only DB connection without a view
+  running at all.
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="transport">2. Transport &amp; Topology</h2>
+
+<div class="feature-box blue">
+  <h3>Transport stack</h3>
+  <table>
+    <thead><tr><th style="width:22%">Layer</th><th>Choice</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Network</strong></td><td>TCP. STS UI, CLAWE, and HOCA may be co-located or on separate machines — nothing may assume same-host access to another component's database or filesystem.</td></tr>
+      <tr><td><strong>Messaging</strong></td><td><strong>RabbitMQ</strong> (AMQP 0-9-1). Same broker family as interfaces A and C, so STS carries one messaging stack for all of them. CLAWE references the official <code>RabbitMQ.Client</code>.</td></tr>
+      <tr><td><strong>Serialization</strong></td><td>Protobuf. Messages defined in <code>proto/clawe/v1/clawe_interface_b.proto</code>, compiled in <code>CLAWE.Proto</code>; <code>CLAWE.Contracts</code> holds the summary builder and the names/versions below, and <code>CLAWE.Messaging</code> the RabbitMQ transport.</td></tr>
+      <tr><td><strong>Message classes</strong></td><td>request-response (RPC), command (fire-and-ack), pub-sub (fanout events).</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="warn">
+  <strong>Divergence from the reference implementation:</strong> STS's existing STS↔HOCA channel
+  (<code>PRISM.Host/Services/HocaLiteService.cs</code>) is TCP/JSON + NetMQ (ZeroMQ) + Protobuf, not
+  RabbitMQ. The interface deck specifies RabbitMQ for all three interfaces, and the project follows
+  the deck (<a href="CLAWE_Design.html#open">OQ-2</a>, resolved in iteration 4), so STS's side of
+  interface B needs a RabbitMQ client too. The message types and <code>CLAWE.Contracts</code> stay
+  transport-neutral; only <code>CLAWE.Messaging</code> references a broker client.
+</div>
+
+<h3>2.1 Broker objects</h3>
+
+<table class="fixed">
+  <thead><tr><th style="width:26%">Object</th><th style="width:14%">Type</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td><code>clawe.ifaceB.rpc.&lt;source&gt;</code></td><td>queue</td><td>STS → CLAWE Proxy. Carries <code>RequestRadars</code> (request-response, via <code>reply_to</code> + <code>correlation_id</code>) and <code>LaunchMaintenanceUiCommand</code> (command, ack only). One per CLAWE endpoint, namespaced by the source name STS registered (the proxy's <code>SourceName</code> setting), so several CLAWE hosts can share one broker (<a href="CLAWE_Design.html#open">OQ-11</a> — the STS side must agree the naming). The queue is durable (RabbitMQ 4 refuses non-durable, non-exclusive queues), and requests expire after 30 s, so a command queued while the proxy was down can't open an editor much later.</td></tr>
+    <tr><td><code>clawe.ifaceB.events</code></td><td>fanout exchange</td><td>CLAWE → STS. Carries <code>RadarModifiedEvent</code>. STS binds a transient queue on connect; any number of STS instances may subscribe.</td></tr>
+  </tbody>
+</table>
+
+<p>
+  Every message travels inside an <code>InterfaceBEnvelope</code> (a protobuf <code>oneof</code>) so the
+  receiver dispatches on payload type and metadata (timestamp, protocol version) rides alongside — the
+  same pattern STS uses for its own <code>CoreEnvelope</code> / <code>ScriptEnvelope</code>.
+</p>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="process">3. Process &amp; Instance Model</h2>
+
+<div class="diagram-container">
+  <pre class="mermaid">
+graph TB
+    subgraph host["CLAWE host"]
+      direction TB
+      PROXY["CLAWE Proxy<br/>(always on, from user logon)"]
+      MV["Maintenance View<br/>(0..1, sole DB writer)"]
+      EV1["Execution View #1"]
+      EV2["Execution View #n"]
+      DB[("CLAWE DB")]
+      BAT["Launch-Maintenance.bat /<br/>double-click"]
+    end
+    STS["STS UI"] -- "B: RPC + events" --> PROXY
+    HOCA["HOCA"] -- "C: LaunchExecutionUI ..." --> PROXY
+    PROXY -- "spawn / focus (clawe-maintenance pipe)" --> MV
+    MV -- "register + radar changes (clawe-proxy pipe)" --> PROXY
+    PROXY -- "spawn (0..n)" --> EV1
+    PROXY -- "spawn (0..n)" --> EV2
+    BAT -. "or spawn directly" .-> MV
+    PROXY -- "read-only" --> DB
+    MV -- "read / write" --> DB
+    EV1 -- "read-only" --> DB
+  </pre>
+</div>
+<p class="diagram-caption">Fig. 1 — CLAWE-side process model on one host.</p>
+
+<table class="fixed">
+  <thead><tr><th style="width:20%">Rule</th><th>Detail</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Proxy lifetime</td>
+      <td>The proxy starts at user logon and stays up — a headless process in the user's session, not a Windows Service, so it can open views on the user's desktop (Design DD-21). It owns the RabbitMQ connection for interfaces B and C, and holds a <strong>read-only</strong> connection to <code>CLAWE DB</code> for answering <code>RequestRadars()</code>. It is the only broker client on the host: views talk to it over local named pipes (Design DD-20).</td>
+    </tr>
+    <tr>
+      <td>Maintenance = singleton</td>
+      <td>Exactly one maintenance view per host at a time. Enforced by a system-wide named mutex (<code>Global\CLAWE_UI_Maintenance</code>) that the view takes on startup, before touching the database. A second launch asks the running view to come forward (over the <code>clawe-maintenance</code> pipe) and exits. The proxy doesn't probe the mutex: it knows a view is running from its registration, and asks it to come forward the same way.</td>
+    </tr>
+    <tr>
+      <td>Maintenance = sole writer</td>
+      <td>Only the maintenance view writes <code>CLAWE DB</code>. The proxy and execution views open it read-only (<code>Mode=ReadOnly</code>). A DB write-owner row backs the mutex for defence in depth: the view claims it at startup and every commit checks it first, on top of SQLite WAL + <code>busy_timeout</code>.</td>
+    </tr>
+    <tr>
+      <td>Execution = 0..n</td>
+      <td>Any number of execution views may run at once; each is locked to one assigned radar mode and does not write the DB. Launched over interface C, not B.</td>
+    </tr>
+    <tr>
+      <td>Two launch paths</td>
+      <td>A view can be started by the proxy (in response to a network message) <em>or</em> directly by a batch file / double-click. Both honour the singleton mutex. Every view registers with the proxy (over the <code>clawe-proxy</code> pipe), however it was launched, so subsequent <code>LaunchMaintenanceUI()</code> calls focus it. The maintenance view works with no proxy running; it keeps trying to register in the background.</td>
+    </tr>
+    <tr>
+      <td>Multi-host</td>
+      <td>Each CLAWE host runs its own proxy and its own <code>CLAWE DB</code>. The singleton rule is per host — cross-host coordination is not attempted (different hosts have different databases). Host identity / discovery is an open item (<a href="CLAWE_Design.html#open">OQ-11</a>).</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="warn">
+  <strong>Behaviour on a second <code>LaunchMaintenanceUI()</code> — proposed, pending the lead
+  (<a href="CLAWE_Design.html#open">OQ-10</a>):</strong> the proxy <em>focuses</em> the running view,
+  opening the requested radar, and returns <code>FOCUSED</code> — what FR-44 already says, and what
+  iteration 4 built. The cross-host case can't arise: each host has its own proxy and its own database.
+  <code>REJECTED</code> means the view couldn't be started or didn't respond (B302). One Windows limit:
+  a background process can't take the foreground, so a focus STS asks for may only flash the view's
+  taskbar button.
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="messages">4. Message Catalog</h2>
+
+<h3>4.1 <code>RequestRadars</code> — request-response</h3>
+
+<p>STS → CLAWE Proxy. Asks for the current radar list to populate the Add-Emitter picker.</p>
+
+<table>
+  <thead><tr><th style="width:24%">Field</th><th style="width:16%">Type</th><th style="width:10%">Card.</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td colspan="4"><em><code>RequestRadars</code> — no fields. The request itself is the signal.</em></td></tr>
+  </tbody>
+</table>
+
+<p><strong>Response</strong> — <code>RequestRadarsResponse</code>:</p>
+
+<table>
+  <thead><tr><th style="width:24%">Field</th><th style="width:16%">Type</th><th style="width:10%">Card.</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><code>radars</code></td><td><code>ClaweRadarSummary</code></td><td>0..N</td><td>Every radar in <code>CLAWE DB</code>, each with its modes rolled up. See §5.</td></tr>
+    <tr><td><code>source_name</code></td><td>string</td><td>1</td><td>Echoes the interactive-emitter source name STS registered for this CLAWE endpoint, so STS can attribute the list.</td></tr>
+    <tr><td><code>schema_version</code></td><td>string</td><td>1</td><td>The <code>ClaweRadarSummary</code> contract version (e.g. <code>clawe-ifaceB-1</code>), so STS can detect a mismatch.</td></tr>
+    <tr><td><code>error</code></td><td>string</td><td>0..1</td><td>Set when CLAWE couldn't read its database (FM-5, B202): <code>radars</code> is then empty and this says why, so STS shows the source as <em>errored</em> rather than offline. Added in v0.3 of this document (iteration 4).</td></tr>
+  </tbody>
+</table>
+
+<div class="cross-note">
+  <strong>Why no waveform detail:</strong> STS only needs enough to let the user pick a radar mode and
+  then enter a valid center frequency (checked against the mode's CF constraints). PRI and PW are
+  <strong>not</strong> settable from STS, so waveform-instance detail — hundreds to thousands of
+  entries per mode — is deliberately excluded. The response is a rollup, not a dump of
+  <code>ClaweRadarInstance</code>.
+</div>
+
+<h3>4.2 <code>LaunchMaintenanceUiCommand</code> — command</h3>
+
+<p>STS → CLAWE Proxy. Fire-and-ack; STS gets a result but no view handle.</p>
+
+<table>
+  <thead><tr><th style="width:24%">Field</th><th style="width:16%">Type</th><th style="width:10%">Card.</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><code>radar_name</code></td><td>string</td><td>0..1</td><td>Optional. If set, the maintenance view opens with this radar selected.</td></tr>
+  </tbody>
+</table>
+
+<p><strong>Ack</strong> — <code>LaunchMaintenanceUiResult</code>:</p>
+
+<table>
+  <thead><tr><th style="width:24%">Field</th><th style="width:16%">Type</th><th style="width:10%">Card.</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><code>outcome</code></td><td>enum</td><td>1</td><td><code>LAUNCHED</code> (a new maintenance view was started and registered), <code>FOCUSED</code> (one was already running and was asked to come forward), or <code>REJECTED</code> (a view couldn't be started, didn't register in time, or didn't respond — B302; see <a href="CLAWE_Design.html#open">OQ-10</a>).</td></tr>
+    <tr><td><code>message</code></td><td>string</td><td>0..1</td><td>Human-readable detail: why, on <code>REJECTED</code>; or e.g. "No radar named 'X'." on <code>FOCUSED</code> when the requested radar doesn't exist.</td></tr>
+  </tbody>
+</table>
+
+<h3>4.3 <code>RadarModifiedEvent</code> — pub-sub</h3>
+
+<p>
+  CLAWE → STS, via the <code>clawe.ifaceB.events</code> fanout exchange. Published whenever a radar,
+  mode, or waveform write commits, so STS can call <code>RequestRadars()</code> once and then refresh
+  only on change instead of polling.
+</p>
+
+<table>
+  <thead><tr><th style="width:24%">Field</th><th style="width:16%">Type</th><th style="width:10%">Card.</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td><code>radar_name</code></td><td>string</td><td>1</td><td>The affected radar. On rename, this is the <em>new</em> name; <code>previous_name</code> carries the old one.</td></tr>
+    <tr><td><code>previous_name</code></td><td>string</td><td>0..1</td><td>Set only when <code>change_kind = RENAMED</code>.</td></tr>
+    <tr><td><code>change_kind</code></td><td>enum</td><td>1</td><td><code>CREATED</code>, <code>UPDATED</code>, <code>RENAMED</code>, <code>DELETED</code>. <code>UPDATED</code> covers any change to the radar's modes or waveforms too — the event is radar-grained, not field-grained.</td></tr>
+    <tr><td><code>timestamp</code></td><td>Timestamp</td><td>1</td><td>Commit time (UTC).</td></tr>
+    <tr><td><code>source_name</code></td><td>string</td><td>1</td><td>As in the <code>RequestRadars</code> response.</td></tr>
+  </tbody>
+</table>
+
+<div class="warn">
+  <strong>Coalescing:</strong> a burst of edits (e.g. saving a radar with many modes) should not
+  produce a storm of events. The publisher should debounce per radar — one <code>UPDATED</code> after
+  the last write in a short window — with <code>CREATED</code>/<code>DELETED</code>/<code>RENAMED</code>
+  still sent promptly.
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="summary">5. <code>ClaweRadarSummary</code> Reference</h2>
+
+<p>
+  A flattened, rolled-up projection of a radar and its modes — <strong>derived</strong> from the
+  canonical <code>ClaweRadarInstance</code> (see the
+  <a href="CLAWE_Data_Schema.html#fields">Data Schema §4.5</a>), never stored. Until the calc-rollup
+  layer exists, the proxy builds it by walking each radar's protobuf blob; afterwards it is assembled
+  from cached rollup rows without deserializing a blob.
+</p>
+
+<div class="note">
+  <strong>Iteration 4 is envelope-only.</strong> The frequency, PRI and PW bounds below come from the
+  mode's constraint envelope. A <code>ClaweWaveformInstance</code> stores its own fixed centre frequency,
+  PRI and PW (FR-64), but each must lie inside that envelope, so they cannot widen it. Reporting the
+  span of the waveforms actually authored instead would come with iteration 10's rollups (to confirm
+  with the lead). The waveform-derived
+  fields available today — <code>waveform_types</code> and <code>modulation_types</code> — are
+  already included. Built by <code>CLAWE.Contracts</code>' <code>RadarSummaryBuilder</code>; a
+  1,000-radar catalogue takes about 37 ms (<a href="CLAWE_Design.html#open">OQ-12</a>).
+</div>
+
+<h3>5.1 Radar level</h3>
+
+<table>
+  <thead><tr><th style="width:22%">Field</th><th style="width:18%">Type</th><th style="width:10%">Card.</th><th>Derived from</th></tr></thead>
+  <tbody>
+    <tr><td><code>name</code></td><td>string</td><td>1</td><td><code>ClaweRadarInstance.name</code>. Unique within the database.</td></tr>
+    <tr><td><code>description</code></td><td>string</td><td>0..1</td><td><code>ClaweRadarInstance.description</code>.</td></tr>
+    <tr><td><code>alternate_names</code></td><td><code>AlternateName{type, value}</code></td><td>0..2</td><td>The radar's NATO name and/or ELNOT. "UI should mirror STS UI for these fields."</td></tr>
+    <tr><td><code>modes</code></td><td><code>ClaweRadarModeSummary</code></td><td>1..N</td><td>One per mode. §5.2.</td></tr>
+  </tbody>
+</table>
+
+<div class="note">
+  <strong>Cardinality note:</strong> the interface deck writes <code>AlternateName</code> as "0 to
+  many," but also says the UI mirrors STS, which allows exactly one NATO name and one ELNOT. CLAWE's
+  own schema (v2.1) narrows this to <code>0..1 per kind</code>, which the lead confirmed on
+  2026-09-09. This document follows the schema.
+</div>
+
+<h3>5.2 Mode level — <code>ClaweRadarModeSummary</code></h3>
+
+<table>
+  <thead><tr><th style="width:20%">Field</th><th style="width:20%">Type</th><th style="width:9%">Card.</th><th>Derived from</th></tr></thead>
+  <tbody>
+    <tr><td><code>name</code></td><td>string</td><td>1</td><td><code>ClaweRadarModeInstance.name</code>. Unique within the radar.</td></tr>
+    <tr><td><code>description</code></td><td>string</td><td>0..1</td><td><code>ClaweRadarModeInstance.description</code>.</td></tr>
+    <tr><td><code>radar_mode_type</code></td><td>enum {Search, TAR, TTR, Missile}</td><td>1</td><td><code>ClaweRadarModeInstance.radar_mode_type</code>. TTR only for v1.</td></tr>
+    <tr><td><code>operating_mode</code></td><td>enum {Manual, Auto, Cognitive}</td><td>1</td><td>Which <code>operating_mode</code> oneof branch is set.</td></tr>
+    <tr><td><code>waveform_types</code></td><td><code>InterfaceBWaveformType</code> {Pulsed, SinglePulse, CW}</td><td>1..N</td><td>Distinct set of the mode's authored waveform base types, unioned with the base types the mode's constraint envelope allows (<code>pd_constraints</code> present → Pulsed; <code>sp_constraints</code> present → SinglePulse). CW: not produced yet (<a href="CLAWE_Design.html#open">OQ-7</a>).</td></tr>
+    <tr><td><code>min_freq_hz</code> / <code>max_freq_hz</code></td><td>double</td><td>1</td><td>From the mode CF envelope — range → endpoints; discretes → min/max of the list — widened by any per-waveform center-frequency rollup that falls outside it.</td></tr>
+    <tr><td><code>min_pri_s</code> / <code>max_pri_s</code></td><td>double</td><td>0..1</td><td>Min/max over the mode's PD waveform PRI rollups, unioned with <code>pd_constraints.pri</code> range. Absent when the mode allows no PD waveforms.</td></tr>
+    <tr><td><code>min_pw_s</code> / <code>max_pw_s</code></td><td>double</td><td>1</td><td>Min/max over the mode's waveform PW rollups, unioned with the PD/SP <code>pw</code> constraint ranges. A PD duty-cycle constraint contributes duty % × the PRI bounds.</td></tr>
+    <tr><td><code>modulation_types</code></td><td><code>InterfaceBModulationType</code> {Phase, Frequency, PRI, PW, LeadingEdge, TrailingEdge}</td><td>0..N</td><td>Union of the modifier categories enabled across the mode's waveforms. <strong>A 6-value subset</strong> of the nine modifier categories — no Pulse Compression, Amplitude, or Discrimination (<a href="CLAWE_Design.html#open">OQ-8</a>).</td></tr>
+  </tbody>
+</table>
+
+<div class="cross-note">
+  <strong>Frequency validation is the point:</strong> STS lets the user set a scenario emitter's
+  center frequency and checks it against "the radar mode's CF constraints." <code>min_freq_hz</code> /
+  <code>max_freq_hz</code> (plus, for a channelized range, the channel spacing — carry it if STS needs
+  to snap to channel centers) are what STS validates against. Everything else in the mode summary is
+  for display and filtering in the picker.
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="sequences">6. Sequence Diagrams</h2>
+
+<h3>6.1 <code>RequestRadars</code> — happy path</h3>
+
+<div class="diagram-container">
+  <pre class="mermaid">
+sequenceDiagram
+    participant STS as STS UI
+    participant P as CLAWE Proxy
+    participant DB as CLAWE DB (read-only)
+
+    Note over STS: User clicks "Add Emitter", picks a CLAWE source
+    STS ->> P: InterfaceBEnvelope(RequestRadars), reply_to, correlation_id
+    P ->> DB: read radars + modes (+ calc rollups when available)
+    DB -->> P: rows
+    Note over P: build ClaweRadarSummary[] (rollup)
+    P -->> STS: RequestRadarsResponse(radars, source_name, schema_version)
+    Note over STS: populate the mode picker, then the user picks a mode
+    Note over STS: user enters CF — validated against mode min/max_freq_hz
+  </pre>
+</div>
+
+<h3>6.2 <code>LaunchMaintenanceUI</code> — first launch vs already running</h3>
+
+<div class="diagram-container">
+  <pre class="mermaid">
+sequenceDiagram
+    participant STS as STS UI
+    participant P as CLAWE Proxy
+    participant M as Maintenance View
+
+    STS ->> P: InterfaceBEnvelope(LaunchMaintenanceUiCommand, radar_name?)
+    alt No maintenance view running
+        P ->> M: spawn CLAWE.Host --mode maintenance [--radar name]
+        M -->> P: ViewHello over clawe-proxy (holds Global\CLAWE_UI_Maintenance)
+        P -->> STS: LaunchMaintenanceUiResult(LAUNCHED)
+    else Maintenance view already running
+        P ->> M: FocusView(radar_name) over clawe-maintenance
+        M -->> P: FocusResult
+        P -->> STS: LaunchMaintenanceUiResult(FOCUSED)
+    else Start fails, times out, or the view doesn't answer
+        P -->> STS: LaunchMaintenanceUiResult(REJECTED, reason)
+    end
+  </pre>
+</div>
+
+<h3>6.3 <code>RadarModifiedEvent</code> — publish and refresh</h3>
+
+<div class="diagram-container">
+  <pre class="mermaid">
+sequenceDiagram
+    participant M as Maintenance View
+    participant P as CLAWE Proxy
+    participant X as clawe.ifaceB.events (fanout)
+    participant STS as STS UI
+
+    Note over STS: earlier — STS called RequestRadars() once and cached the list
+    Note over M: user saves an edited radar, and the write commits to CLAWE DB
+    M ->> P: RadarChanged(radar_name, UPDATED) over clawe-proxy
+    Note over P: debounce UPDATED per radar (250 ms quiet)
+    P ->> X: RadarModifiedEvent(radar_name, change_kind=UPDATED, ts, source_name)
+    X -->> STS: RadarModifiedEvent
+    opt event affects a radar STS is showing
+        Note over STS: mark cached list stale
+        STS ->> P: RequestRadars() (re-fetch, as in 6.1)
+        P -->> STS: RequestRadarsResponse
+    end
+  </pre>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="failures">7. Failure Matrix</h2>
+
+<div class="legend">
+  <div class="legend-section">
+    <h5>Severity</h5>
+    <div class="legend-items">
+      <span class="severity sev-critical">Critical</span>
+      <span class="severity sev-high">High</span>
+      <span class="severity sev-medium">Medium</span>
+      <span class="severity sev-low">Low</span>
+    </div>
+  </div>
+  <div class="legend-section">
+    <h5>Recovery</h5>
+    <div class="legend-items">
+      <span class="recovery rec-abort">Abort</span>
+      <span class="recovery rec-retry">Retry</span>
+      <span class="recovery rec-degrade">Degrade</span>
+    </div>
+  </div>
+</div>
+
+<table>
+  <thead>
+    <tr><th style="width:9%">Code</th><th style="width:26%">Failure</th><th style="width:11%">Severity</th><th style="width:10%">Recovery</th><th>Handling</th></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><span class="err-code">B101</span></td>
+      <td><span class="row-name">Broker unreachable</span><div class="detail">STS cannot connect to RabbitMQ, or the connection drops.</div></td>
+      <td><span class="severity sev-critical">Critical</span></td>
+      <td><span class="recovery rec-retry">Retry</span></td>
+      <td>STS shows the CLAWE source as offline; reconnect with backoff. No radar list until restored.</td>
+    </tr>
+    <tr>
+      <td><span class="err-code">B102</span></td>
+      <td><span class="row-name">Proxy not running</span><div class="detail">Broker is up but nothing is consuming <code>clawe.ifaceB.rpc</code>; request times out.</div></td>
+      <td><span class="severity sev-high">High</span></td>
+      <td><span class="recovery rec-retry">Retry</span></td>
+      <td>Same UX as B101 (source offline). The proxy is meant to auto-start; a missing proxy is a deployment fault.</td>
+    </tr>
+    <tr>
+      <td><span class="err-code">B201</span></td>
+      <td><span class="row-name">RequestRadars timeout</span><div class="detail">No response within the RPC deadline (large DB, slow disk).</div></td>
+      <td><span class="severity sev-medium">Medium</span></td>
+      <td><span class="recovery rec-retry">Retry</span></td>
+      <td>STS retries once with a longer deadline, then surfaces "couldn't load radars". Proxy should page/stream if the list is very large.</td>
+    </tr>
+    <tr>
+      <td><span class="err-code">B202</span></td>
+      <td><span class="row-name">CLAWE DB unavailable / corrupt</span><div class="detail">Proxy cannot open or read <code>CLAWE DB</code>.</div></td>
+      <td><span class="severity sev-high">High</span></td>
+      <td><span class="recovery rec-abort">Abort</span></td>
+      <td>Proxy returns an error response (not a timeout) with detail. STS shows the source as errored, not merely offline.</td>
+    </tr>
+    <tr>
+      <td><span class="err-code">B203</span></td>
+      <td><span class="row-name">Schema/version mismatch</span><div class="detail"><code>schema_version</code> in the response is one STS doesn't understand.</div></td>
+      <td><span class="severity sev-medium">Medium</span></td>
+      <td><span class="recovery rec-degrade">Degrade</span></td>
+      <td>STS parses what it can and warns; fields it doesn't recognize are ignored. Additive proto changes should not trigger this.</td>
+    </tr>
+    <tr>
+      <td><span class="err-code">B204</span></td>
+      <td><span class="row-name">Malformed request</span><div class="detail">Proxy receives an envelope it can't parse or an unknown payload.</div></td>
+      <td><span class="severity sev-low">Low</span></td>
+      <td><span class="recovery rec-abort">Abort</span></td>
+      <td>Proxy drops it (or nacks) and logs. No response — the sender's deadline handles it.</td>
+    </tr>
+    <tr>
+      <td><span class="err-code">B301</span></td>
+      <td><span class="row-name">Maintenance already active</span><div class="detail"><code>LaunchMaintenanceUI()</code> while a maintenance view holds the mutex.</div></td>
+      <td><span class="severity sev-low">Low</span></td>
+      <td><span class="recovery rec-degrade">Degrade</span></td>
+      <td>Proxy asks the running view to come forward and returns <code>FOCUSED</code> (proposed answer to <a href="CLAWE_Design.html#open">OQ-10</a>; the cross-host case can't arise — one proxy and database per host). Never a second writer.</td>
+    </tr>
+    <tr>
+      <td><span class="err-code">B302</span></td>
+      <td><span class="row-name">View failed to spawn</span><div class="detail">Proxy's process launch fails (missing exe, OS refusal).</div></td>
+      <td><span class="severity sev-high">High</span></td>
+      <td><span class="recovery rec-abort">Abort</span></td>
+      <td>Proxy returns <code>REJECTED</code> with detail; releases the mutex if it had taken it optimistically.</td>
+    </tr>
+    <tr>
+      <td><span class="err-code">B401</span></td>
+      <td><span class="row-name">Missed <code>RadarModifiedEvent</code></span><div class="detail">STS was disconnected from the events exchange during an edit.</div></td>
+      <td><span class="severity sev-low">Low</span></td>
+      <td><span class="recovery rec-degrade">Degrade</span></td>
+      <td>On reconnect STS re-runs <code>RequestRadars()</code> unconditionally to resync. Events are an optimization, not the source of truth.</td>
+    </tr>
+  </tbody>
+</table>
+<p class="table-footnote">Total: <strong>9 failure modes</strong> across connection (B1xx), request (B2xx), process (B3xx), and events (B4xx).</p>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="ac">8. Interfaces A &amp; C</h2>
+
+<p>
+  Out of scope for this document, but for context, from <code>STS SW Interface Descriptions.pptx</code>:
+</p>
+
+<table class="fixed">
+  <thead><tr><th style="width:16%">Interface</th><th style="width:22%">Between</th><th>Messages (per the deck)</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>A</strong></td>
+      <td>STS UI ↔ HOCA</td>
+      <td>Static-scenario control (<code>Run</code>, <code>Stop</code>, <code>RunScenario</code>, <code>Pause</code>, <code>Resume</code>), status updates, and RTSA real-time streams (<code>StreamWBSpectrums</code>, <code>StreamNBSpectrums</code>, <code>StreamEDReports</code>, <code>StreamEDPDWs</code>, <code>StreamPDWs</code>). A dedicated design doc exists for this interface; <code>PRISM.Host/Services/HocaLiteService.cs</code> is the current implementation.</td>
+    </tr>
+    <tr>
+      <td><strong>C</strong></td>
+      <td>CLAWE UI ↔ HOCA</td>
+      <td><strong>HOCA → CLAWE:</strong> <code>LaunchExecutionUI(ActiveRadarMode)</code> — creates/shows an execution view for a radar mode (carries Radar Name, Mode Name, CF, Amplitude); <code>ActivateRadar()</code>; <code>DeactivateRadar()</code>. <strong>CLAWE → HOCA:</strong> <code>LoadWaveforms(List&lt;waveform&gt;)</code> — pushes all waveform instances for the active radar into HW DDR RAM; <code>LoadSchedule(List&lt;WaveformID, Duration&gt;)</code> — the Auto-mode schedule, repeated in HW. The RDI / target-report data-stream direction is not yet specified.</td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="cross-note">
+  <strong>Why interface C launches execution mode, not interface B:</strong> maintenance is an
+  authoring activity a scenario-builder user initiates (interface B); execution is driven by the
+  hardware-abstraction layer as it plays a scenario (interface C). The proxy handles both, but the two
+  view types have different lifecycles, permissions (execution never writes the DB), and cardinality
+  (execution is <code>0..n</code>).
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="open">9. Open Items</h2>
+
+<p>
+  The open questions themselves live in the <strong>canonical register</strong> —
+  <a href="CLAWE_Design.html#open">Design §10</a>, <code>OQ-1</code> … <code>OQ-16</code>. This table
+  maps the ones that touch interface B to the message or field they affect; resolve them in the
+  register.
+</p>
+
+<table class="fixed">
+  <thead><tr><th style="width:12%">Register ID</th><th style="width:34%">Question</th><th>Effect on interface B</th></tr></thead>
+  <tbody>
+    <tr><td><a href="CLAWE_Design.html#open">OQ-1</a></td><td>RabbitMQ broker ownership</td><td>Operational prerequisite for integration and deployment — who stands up the broker there. Development uses a Docker broker (<code>dev/rabbitmq/docker-compose.yml</code>).</td></tr>
+    <tr><td><a href="CLAWE_Design.html#open">OQ-2</a></td><td>RabbitMQ vs ZeroMQ</td><td><em>Resolved (iteration 4): RabbitMQ</em>, per the deck — the transport in §2. STS's side needs a RabbitMQ client.</td></tr>
+    <tr><td><a href="CLAWE_Design.html#open">OQ-7</a></td><td>CW waveform authoring</td><td><code>waveform_types</code> (§5.2) includes <code>CW</code>, but CLAWE produces no CW waveform yet — the value is reserved for wire stability.</td></tr>
+    <tr><td><a href="CLAWE_Design.html#open">OQ-8</a></td><td><code>modulation_types</code> 6-of-9 subset</td><td><code>modulation_types</code> (§5.2) — whether the omission of Pulse Compression / Amplitude / Discrimination is intended.</td></tr>
+    <tr><td><a href="CLAWE_Design.html#open">OQ-10</a></td><td>Second <code>LaunchMaintenanceUiCommand</code> behaviour</td><td>The <code>outcome</code> of a 2nd command (§4.2, §6.2). Proposed and built: focus (<code>FOCUSED</code>); pending the lead. See B301.</td></tr>
+    <tr><td><a href="CLAWE_Design.html#open">OQ-11</a></td><td>Proxy multi-PC identity / discovery</td><td>How STS distinguishes CLAWE endpoints across hosts, and whether the proxy does boot-time discovery. The request queue is already namespaced by source name (§2.1); STS must agree the naming.</td></tr>
+    <tr><td><a href="CLAWE_Design.html#open">OQ-12</a></td><td>Large-response handling</td><td>Whether a very large <code>RequestRadars()</code> response pages or streams. Affects B201. Measured: 1,000 radars in ~37 ms / 128 KiB, so one reply stays.</td></tr>
+  </tbody>
+</table>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<h2 id="changelog">10. Changelog</h2>
+
+<div class="changelog">
+  <div class="entry">
+    <div class="date">September 2026 — v0.3</div>
+    <div class="detail">CLAWE's side built in iteration 4 (v0.4.0), and the document brought in line
+      with it:
+      <ul>
+        <li>§6.3 now has the Maintenance View reporting changes to the proxy, which publishes (the
+          two diagrams used to disagree). §3 describes the local pipes and the user-session proxy.</li>
+        <li>The request queue is namespaced per endpoint, <code>clawe.ifaceB.rpc.&lt;source&gt;</code>,
+          and requests expire after 30 s.</li>
+        <li><code>RequestRadarsResponse</code> gains an <code>error</code> field (FM-5).</li>
+        <li>§5 notes the iteration-4 summary is envelope-only. §6.2 and B301 take OQ-10's proposed
+          answer. OQ-2 is resolved (RabbitMQ).</li>
+      </ul></div>
+  </div>
+  <div class="entry">
+    <div class="date">September 2026 — v0.2</div>
+    <div class="detail">Mermaid fixes in §6.1 / §6.3 (a <code>;</code> in a <code>Note</code> line).
+      §5.1 <code>AlternateName</code> cardinality note updated — the one-per-kind narrowing is
+      lead-confirmed. §9 restructured: open questions now live in the canonical register
+      (<a href="CLAWE_Design.html#open">Design §10</a>, <code>OQ-*</code>); §9 maps the interface-B-relevant
+      ones to their message / field, and every inline "(§9)" reference points at an <code>OQ</code>.</div>
+  </div>
+  <div class="entry">
+    <div class="date">8 September 2026 — v0.1</div>
+    <div class="detail">Initial draft from <code>STS SW Interface Descriptions.pptx</code> slides 3–8
+      and the 2026-09-08 interface meeting notes. Establishes the RabbitMQ transport, the proxy /
+      singleton-maintenance / multi-execution process model, the three interface-B messages
+      (<code>RequestRadars</code>, <code>LaunchMaintenanceUiCommand</code>,
+      <code>RadarModifiedEvent</code>), the <code>ClaweRadarSummary</code> rollup reference, sequence
+      diagrams, and a 9-row failure matrix. All open items collected in §9.</div>
+  </div>
+</div>
+
+<script src="lib/mermaid.min.js"></script>
+<script src="lib/mermaid-init.js"></script>
+<script src="lib/lightbox.js"></script>
+
+</body>
+</html>

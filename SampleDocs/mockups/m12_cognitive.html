@@ -1,0 +1,35 @@
+<!doctype html><html><head><meta charset="utf-8"><link rel="stylesheet" href="common.css"><script src="common.js"></script></head><body>
+<div class="win">
+  <div class="ribbon">MOCKUP · ITERATION 12 · NOT BUILT YET</div>
+  <div class="title"><div class="logo"></div><b>CLAWE Controller</b><span style="color:var(--t3)">— Execution</span><span class="ctl">— ▢ ✕</span></div>
+  <div class="band" style="padding:8px 20px">
+    <div style="font-size:15px;font-weight:600">AN/APQ-Demo <span style="color:var(--t3)">›</span> TTR Track</div>
+    <span class="pill">🔒 Locked</span><span class="pill ok">● HOCA connected</span><span class="pill sel">Cognitive · Learning</span>
+    <div style="margin-left:auto;display:flex;gap:10px;align-items:center"><span class="pill ok">● RUNNING</span><span class="mono" style="font-size:15px">00:06:12</span><span class="btn stop">■ Stop</span></div></div>
+  <div class="body" style="padding:12px;gap:12px">
+    <div style="width:330px;display:flex;flex-direction:column;gap:12px">
+      <div class="card"><div class="hdr">Operating mode</div><div class="seg"><span>Operator</span><span class="on">Cognitive</span></div>
+        <div class="lbl" style="margin-top:12px">Optimization</div><div class="seg"><span class="on">Learning</span><span>Speed</span></div>
+        <div class="hint">Learning keeps interrogating until it has learned as much as it can; Speed settles on the first waveform that beats the jamming.</div></div>
+      <div class="card" style="flex:1"><div class="hdr">Cognitive status</div>
+        <div style="font-size:15px;margin-bottom:8px"><span class="pill warn">Interrogating</span></div>
+        <div style="line-height:1.9;color:var(--t2)">Waveforms tried <b style="color:var(--t)">14 of 32</b><br>Jamming detected <b style="color:var(--bad)">Noise, 62 % duty</b><br>Best so far <b style="color:var(--ok)">Track-3 spread</b> (SNR +9.1 dB)<br>Current <b style="color:var(--t)">Track-4 barker</b></div>
+        <div style="margin-top:12px;height:8px;border-radius:4px;background:#1b1b1c"><div style="width:44%;height:100%;border-radius:4px;background:var(--blue)"></div></div></div>
+      <div class="card"><div class="hdr">Simulated jammer <span style="color:var(--warn)">(demo)</span></div><div style="display:flex;gap:8px;flex-wrap:wrap"><span class="pill sel">Noise</span><span class="pill">Range gate pull-off</span><span class="pill">Off</span></div></div>
+    </div>
+    <div style="flex:1;display:grid;grid-template-columns:1.3fr 1fr;grid-template-rows:1fr 1fr;gap:12px;min-width:0">
+      <div class="gw" style="grid-row:1/3"><div class="gt">▦ 2D RDI scope<span class="x">⚙ — ✕</span></div><div class="gc" style="padding:8px"><canvas id="rdi"></canvas></div></div>
+      <div class="gw"><div class="gt">▤ Detection quality by waveform<span class="x">⚙ — ✕</span></div><div class="gc"><canvas id="bars"></canvas></div></div>
+      <div class="gw"><div class="gt">☰ Target SNR over time<span class="x">⚙ — ✕</span></div><div class="gc"><canvas id="snr"></canvas></div></div>
+    </div>
+  </div>
+  <div class="caption"><b>Iteration 12 — Cognitive mode.</b> The radar tries waveforms against jamming and adapts, shown with HOCA connected (or the simulator). Cognitive-mode panels are proposed; the scope container is from iteration 7.<span class="sim">Illustrative</span></div>
+</div>
+<script>
+rdi(document.getElementById('rdi'),[{x:.3,y:.32,a:.8,mark:'T-01'},{x:.36,y:.6,a:.55,mark:'T-02'},{x:.6,y:.5,a:.4,mark:'T-04'}],{seed:21,nx:180,ny:120});
+(()=>{const cv=document.getElementById('bars'),w=cv.clientWidth,h=cv.clientHeight;cv.width=w;cv.height=h;const g=cv.getContext('2d');const v=[.35,.2,.78,.12,.5,.64,.3,.42,.7,.25,.18,.55];const m={l:30,b:26,t:8,r:8};const bw=(w-m.l-m.r)/v.length;
+ g.fillStyle='#808080';g.font='11px Segoe UI';g.strokeStyle='#3e3e42';for(let i=0;i<=4;i++){const y=m.t+(h-m.t-m.b)*i/4;g.beginPath();g.moveTo(m.l,y);g.lineTo(w-m.r,y);g.stroke()}
+ v.forEach((x,i)=>{g.fillStyle=i===2?'#56d364':i===3?'#58a6ff':'#4a6f96';const bh=x*(h-m.t-m.b);g.fillRect(m.l+i*bw+4,h-m.b-bh,bw-8,bh);g.fillStyle='#808080';g.fillText('W'+(i+1),m.l+i*bw+8,h-8)});g.fillStyle='#56d364';g.fillText('best',m.l+2*bw+8,h-m.b-v[2]*(h-m.t-m.b)-4);g.fillStyle='#58a6ff';g.fillText('now',m.l+3*bw+8,h-m.b-v[3]*(h-m.t-m.b)-4)})();
+(()=>{const r=rng(3);const pts=[];let v=18;for(let t=0;t<=60;t++){v+=(t<24?-0.35:0.25)+gauss(r)*.5;pts.push([t,v])}
+ const {X,Y,g}=line(document.getElementById('snr'),pts,{x0:0,x1:60,y0:0,y1:25,xd:0,yd:0,c:'#58a6ff'});g.strokeStyle='#da3633';g.setLineDash([4,4]);g.beginPath();g.moveTo(X(24),Y(0));g.lineTo(X(24),Y(25));g.stroke();g.fillStyle='#f85149';g.fillText('jammer on',X(24)+4,Y(23))})();
+</script></body></html>
