@@ -60,7 +60,7 @@ per diagram" and the suite conventions); otherwise one Markdown file → one pag
   …</div>`.
 - Note/caution/breaking/resolved callouts → `.note` / `.warn` / `.danger` /
   `.success`.
-- Failure-mode tables → precede with the `.legend` strip (not on `overview.html`, which has no legend — badges carry their word); wrap severity and
+- Failure-mode tables → no legend strip (badges carry their word; §6.4); wrap severity and
   recovery values in `.severity sev-*` / `.recovery rec-*`; wrap codes/IDs in
   `.err-code`; add a `.table-footnote` total.
 - ` ```mermaid ` blocks → `<div class="diagram-container"><pre class="mermaid">

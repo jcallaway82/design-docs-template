@@ -209,14 +209,14 @@ Tables are the workhorse. Header cells are auto-styled (uppercase, small, muted)
   ```
 - `table-layout: fixed` via `class="fixed"` when long content should wrap rather than stretch columns.
 
-### 6.4 Badges, status pills, legend
+### 6.4 Badges, status pills, legend (optional)
 
 **Badges** (rectangular, for categories): `badge badge-blue|badge-green|badge-amber|badge-red|badge-purple|badge-teal|badge-neutral`.
 Severity/recovery aliases keep markup semantic: `severity sev-critical|sev-high|sev-medium|sev-low`, `recovery rec-abort|rec-retry|rec-resume|rec-degrade`.
 
 **Status pills** (rounded, for lifecycle): `status s-draft|s-review|s-complete|s-planned|s-deprecated`, placed after the thing they describe.
 
-**Legend strip** — required above any table using severity/recovery badges, except in `overview.html` (§12.3), where badges already carry their word and the table stands alone:
+**Legend strip** — not used by default. Severity, recovery, and status badges print their word (`High`, `Retry`, `Done`), so a table stands alone with no key above it. Use a legend only when a badge encodes something its text does not (a color-only dot, an abbreviation, a code the reader cannot guess). The component remains available:
 
 ```html
 <div class="legend">
@@ -401,7 +401,7 @@ Before delivering, verify every item:
 - [ ] `doc-meta` present (Version / Status / Date); changelog section exists and matches the version.
 - [ ] TOC numbering matches `h2` numbering.
 - [ ] All colors via tokens; badge colors match the fixed semantic mapping (§4).
-- [ ] Tables: header widths set, badge tables have a legend (not required on `overview.html`), counted tables have a totals footnote.
+- [ ] Tables: header widths set, badge text is self-explanatory (no legend needed unless a badge is color- or code-only), counted tables have a totals footnote.
 - [ ] Wide content (tables, diagrams) scrolls inside its container — no horizontal scroll on the page body.
 - [ ] Hover states work: cards, table rows, nav links, diagram zoom affordance.
 - [ ] index.html links every child page; every child page's nav highlights the active entry.
@@ -449,7 +449,7 @@ it lands in the plan) · `4. Dependency graph` (optional Mermaid) · `5. Risks &
 
 ### 11.4 Rendering to HTML
 
-`html-suite-builder` maps each Markdown document to an Archetype-A page: front matter → `<h1>` + `.subtitle` + `.doc-meta`; `> **Why:**` blockquotes → `.cross-note`; failure tables → the severity/recovery legend + badges; ` ```mermaid ` blocks → `.diagram-container`; the changelog section → the `.changelog` component. The result passes the §10 checklist. Skeleton Markdown files matching these outlines live in `templates/`.
+`html-suite-builder` maps each Markdown document to an Archetype-A page: front matter → `<h1>` + `.subtitle` + `.doc-meta`; `> **Why:**` blockquotes → `.cross-note`; failure tables → severity/recovery badges (no legend); ` ```mermaid ` blocks → `.diagram-container`; the changelog section → the `.changelog` component. The result passes the §10 checklist. Skeleton Markdown files matching these outlines live in `templates/`.
 
 ---
 
@@ -475,8 +475,6 @@ Audience: project managers and management. The three working documents answer *h
 ### 12.3 Rendering
 
 `html-suite-builder` renders it to `overview.html` using the same tokens and components: section 1 as a stat strip (§6.4), tables per §6.3 with status pills per §6.4, diagrams per §7. The hub `index.html` leads with an "Overview" card.
-
-**No legend.** Severity and status badges already print their word (`High`, `Done`), so the overview omits the §6.4 legend strip: just the table.
 
 **ID anchors (all pages).** Every ID gets a lowercase `id` on its heading or row: `fr-1`, `nfr-2`, `dd-3`, `t-4`, `f-6`, `q-1`, `sr-1`; milestones `m2`; components by slug (`#parser`). Every ID or `§` reference in an overview table, including Ref columns, is a link to `<page>.html#<id>` — none left as plain text. A bare section reference inherits the document it appears under.
 
