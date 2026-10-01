@@ -105,6 +105,26 @@ Whichever method you use, only the six files in `agents/*.md` land in
 and `templates/` is no longer inside it. Then invoke by name, e.g. *"Use
 design-doc-author to draft a design for …"*.
 
+## Using the agents with GitHub Copilot
+
+The agents are Claude Code subagents, but their prompt bodies are plain
+Markdown. `scripts/export-copilot.py` converts them into Copilot custom agents
+(`tools:` mapped to Copilot aliases, `model:` dropped, body copied verbatim):
+
+```bash
+# from the project root, with this repo vendored at ./design-docs-template/
+python3 design-docs-template/scripts/export-copilot.py
+```
+
+That writes `.github/agents/<name>.agent.md` for all six agents; commit them
+and they appear in Copilot's agent picker. `--out DIR` changes the target and
+`--check` exits 1 if the generated files are stale (useful in CI). Always edit
+`agents/*.md` and re-run — never the generated files. Keep the repo (or at
+least `DESIGN_DOC_INSTRUCTIONS.md` and `templates/`) in the project, since the
+agents read those by name. Copilot has no automatic stage hand-off, so run
+the stages in order yourself, and verify the frontmatter against GitHub's
+current custom-agents docs if a field is rejected.
+
 ## Using it in a project
 
 1. Copy this whole folder into the project (e.g. `<project>/design-docs-template/`), or
