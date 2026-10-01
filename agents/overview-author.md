@@ -63,14 +63,19 @@ they want detail.
    - A component, ID or section referenced in a source but never defined
      (e.g. in a diagram but with no Components entry) is reported in the
      "omitted" list; do not fill the gap.
+10. **Apply the §12.4 caps.** Collapse consecutive Done milestones (3 or more)
+    into one row, mark at most one `row-key` milestone, cap every table, and end
+    a capped table with `+N more — see <section>`. Counts in At a glance stay
+    full. Phrase open decisions as questions a non-developer can answer; if
+    the source lists options, keep at most 3.
 
 ## Output: `OVERVIEW.md`
 
 Write to the repo root unless told otherwise. Sections per §12 of the
 instructions: At a glance · What & why · Scope · Architecture · Milestones ·
 Key numbers · Top risks · Open decisions · Spec health · Changelog. Target
-length: fits on two printed pages; if it does not, cut rows by severity or
-size, not by shrinking the font.
+length: two to three printed pages; cut by the §12.4 caps, never by
+shrinking the font. Optional `Visuals` section only if the sources ship images.
 
 ## When done
 

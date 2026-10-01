@@ -462,12 +462,12 @@ Audience: project managers and management. The three working documents answer *h
 - **One headline per item.** Take the source's lead phrase and drop version tags, review history, and field-level detail. ~8 words in label cells, one sentence in outcome cells.
 - **Attention first.** Open decisions, Critical/High risks, and open Critical/High findings each get a table and a count in "At a glance".
 - **Link down.** Every row carries its source ID (`FR-7`, `DD-3`, `T-4`, `DESIGN §9`).
-- **Length.** Two printed pages. Cut by severity or size, never by shrinking type.
+- **Length.** Two to three printed pages: apply the §12.4 caps. Cut by severity or size, never by shrinking type.
 - **Status is sourced.** Show Done / In progress / Planned only when `TASKS.md` carries it (milestone table `Status` column, optional); never estimate progress.
 
 ### 12.2 Outline
 
-`1. At a glance` (count tiles) · `2. What & why` · `3. Scope` · `4. Architecture` (one diagram + component table) · `5. Milestones` (table + dependency diagram; Gantt only with calendar dates) · `6. Key numbers` (NFR targets) · `7. Top risks` · `8. Open decisions` · `9. Spec health` · `10. Changelog`.
+`1. At a glance` (count tiles) · `2. What & why` · `3. Scope` · `4. Architecture` (one diagram + component table) · `5. Milestones` (table + dependency diagram; Gantt only with calendar dates) · `6. Key numbers` (NFR targets) · `7. Top risks` · `8. Open decisions` · `9. Spec health` · `10. Visuals` (optional) · `11. Changelog`.
 
 ### 12.3 Rendering
 
@@ -476,6 +476,24 @@ Audience: project managers and management. The three working documents answer *h
 **ID anchors (all pages).** Every ID gets a lowercase `id` on its heading or row: `fr-1`, `nfr-2`, `dd-3`, `t-4`, `f-6`, `q-1`, `sr-1`; milestones `m2`; components by slug (`#parser`). Every ID or `§` reference in an overview table, including Ref columns, is a link to `<page>.html#<id>` — none left as plain text. A bare section reference inherits the document it appears under.
 
 **Gate.** Detail pages are not rendered while Critical/High spec findings are open, but `overview.html` is exempt: it is where those findings are shown. When rendered with findings open, its Spec-health tile carries `stat-bad` and the page states the gate.
+
+### 12.4 Length caps
+
+A row that is cut is never silently dropped: the At-a-glance tile keeps the full count, and the table ends with an overflow line `+N more — see <source section>` linking to the full list.
+
+| Table | Cap | Order / rule |
+|---|---|---|
+| Scope | 5 per side | most load-bearing first |
+| Components | 8 | the system's own before external |
+| Milestones | 12 rows | **consecutive Done milestones collapse into one row** once there are 3 or more (`1–4 · Scaffolding … · Done`); remaining rows stay one per milestone |
+| Key numbers | 6 | NFRs with a stated target first |
+| Top risks | 6 | Critical before High; then by earliest milestone affected |
+| Open decisions | 5 | by earliest milestone blocked; phrase each as a question a non-developer can answer |
+| Spec contradictions | 4 | cross-document before within-document |
+
+**Key milestone.** If the source names one milestone as the first demo, release, or buyer/customer-visible build, mark that single row `row-key` (§6.3 highlight) and say why in its outcome cell. At most one row.
+
+**Visuals (optional).** If the sources ship mockups or screenshots, add up to 3 as captioned thumbnails linking to the full image, one-line caption each, in an optional `Visuals` section before the changelog. Never invent or generate images.
 
 ---
 
