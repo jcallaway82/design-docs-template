@@ -138,3 +138,13 @@ Components entry). It exposed 9 rule ambiguities — risk source, open vs
 resolved counts, Gantt without durations, date, link form, etc. — settled in
 `overview-author.md` rule 9 and the template. Re-run after further prompt
 changes; HTML rendering of `overview.html` is still untested.
+
+**HTML render test (mdtoc):** all 6 pages open from `file://` with 0 external
+requests, 0 console errors, Mermaid renders, no page-level horizontal scroll.
+Fixes it drove: `html-suite-builder` lacked Bash (could not copy
+`mermaid.min.js`); no stat-tile component (added `.stat-strip`/`.stat` to
+`doc.css`, §6.4); no status-word→pill mapping (§6.4); no ID-anchor convention
+(§12.3: lowercase ids, every Ref linked); `overview.html` exempted from the
+open-High gate since it displays that state. Known remaining: sources with
+gaps in section numbering (e.g. §3, §4, §6) make the builder hack `.toc`
+numbering with inline `counter-set` — not yet given a sanctioned class.

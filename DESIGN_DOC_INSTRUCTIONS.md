@@ -232,6 +232,10 @@ Severity/recovery aliases keep markup semantic: `severity sev-critical|sev-high|
 </div>
 ```
 
+**Lifecycle word → pill** (fixed): Done / Resolved / Approved → `s-complete` · In progress / In Review → `s-review` · Planned → `s-planned` · Open / Draft → `s-draft`. In a table cell, wrap the pill's `<td>` in `class="status-cell"` so it sits flush left.
+
+**Stat strip** — count tiles for an at-a-glance row (`.stat-strip` > `.stat` > `.stat-value` + `.stat-label`, optional `.stat-note`). Add `stat-warn` (amber) or `stat-bad` (red) to a tile whose count needs attention; use them only for "open decisions / High risks / open findings > 0", never decoratively.
+
 Color-to-meaning mapping is fixed suite-wide (see §4). Never repurpose a color.
 
 ### 6.5 Callouts
@@ -467,7 +471,11 @@ Audience: project managers and management. The three working documents answer *h
 
 ### 12.3 Rendering
 
-`html-suite-builder` renders it to `overview.html` using the same tokens and components: section 1 as a stat strip, tables per §6.3 with status badges per §6.4, diagrams per §7. The hub `index.html` leads with an "Overview" card; each source ID in the overview links to its detail page anchor.
+`html-suite-builder` renders it to `overview.html` using the same tokens and components: section 1 as a stat strip (§6.4), tables per §6.3 with status pills per §6.4, diagrams per §7. The hub `index.html` leads with an "Overview" card.
+
+**ID anchors (all pages).** Every ID gets a lowercase `id` on its heading or row: `fr-1`, `nfr-2`, `dd-3`, `t-4`, `f-6`, `q-1`, `sr-1`; milestones `m2`; components by slug (`#parser`). Every ID or `§` reference in an overview table, including Ref columns, is a link to `<page>.html#<id>` — none left as plain text. A bare section reference inherits the document it appears under.
+
+**Gate.** Detail pages are not rendered while Critical/High spec findings are open, but `overview.html` is exempt: it is where those findings are shown. When rendered with findings open, its Spec-health tile carries `stat-bad` and the page states the gate.
 
 ---
 

@@ -7,7 +7,7 @@ description: >-
   template.html and lib/ from design-docs-template/. Final stage of the pipeline.
   Invoke when the specs are stable and the user wants the polished, shareable
   HTML version.
-tools: Read, Write, Edit, Glob, Grep
+tools: Read, Write, Edit, Glob, Grep, Bash
 model: sonnet
 ---
 
@@ -21,8 +21,11 @@ change its meaning, only its presentation.
    structure), §4 (tokens), §5 (page anatomy), §6 (components), §7 (Mermaid),
    §10 (checklist), §11.4 (Markdown→HTML mapping), Appendix A (bootstrap).
 2. **Confirm inputs are ready.** If `SPEC_REVIEW.md` exists and lists open
-   Critical or High findings, stop and tell the user to resolve them first.
-3. **Copy assets, never link outside the suite.** The suite folder gets its own
+   Critical or High findings, stop and tell the user to resolve them first —
+   except `overview.html`, which may still be rendered (§12.3) because it
+   shows that state.
+3. **Copy assets, never link outside the suite** (use Bash `cp -r` — `Write`
+   cannot copy the binary-sized Mermaid bundle). The suite folder gets its own
    `lib/` (copied from `design-docs-template/lib/`, including the ~2.7 MB
    `mermaid.min.js`). No CDNs, no external fonts, no absolute paths.
 4. **Preserve IDs and structure.** `FR-7`, `DD-3`, `T-4` stay verbatim and become
@@ -65,7 +68,7 @@ per diagram" and the suite conventions); otherwise one Markdown file → one pag
 - Requirement / decision / task blocks → `.feature-box` (teal for ID schemes,
   blue for general, red for hard constraints).
 - Changelog section → the `.changelog` component, newest first.
-- `OVERVIEW.md` → `overview.html` per §12.3: the At-a-glance table as a stat strip, status words as `.status` badges, every source ID as a link into the matching page anchor. Do not add prose; if a cell is long, report it rather than rewrite it.
+- `OVERVIEW.md` → `overview.html` per §12.3: the At-a-glance table as a `.stat-strip`, status words as `.status` pills per §6.4, every source ID and `§` reference as a link per the §12.3 anchor convention. Do not add prose; if a cell is long, report it rather than rewrite it.
 - `index.html` → a `.card-grid` with one `.card` per page (Overview card first, when present); wire `lib/nav.js`
   `links` array to the suite's pages.
 
